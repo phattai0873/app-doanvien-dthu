@@ -1,13 +1,25 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { StatusBar } from 'expo-status-container';
-import MainNavigator from './src/navigation/MainNavigator';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, StyleSheet } from 'react-native';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import { COLORS } from './src/constants/colors';
 
+/**
+ * Component App chính
+ * Đã chuyển logic điều hướng sang AppNavigator
+ */
 export default function App() {
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" />
-      <MainNavigator />
-    </NavigationContainer>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="auto" />
+      <AppNavigator />
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+});

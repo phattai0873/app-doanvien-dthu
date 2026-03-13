@@ -1,0 +1,518 @@
+
+-- =============================================
+-- Script tạo Database Quản lý Đảng viên
+-- SQL Server
+-- =============================================
+
+-- Tạo Database
+USE master;
+GO
+
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'PartyManagementDB')
+BEGIN
+    ALTER DATABASE PartyManagementDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE PartyManagementDB;
+END
+GO
+
+CREATE DATABASE PartyManagementDB;
+GO
+
+USE PartyManagementDB;
+GO
+-- =============================================
+-- 1. Bảng Đảng bộ (Party Committees)
+-- =============================================
+CREATE TABLE party_committees(
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ma_dang_bo NVARCHAR(50) NOT NULL UNIQUE,
+    ten_dang_bo NVARCHAR(255) NOT NULL,
+    cap_uy NVARCHAR(100),
+    bi_thu_id INT NULL,
+    pho_bi_thu_id INT NULL,
+    so_chi_bo_truc_thuoc INT DEFAULT 0,
+    tong_so_dang_vien INT DEFAULT 0,
+    ngay_thanh_lap DATE,
+    dien_thoai NVARCHAR(20),
+    email NVARCHAR(100),
+    dia_chi_van_phong NVARCHAR(500),
+    is_active BIT DEFAULT 1,
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+GO
+
+-- =============================================
+-- 2. Bảng Chi bộ (Party Cells)
+-- =============================================
+CREATE TABLE party_cells (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ma_chi_bo NVARCHAR(50) NOT NULL UNIQUE,
+    ten_chi_bo NVARCHAR(255) NOT NULL,
+    dang_bo_id INT NOT NULL,
+    don_vi_truc_thuoc NVARCHAR(255),
+    bi_thu_id INT NULL,
+    pho_bi_thu_id INT NULL,
+    so_dang_vien INT DEFAULT 0,
+    ngay_thanh_lap DATE,
+    is_active BIT DEFAULT 1,
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_PartyCell_Committee FOREIGN KEY (dang_bo_id) 
+        REFERENCES party_committees(id)
+);
+GO
+
+-- =============================================
+-- 3. Bảng Đảng viên (Party Members)
+-- =============================================
+CREATE TABLE party_members (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ma_dang_vien NVARCHAR(50) NOT NULL UNIQUE,
+    ho_ten NVARCHAR(255) NOT NULL,
+    ngay_sinh DATE,
+    gioi_tinh NVARCHAR(10),
+    cmnd_cccd NVARCHAR(20) UNIQUE,
+    email NVARCHAR(100),
+    so_dien_thoai NVARCHAR(20),
+    dia_chi NVARCHAR(500),
+    anh_dai_dien NVARCHAR(500),
+    ngay_vao_dang DATE,
+    ngay_chinh_thuc DATE,
+    chi_bo_id INT NULL,
+    chuc_vu_dang NVARCHAR(100),
+    trinh_do_hoc_van NVARCHAR(100),
+    trinh_do_ly_luan_chinh_tri NVARCHAR(100),
+    nghe_nghiep NVARCHAR(255),
+    is_active BIT DEFAULT 1,
+    is_deleted BIT DEFAULT 0,
+    ly_do_ngung_hoat_dong NVARCHAR(500),
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_PartyMember_Cell FOREIGN KEY (chi_bo_id) 
+        REFERENCES party_cells(id)
+);
+GO
+
+-- =============================================
+-- 4. Bảng Tài khoản (Users)
+-- =============================================
+CREATE TABLE users (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    dang_vien_id INT NULL UNIQUE,
+    username NVARCHAR(100) NOT NULL UNIQUE,
+    password_hash NVARCHAR(500) NOT NULL,
+    vai_tro NVARCHAR(50) NOT NULL, -- admin, bi_thu, dang_vien
+    token_device NVARCHAR(500),
+    last_login DATETIME,
+    is_active BIT DEFAULT 1,
+    is_deleted BIT DEFAULT 0,
+    is_locked BIT DEFAULT 0,
+    locked_until DATETIME NULL,
+    failed_login_attempts INT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_User_PartyMember FOREIGN KEY (dang_vien_id) 
+        REFERENCES party_members(id)
+);
+
+GO
+-- =============================================
+-- 5.1. Bảng Danh mục Chức vụ (Party Positions)
+-- Lưu tên các chức vụ có thể có trong hệ thống
+-- =============================================
+CREATE TABLE party_positions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ten_chuc_vu NVARCHAR(100) NOT NULL, -- Vd: Bí thư, Phó Bí thư, Ủy viên, Đảng viên
+    cap_hoat_dong NVARCHAR(50), -- Vd: 'CHI_BO', 'DANG_BO', 'TRUNG_UONG'
+    mo_ta NVARCHAR(255),
+    is_active BIT DEFAULT 1
+);
+GO
+
+-- =============================================
+-- 5.2. Bảng Phân công Chức vụ (Member Positions) - QUAN TRỌNG
+-- Bảng này cho phép 1 người giữ nhiều chức vụ ở nhiều nơi
+-- =============================================
+CREATE TABLE party_member_positions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    dang_vien_id INT NOT NULL,      -- Ai giữ chức vụ này?
+    chuc_vu_id INT NOT NULL,        -- Giữ chức vụ gì?
+    
+    -- Xác định chức vụ này thuộc đơn vị nào (Chỉ điền 1 trong 2)
+    chi_bo_id INT NULL,             -- Nếu giữ chức tại Chi bộ
+    dang_bo_id INT NULL,            -- Nếu giữ chức tại Đảng bộ
+    
+    ngay_bo_nhiem DATE,
+    ngay_ket_thuc DATE NULL,        -- NULL nghĩa là đang đương nhiệm
+    trang_thai BIT DEFAULT 1,       -- 1: Đang giữ chức, 0: Đã thôi chức
+    
+    created_at DATETIME DEFAULT GETDATE(),
+    
+    CONSTRAINT FK_MemPos_Member FOREIGN KEY (dang_vien_id) 
+        REFERENCES party_members(id),
+    CONSTRAINT FK_MemPos_Position FOREIGN KEY (chuc_vu_id) 
+        REFERENCES party_positions(id),
+    CONSTRAINT FK_MemPos_Cell FOREIGN KEY (chi_bo_id) 
+        REFERENCES party_cells(id),
+    CONSTRAINT FK_MemPos_Committee FOREIGN KEY (dang_bo_id) 
+        REFERENCES party_committees(id)
+);
+GO
+
+
+-- =============================================
+-- 6. Bảng Sinh hoạt chi bộ (Cell Meetings)
+-- =============================================
+CREATE TABLE cell_meetings (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    chi_bo_id INT NOT NULL UNIQUE,
+    tieu_de NVARCHAR(500) NOT NULL,
+    noi_dung NVARCHAR(MAX),
+    thoi_gian DATETIME NOT NULL,
+    dia_diem NVARCHAR(500),
+    chu_tri_id INT NULL,
+    thu_ky_id INT NULL,
+    so_thanh_vien_tham_gia INT DEFAULT 0,
+    bien_ban NVARCHAR(500),
+    trang_thai NVARCHAR(50) DEFAULT N'sap_dien_ra', -- sap_dien_ra, dang_dien_ra, da_ket_thuc, huy
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_CellMeeting_Cell FOREIGN KEY (chi_bo_id) 
+        REFERENCES party_cells(id),
+    CONSTRAINT FK_CellMeeting_Chairman FOREIGN KEY (chu_tri_id) 
+        REFERENCES party_members(id),
+    CONSTRAINT FK_CellMeeting_Secretary FOREIGN KEY (thu_ky_id) 
+        REFERENCES party_members(id)
+);
+
+CREATE TABLE meeting_locations (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ten_dia_diem NVARCHAR(255) NOT NULL,
+    dia_chi NVARCHAR(500),
+    loai NVARCHAR(20) NOT NULL,
+    ghi_chu NVARCHAR(500),
+    is_active BIT DEFAULT 1,
+    created_at DATETIME DEFAULT GETDATE()
+);
+GO
+-- =============================================
+-- MODULE 1: KHO TRI THỨC (HỌC TẬP)
+-- Lưu trữ các file PDF, Nghị quyết, Văn kiện
+-- =============================================
+
+-- 1.1. Danh mục tài liệu (Để phân loại: Nghị quyết TW, Học tập Bác, Pháp luật...)
+CREATE TABLE document_categories (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ten_danh_muc NVARCHAR(100) NOT NULL, -- Vd: "Văn kiện Đại hội", "Pháp luật", "Kỹ năng nghiệp vụ"
+    mo_ta NVARCHAR(255),
+    is_active BIT DEFAULT 1
+);
+GO
+
+-- 1.2. Kho tài liệu (Chứa link file PDF)
+CREATE TABLE documents (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    tieu_de NVARCHAR(500) NOT NULL,      -- Tên tài liệu hiển thị trên App
+    duong_dan_file NVARCHAR(MAX) NOT NULL, -- URL đến file PDF (Lưu trên Firebase/S3/Server)
+    loai_file NVARCHAR(20) DEFAULT 'pdf', -- pdf, docx, mp4, youtube_link
+    
+    danh_muc_id INT NULL,                -- Thuộc danh mục nào
+    
+    ngay_ban_hanh DATE,                  -- Ngày văn bản được ký/ban hành
+    co_quan_ban_hanh NVARCHAR(255),      -- Vd: Ban Chấp hành Trung ương
+    
+    -- Tùy chọn: Link tài liệu này vào một đợt học tập cụ thể trong bảng political_studies
+    dot_hoc_tap_id INT NULL, 
+    
+    created_at DATETIME DEFAULT GETDATE(),
+    
+    CONSTRAINT FK_Doc_Category FOREIGN KEY (danh_muc_id) REFERENCES document_categories(id),
+    CONSTRAINT FK_Doc_Study FOREIGN KEY (dot_hoc_tap_id) REFERENCES political_studies(id)
+);
+GO
+-- =============================================
+-- MODULE THI ĐUA & TRẮC NGHIỆM (Dynamic Structure)
+-- Thiết kế: Exam -> Questions -> Options (1-N)
+-- =============================================
+
+-- 1. Bảng Đề thi (Quiz Forms)
+-- Chứa thông tin chung về cuộc thi
+CREATE TABLE quiz_exams (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    tieu_de NVARCHAR(500) NOT NULL,       -- Tên cuộc thi (Vd: Tìm hiểu Điều lệ Đảng)
+    mo_ta NVARCHAR(MAX),                  -- Mô tả, thể lệ
+    thoi_gian_lam_bai INT DEFAULT 15,     -- Tính bằng phút
+    diem_dat_yeu_cau INT DEFAULT 5,       -- Điểm tối thiểu để Đạt
+    
+    is_active BIT DEFAULT 1,              -- 1: Đang mở, 0: Đóng
+    ngay_bat_dau DATETIME DEFAULT GETDATE(),
+    ngay_ket_thuc DATETIME NULL,
+    
+    created_at DATETIME DEFAULT GETDATE()
+);
+GO
+
+-- 2. Bảng Câu hỏi (Questions)
+-- Chỉ lưu nội dung câu hỏi, không lưu cứng đáp án A/B/C/D
+CREATE TABLE quiz_questions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    exam_id INT NOT NULL,                 -- Thuộc đề thi nào
+    noi_dung_cau_hoi NVARCHAR(MAX) NOT NULL,
+    
+    loai_cau_hoi NVARCHAR(50) DEFAULT 'trac_nghiem', -- 'trac_nghiem' (chọn 1), 'checkbox' (chọn nhiều)
+    diem_so DECIMAL(5,2) DEFAULT 1,       -- Câu này bao nhiêu điểm
+    thu_tu_sap_xep INT DEFAULT 1,         -- Thứ tự hiện trong đề
+    
+    giai_thich NVARCHAR(MAX),             -- Giải thích đáp án (hiện khi xem lại)
+    
+    CONSTRAINT FK_Question_Exam FOREIGN KEY (exam_id) REFERENCES quiz_exams(id)
+);
+GO
+
+-- 3. Bảng Lựa chọn (Options)
+-- Lưu danh sách các phương án trả lời cho từng câu hỏi
+CREATE TABLE quiz_options (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    question_id INT NOT NULL,             -- Thuộc câu hỏi nào
+    noi_dung_lua_chon NVARCHAR(MAX) NOT NULL, -- Nội dung đáp án
+    la_dap_an_dung BIT DEFAULT 0,         -- 1: Đúng, 0: Sai
+    thu_tu_hien_thi INT DEFAULT 1,
+    
+    CONSTRAINT FK_Option_Question FOREIGN KEY (question_id) REFERENCES quiz_questions(id)
+);
+GO
+
+-- 4. Bảng Kết quả thi (Quiz Attempts)
+-- Lưu lại ai đã thi, được bao nhiêu điểm
+CREATE TABLE quiz_attempts (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    exam_id INT NOT NULL,
+    dang_vien_id INT NOT NULL,            -- Ai là người thi
+    
+    tong_diem DECIMAL(5,2),               -- Tổng điểm đạt được
+    so_cau_dung INT,
+    ket_qua NVARCHAR(20),                 -- 'DAT' hoặc 'KHONG_DAT'
+    
+    thoi_gian_nop_bai DATETIME DEFAULT GETDATE(),
+    
+    CONSTRAINT FK_Attempt_Exam FOREIGN KEY (exam_id) REFERENCES quiz_exams(id),
+    CONSTRAINT FK_Attempt_Member FOREIGN KEY (dang_vien_id) REFERENCES party_members(id)
+);
+GO
+-- =============================================
+-- 16. Bảng Đóng Đảng phí (Party Fees) - BỔ SUNG
+-- =============================================
+CREATE TABLE party_fees (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    dang_vien_id INT NOT NULL,
+    thang_nam DATE NOT NULL, -- Ví dụ: '2024-02-01' là phí tháng 2/2024
+    so_tien DECIMAL(18, 0) NOT NULL,
+    trang_thai NVARCHAR(50) DEFAULT N'chua_dong', -- da_dong, chua_dong
+    hinh_thuc_dong NVARCHAR(50), -- chuyen_khoan, vi_dien_tu, tien_mat
+    ngay_thanh_toan DATETIME,
+    minh_chung_anh NVARCHAR(500), -- Link ảnh chụp màn hình
+    created_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_Fee_Member FOREIGN KEY (dang_vien_id) REFERENCES party_members(id)
+);
+GO
+-- =============================================
+-- 7. Bảng Điểm danh sinh hoạt (Meeting Attendance)
+-- =============================================
+CREATE TABLE meeting_attendance (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    sinh_hoat_id INT NOT NULL,
+    dang_vien_id INT NOT NULL,
+    trang_thai NVARCHAR(50) DEFAULT N'vang', -- co_mat, vang_co_phep, vang_khong_phep
+    ly_do_vang NVARCHAR(500),
+    ghi_chu NVARCHAR(500),
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_Attendance_Meeting FOREIGN KEY (sinh_hoat_id) 
+        REFERENCES cell_meetings(id),
+    CONSTRAINT FK_Attendance_Member FOREIGN KEY (dang_vien_id) 
+        REFERENCES party_members(id)
+);
+GO
+
+-- =============================================
+-- 8. Bảng Học tập lý luận (Political Studies)
+-- =============================================
+CREATE TABLE political_studies (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    tieu_de NVARCHAR(500) NOT NULL,
+    noi_dung NVARCHAR(MAX),
+    loai_hoc_tap NVARCHAR(100), -- lop_boi_duong, tu_hoc, ...
+    thoi_gian_bat_dau DATETIME,
+    thoi_gian_ket_thuc DATETIME,
+    dia_diem NVARCHAR(500),
+    giang_vien NVARCHAR(255),
+    chi_bo_id INT NULL,
+    trang_thai NVARCHAR(50) DEFAULT N'sap_dien_ra',
+    is_active BIT DEFAULT 1,
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_PoliticalStudy_Cell FOREIGN KEY (chi_bo_id) 
+        REFERENCES party_cells(id)
+);
+GO
+
+-- =============================================
+-- 11. Bảng Thông báo (Notifications)
+-- =============================================
+CREATE TABLE notifications (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    tieu_de NVARCHAR(500) NOT NULL,
+    noi_dung NVARCHAR(MAX),
+    loai_thong_bao NVARCHAR(100),
+    nguoi_gui_id INT NULL,
+    doi_tuong_nhan NVARCHAR(50), -- tat_ca, chi_bo, dang_bo
+    chi_bo_id INT NULL,
+    dang_bo_id INT NULL,
+    thoi_gian_gui DATETIME DEFAULT GETDATE(),
+    uu_tien NVARCHAR(50) DEFAULT N'thuong', -- thuong, quan_trong, khan_cap
+    trang_thai NVARCHAR(50) DEFAULT N'nhap', -- nhap, da_gui, da_thu_hoi
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_Notification_Sender FOREIGN KEY (nguoi_gui_id) 
+        REFERENCES users(id),
+    CONSTRAINT FK_Notification_Cell FOREIGN KEY (chi_bo_id) 
+        REFERENCES party_cells(id),
+    CONSTRAINT FK_Notification_Committee FOREIGN KEY (dang_bo_id) 
+        REFERENCES party_committees(id)
+);
+GO
+
+-- =============================================
+-- 12. Bảng Trạng thái đọc thông báo (Notification Read Status)
+-- =============================================
+CREATE TABLE notification_read_status (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    notification_id INT NOT NULL,
+    user_id INT NOT NULL,
+    is_read BIT DEFAULT 0,
+    read_at DATETIME NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_NotifReadStatus_Notification FOREIGN KEY (notification_id) 
+        REFERENCES notifications(id),
+    CONSTRAINT FK_NotifReadStatus_User FOREIGN KEY (user_id) 
+        REFERENCES users(id)
+);
+GO
+
+-- =============================================
+-- 13. Bảng Hoạt động tình nguyện (Volunteer Activities)
+-- =============================================
+CREATE TABLE volunteer_activities (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    ten_hoat_dong NVARCHAR(500) NOT NULL,
+    mo_ta NVARCHAR(MAX),
+    thoi_gian DATETIME,
+    dia_diem NVARCHAR(500),
+    chi_bo_to_chuc_id INT NULL,
+    so_nguoi_tham_gia INT DEFAULT 0,
+    trang_thai NVARCHAR(50) DEFAULT N'dang_mo_dang_ky', -- dang_mo_dang_ky, da_dong, dang_dien_ra, hoan_thanh, huy
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_VolunteerActivity_Cell FOREIGN KEY (chi_bo_to_chuc_id) 
+        REFERENCES party_cells(id)
+);
+GO
+
+-- =============================================
+-- 14. Bảng Đăng ký hoạt động (Activity Registrations)
+-- =============================================
+CREATE TABLE activity_registrations (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    hoat_dong_id INT NOT NULL,
+    dang_vien_id INT NOT NULL,
+    trang_thai_dang_ky NVARCHAR(50) DEFAULT N'da_dang_ky', -- da_dang_ky, da_huy, da_duyet
+    diem_danh NVARCHAR(50), -- co_mat, vang
+    is_deleted BIT DEFAULT 0,
+    deleted_at DATETIME NULL,
+    deleted_by INT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_ActivityReg_Activity FOREIGN KEY (hoat_dong_id) 
+        REFERENCES volunteer_activities(id),
+    CONSTRAINT FK_ActivityReg_Member FOREIGN KEY (dang_vien_id) 
+        REFERENCES party_members(id)
+);
+GO
+
+-- =============================================
+-- 15. Bảng Lịch sử thay đổi (Audit Logs)
+-- =============================================
+CREATE TABLE audit_logs (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    table_name NVARCHAR(100) NOT NULL,
+    record_id INT NOT NULL,
+    action NVARCHAR(50) NOT NULL, -- insert, update, delete, restore
+    old_values NVARCHAR(MAX), -- JSON
+    new_values NVARCHAR(MAX), -- JSON
+    user_id INT NULL,
+    ip_address NVARCHAR(50),
+    created_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_AuditLog_User FOREIGN KEY (user_id) 
+        REFERENCES users(id)
+);
+GO
+CREATE TABLE News ( Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(), Title NVARCHAR(500) NOT NULL, Summary NVARCHAR(MAX) NOT NULL, Content NVARCHAR(MAX) NOT NULL, ThumbnailUrl NVARCHAR(1000) NULL, CategoryId UNIQUEIDENTIFIER NOT NULL, Status INT NOT NULL, -- 0 = Draft, 1 = Published, 2 = Hidden PublishedAt DATETIME2 NULL, CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), UpdatedAt DATETIME2 NULL, CONSTRAINT FK_News_Category FOREIGN KEY (CategoryId) REFERENCES NewsCategories(Id) );
+-- =============================================
+-- Thêm Foreign Keys cho Bí thư
+-- =============================================
+ALTER TABLE party_committees
+ADD CONSTRAINT FK_Committee_BiThu FOREIGN KEY (bi_thu_id) 
+    REFERENCES party_members(id);
+
+ALTER TABLE party_committees
+ADD CONSTRAINT FK_Committee_PhoBiThu FOREIGN KEY (pho_bi_thu_id) 
+    REFERENCES party_members(id);
+
+ALTER TABLE party_cells
+ADD CONSTRAINT FK_Cell_BiThu FOREIGN KEY (bi_thu_id) 
+    REFERENCES party_members(id);
+
+ALTER TABLE party_cells
+ADD CONSTRAINT FK_Cell_PhoBiThu FOREIGN KEY (pho_bi_thu_id) 
+    REFERENCES party_members(id);
+GO
+
+-- =============================================
+-- Tạo Indexes để tối ưu hiệu suất
+-- =============================================
+CREATE INDEX idx_party_members_chi_bo ON party_members(chi_bo_id);
+CREATE INDEX idx_party_members_is_active ON party_members(is_active, is_deleted);
+CREATE INDEX idx_party_cells_dang_bo ON party_cells(dang_bo_id);
+CREATE INDEX idx_meeting_attendance_member ON meeting_attendance(dang_vien_id);
+CREATE INDEX idx_notifications_receiver ON notifications(doi_tuong_nhan, chi_bo_id, dang_bo_id);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_audit_logs_table_record ON audit_logs(table_name, record_id);
+GO
+-- =============================================
+-- Insert dữ liệu mẫu
+-- =============================================

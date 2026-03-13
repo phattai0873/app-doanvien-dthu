@@ -1,0 +1,61 @@
+src/
+├── assets/                  # Chứa tài nguyên tĩnh
+│   ├── images/              # Ảnh (Avatar mặc định, Búa liềm, Background...)
+│   └── icons/               # Các icon SVG (nếu không dùng thư viện lucide-react)
+│
+├── components/              # Các thành phần giao diện tái sử dụng (UI Kits)
+│   ├── common/              # Các component cơ bản dùng chung toàn app
+│   │   ├── InputEdit.js     # Ô nhập liệu (Dùng trong form Thông tin Đảng viên)
+│   │   ├── InputReadOnly.js # Ô hiển thị thông tin (Dùng trong trang chi tiết)
+│   │   ├── Button.js        # Nút bấm chuẩn (Màu đỏ chủ đạo)
+│   │   └── SectionHeader.js # Tiêu đề các mục (Có icon bên trái)
+│   │
+│   ├── cards/               # Các thẻ hiển thị dữ liệu phức tạp
+│   │   ├── WorkCard.js      # Thẻ nhiệm vụ (Trong trang Công tác)
+│   │   ├── NewsCard.js      # Thẻ bài viết (Trong trang Tin tức)
+│   │   └── NotifCard.js     # Thẻ thông báo (Trong trang Thông báo)
+│   │
+│   └── navigation/          # Các thành phần điều hướng tùy chỉnh
+│       ├── CustomHeader.js  # Thanh tiêu đề đỏ phía trên (Header)
+│       └── TabBar.js        # Thanh menu điều hướng dưới đáy (Bottom Nav)
+│
+├── constants/               # Các hằng số và dữ liệu cấu hình
+│   ├── colors.js            # Bảng màu chuẩn (Đỏ cờ #EE0033, Vàng, Xám...)
+│   ├── mockData.js          # CHỨA TOÀN BỘ DỮ LIỆU GIẢ LẬP (Biến DB hiện tại)
+│   └── routes.js            # Tên các màn hình (SCREEN_NAMES) để tránh gõ sai
+│
+├── navigation/              # Cấu hình điều hướng (React Navigation)
+│   ├── AppNavigator.js      # Stack chính (Quản lý luồng chuyển trang)
+│   └── BottomTabNavigator.js# Quản lý 4 tab chính (Tin tức, Công tác, Thông báo, Cá nhân)
+│
+├── screens/                 # Các màn hình chính (Chia theo chức năng nghiệp vụ)
+│   ├── Auth/                # Nhóm xác thực (Đăng nhập, Quên mật khẩu)
+│   │   └── LoginScreen.js
+│   │
+│   ├── News/                # Nhóm Tin tức & Truyền thông
+│   │   ├── NewsFeedScreen.js      # Trang chủ tin tức
+│   │   └── NewsDetailScreen.js    # Xem chi tiết bài viết
+│   │
+│   ├── Work/                # Nhóm Công tác & Nhiệm vụ
+│   │   ├── WorkDashboardScreen.js # Trang tổng hợp công tác
+│   │   ├── CellMeetingScreen.js   # Chi tiết sinh hoạt chi bộ
+│   │   └── PartyFeeScreen.js      # Chi tiết đóng đảng phí
+│   │
+│   ├── Notification/        # Nhóm Thông báo
+│   │   └── NotificationScreen.js  # Danh sách thông báo
+│   │
+│   └── Profile/             # Nhóm Hồ sơ & Tổ chức
+│       ├── ProfileScreen.js       # Menu chính trang cá nhân
+│       ├── MemberInfoScreen.js    # Form thông tin Đảng viên (Có cảnh báo CCCD)
+│       └── OrgInfoScreen.js       # Thông tin Chi bộ / Đảng bộ (Tab view)
+│
+├── services/                # Xử lý gọi API (Kết nối Backend)
+│   ├── api.js               # Cấu hình axios/fetch chung
+│   ├── authService.js       # API đăng nhập, đổi mật khẩu
+│   └── partyService.js      # API lấy dữ liệu đảng viên, tổ chức
+│
+├── utils/                   # Các hàm hỗ trợ (Helper functions)
+│   ├── dateUtils.js         # Format ngày tháng (dd/mm/yyyy)
+│   └── formatters.js        # Format tiền tệ, chuỗi
+│
+└── App.js                   # Điểm khởi chạy ứng dụng (Entry Point)
