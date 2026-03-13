@@ -1,0 +1,14 @@
+const express = require('express');
+const router = express.Router();
+const unionCellController = require('../controllers/unionCellController');
+const { protect } = require('../middlewares/authMiddleware');
+
+router.use(protect);
+
+router.get('/', unionCellController.getCells);
+router.post('/', unionCellController.createCell);
+router.get('/:id', unionCellController.getCell);
+router.put('/:id', unionCellController.updateCell);
+router.delete('/:id', unionCellController.deleteCell);
+
+module.exports = router;
