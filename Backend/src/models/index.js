@@ -88,8 +88,11 @@ Attendance.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
 UnionCell.hasMany(CellMeeting, { foreignKey: 'unionCellId' });
 CellMeeting.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 
-UnionMember.hasMany(CellMeeting, { foreignKey: 'chairpersonId', as: 'ChairedMeetings' });
 UnionMember.hasMany(CellMeeting, { foreignKey: 'secretaryId', as: 'ScribedMeetings' });
+
+// CellMeeting & Location
+CellMeetingLocation.hasMany(CellMeeting, { foreignKey: 'locationId' });
+CellMeeting.belongsTo(CellMeetingLocation, { foreignKey: 'locationId' });
 
 // News & Categories
 NewsCategory.hasMany(News, { foreignKey: 'categoryId' });

@@ -14,6 +14,10 @@ class CellMeetingService {
                     attributes: ['id', 'name', 'code'],
                     where: unionBranchId ? { unionBranchId } : undefined,
                     required: !!unionBranchId
+                },
+                {
+                    model: require('../models').CellMeetingLocation,
+                    attributes: ['id', 'name', 'address']
                 }
             ],
             order: [['meetingTime', 'DESC']]
@@ -24,6 +28,7 @@ class CellMeetingService {
         const meeting = await CellMeeting.findByPk(id, {
             include: [
                 { model: UnionCell, attributes: ['id', 'name'] },
+                { model: require('../models').CellMeetingLocation, attributes: ['id', 'name', 'address', 'capacity'] },
                 { model: UnionMember, as: 'ChairedMeetings', attributes: ['id', 'fullName'], foreignKey: 'chairpersonId' }
             ]
         });

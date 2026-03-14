@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { meetingApi, cellApi } from '../../services/api';
+import { meetingApi, cellApi, locationApi } from '../../services/api';
 import { confirmDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
@@ -18,9 +18,9 @@ const STATUS_CONFIG = {
     'Đã hủy': { label: 'Đã hủy', cls: 'bg-red-50 text-red-700' },
 };
 
-function MeetingModal({ meeting, cells, onClose, onSave }) {
+function MeetingModal({ meeting, cells, locations, onClose, onSave }) {
     const [form, setForm] = useState(meeting || {
-        title: '', description: '', startTime: '', location: '', unionCellId: ''
+        title: '', description: '', meetingTime: '', locationId: '', unionCellId: ''
     });
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -40,8 +40,13 @@ function MeetingModal({ meeting, cells, onClose, onSave }) {
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Thời gian *</label><input type="datetime-local" className={INPUT} value={form.startTime?.slice(0, 16) || ''} onChange={e => set('startTime', e.target.value)} /></div>
-                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Địa điểm</label><input className={INPUT} value={form.location || ''} onChange={e => set('location', e.target.value)} placeholder="VD: Hội trường A" /></div>
+                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Thời gian *</label><input type="datetime-local" className={INPUT} value={form.meetingTime?.slice(0, 16) || ''} onChange={e => set('meetingTime', e.target.value)} /></div>
+                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Địa điểm *</label>
+                            <select className={INPUT} value={form.locationId || ''} onChange={e => set('locationId', e.target.value)}>
+                                <option value="">-- Chọn địa điểm --</option>
+                                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            </select>
+                        </div>
                     </div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Nội dung / Chương trình</label><textarea className={INPUT} rows={4} value={form.description || ''} onChange={e => set('description', e.target.value)} /></div>
                 </div>
@@ -66,10 +71,12 @@ export default function MeetingsPage() {
         keepPreviousData: true,
     });
     const { data: cellsData } = useQuery({ queryKey: ['cells-all'], queryFn: () => cellApi.getAll({}) });
+    const { data: locationsData } = useQuery({ queryKey: ['locations-all'], queryFn: () => locationApi.getAll() });
 
     const meetings = data?.data?.data || [];
     const pagination = data?.data?.pagination || {};
     const cells = cellsData?.data?.data || [];
+    const locations = locationsData?.data?.data || [];
 
     const createMutation = useMutation({ mutationFn: meetingApi.create, onSuccess: () => { qc.invalidateQueries(['meetings']); setModal(null); toast.success('Đã tạo sinh hoạt!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => meetingApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['meetings']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
@@ -107,8 +114,8 @@ export default function MeetingsPage() {
                                             <tr key={m.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                                                 <td className="px-4 py-3 font-semibold">{m.title}</td>
                                                 <td className="px-4 py-3 text-gray-500">{m.UnionCell?.name || '—'}</td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{m.startTime ? new Date(m.startTime).toLocaleString('vi-VN') : '—'}</td>
-                                                <td className="px-4 py-3 text-gray-500">{m.location || '—'}</td>
+                                                <td className="px-4 py-3 text-gray-500 text-xs">{m.meetingTime ? new Date(m.meetingTime).toLocaleString('vi-VN') : '—'}</td>
+                                                <td className="px-4 py-3 text-gray-500">{m.CellMeetingLocation?.name || '—'}</td>
                                                 <td className="px-4 py-3">
                                                     <select
                                                         className={`text-xs font-semibold px-2 py-1 rounded-full border-0 outline-none cursor-pointer ${st.cls}`}
@@ -141,7 +148,7 @@ export default function MeetingsPage() {
                     </div>
                 )}
             </div>
-            {modal && <MeetingModal meeting={modal === 'add' ? null : modal} cells={cells} onClose={() => setModal(null)} onSave={handleSave} />}
+            {modal && <MeetingModal meeting={modal === 'add' ? null : modal} cells={cells} locations={locations} onClose={() => setModal(null)} onSave={handleSave} />}
         </div>
     );
 }

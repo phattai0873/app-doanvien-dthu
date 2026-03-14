@@ -138,7 +138,7 @@ export const activityApi = {
     create: (data) => api.post('/activities', data),
     update: (id, data) => api.put(`/activities/${id}`, data),
     delete: (id) => api.delete(`/activities/${id}`),
-    getMemberPoints: (memberId) => api.get(`/activities/member/${memberId}/points`),
+    getMemberAttendance: (memberId) => api.get(`/activities/member/${memberId}/attendance`),
 };
 
 // ─── Tin tức ─────────────────────────────────────────────
@@ -204,6 +204,7 @@ export const notificationApi = {
     update: (id, data) => api.put(`/notifications/${id}`, data),
     delete: (id) => api.delete(`/notifications/${id}`),
     send: (id) => api.patch(`/notifications/${id}/send`),
+    markAsRead: (id) => api.patch(`/notifications/${id}/read`),
 };
 
 // ─── Banner ──────────────────────────────────────────────
@@ -214,10 +215,15 @@ export const bannerApi = {
     delete: (id) => api.delete(`/banners/${id}`),
 };
 
-// ─── Landing Page Config ───────────────────────────────
 export const landingApi = {
     getConfigs: () => api.get('/landing/config'),
     updateConfig: (data) => api.put('/landing/config', data),
+};
+
+// ─── Địa điểm ──────────────────────────────────────────
+export const locationApi = {
+    getAll: () => api.get('/locations'),
+    create: (data) => api.post('/locations', data),
 };
 
 export default api;

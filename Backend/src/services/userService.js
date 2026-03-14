@@ -41,7 +41,17 @@ class UserService {
             phoneNumber: phoneNumber || null,
             status: 'pending'
         };
-        await UnionMember.create(memberData);
+        const member = await UnionMember.create(memberData);
+
+        // Thông báo cho user về việc đăng ký thành công
+        const NotificationService = require('./notificationService');
+        await NotificationService.createSystemNotification({
+            title: 'Đăng ký tài khoản thành công',
+            content: 'Bạn đã đăng ký thành công. Vui lòng chờ quản trị viên phê duyệt hồ sơ đoàn viên.',
+            type: 'Hệ thống',
+            targetType: 'Individual',
+            targetId: member.id
+        });
 
         const accessToken = generateAccessToken(user.id);
         const refreshToken = generateRefreshToken(user.id);

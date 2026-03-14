@@ -12,7 +12,7 @@ const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gr
 const BTN_ICON = "p-2 rounded-lg text-base transition";
 
 function ActivityModal({ activity, onClose, onSave }) {
-    const [form, setForm] = useState(activity || { title: '', description: '', location: '', startDate: '', endDate: '', point: 0, isMandatory: false });
+    const [form, setForm] = useState(activity || { title: '', description: '', location: '', startDate: '', endDate: '', type: 'Hoạt động', isMandatory: false });
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     return (
@@ -30,7 +30,12 @@ function ActivityModal({ activity, onClose, onSave }) {
                         <div><label className="block text-xs font-semibold text-gray-600 mb-1">Ngày kết thúc</label><input type="datetime-local" className={INPUT} value={form.endDate?.slice(0, 16) || ''} onChange={e => set('endDate', e.target.value)} /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Điểm rèn luyện</label><input type="number" className={INPUT} value={form.point} onChange={e => set('point', +e.target.value)} min={0} max={100} /></div>
+                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Loại hình *</label>
+                            <select className={INPUT} value={form.type} onChange={e => set('type', e.target.value)}>
+                                <option value="Hoạt động">Hoạt động</option>
+                                <option value="Sinh hoạt">Sinh hoạt Chi đoàn</option>
+                            </select>
+                        </div>
                         <div className="flex items-end pb-2"><label className="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" className="w-4 h-4 accent-primary-700" checked={form.isMandatory} onChange={e => set('isMandatory', e.target.checked)} /><span>Bắt buộc</span></label></div>
                     </div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Mô tả</label><textarea className={INPUT} rows={3} value={form.description || ''} onChange={e => set('description', e.target.value)} /></div>
@@ -80,15 +85,19 @@ export default function ActivitiesPage() {
                         : activities.length === 0 ? <div className="text-center py-12 text-gray-400 text-sm">Chưa có hoạt động nào</div>
                             : <table className="w-full text-sm">
                                 <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500">
-                                    <th className="px-4 py-3 text-left">Tên hoạt động</th><th className="px-4 py-3 text-left">Địa điểm</th><th className="px-4 py-3 text-left">Ngày BĐ</th><th className="px-4 py-3 text-left">Điểm RL</th><th className="px-4 py-3 text-left">Loại</th><th className="px-4 py-3 text-left">Thao tác</th>
+                                    <th className="px-4 py-3 text-left">Phân loại</th><th className="px-4 py-3 text-left">Tên hoạt động</th><th className="px-4 py-3 text-left">Địa điểm</th><th className="px-4 py-3 text-left">Ngày BĐ</th><th className="px-4 py-3 text-left">Tính chất</th><th className="px-4 py-3 text-left">Thao tác</th>
                                 </tr></thead>
                                 <tbody>
                                     {activities.map(a => (
                                         <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${a.type === 'Sinh hoạt' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                    {a.type}
+                                                </span>
+                                            </td>
                                             <td className="px-4 py-3 font-semibold">{a.title}</td>
                                             <td className="px-4 py-3 text-gray-500">{a.location || '—'}</td>
                                             <td className="px-4 py-3 text-gray-500 text-xs">{a.startDate ? new Date(a.startDate).toLocaleDateString('vi-VN') : '—'}</td>
-                                            <td className="px-4 py-3"><span className="flex items-center gap-1 bg-green-50 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full w-fit"><Star size={10} />{a.point || 0}</span></td>
                                             <td className="px-4 py-3">{a.isMandatory ? <span className="bg-primary-50 text-primary-700 text-xs font-semibold px-2 py-0.5 rounded-full">Bắt buộc</span> : <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">Tự nguyện</span>}</td>
                                             <td className="px-4 py-3"><div className="flex gap-2">
                                                 <button className={`${BTN_ICON} bg-gray-100 hover:bg-gray-200 text-gray-600`} onClick={() => setModal(a)}><Pencil size={16} /></button>

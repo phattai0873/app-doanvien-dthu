@@ -23,12 +23,6 @@ const UnionCell = sequelize.define('UnionCell', {
     unionBranchId: {
         type: DataTypes.UUID
     },
-    secretaryId: {
-        type: DataTypes.UUID
-    },
-    deputySecretaryId: {
-        type: DataTypes.UUID
-    }
 }, {
     tableName: 'union_cells',
     timestamps: true

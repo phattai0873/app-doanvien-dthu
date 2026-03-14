@@ -10,7 +10,6 @@ const LandingConfig = sequelize.define('LandingConfig', {
     key: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: true,
         comment: 'e.g. hero_section, contact_info'
     },
     value: {
@@ -21,7 +20,13 @@ const LandingConfig = sequelize.define('LandingConfig', {
         type: DataTypes.STRING
     }
 }, {
-    tableName: 'LandingConfigs'
+    tableName: 'LandingConfigs',
+    indexes: [
+        {
+            unique: true,
+            fields: ['key']
+        }
+    ]
 });
 
 module.exports = LandingConfig;

@@ -25,9 +25,9 @@ const Activity = sequelize.define('Activity', {
     location: {
         type: DataTypes.STRING
     },
-    point: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
+    type: {
+        type: DataTypes.ENUM('Sinh hoạt', 'Hoạt động'),
+        defaultValue: 'Hoạt động'
     },
     isMandatory: {
         type: DataTypes.BOOLEAN,

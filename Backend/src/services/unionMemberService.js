@@ -53,9 +53,27 @@ class UnionMemberService {
     }
 
     static async update(id, data) {
-        const member = await UnionMember.findByPk(id);
+        const member = await UnionMember.findByPk(id, { include: [UnionCell] });
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
+        
+        const oldCellId = member.unionCellId;
+        const oldBranchId = member.unionBranchId;
+
         await member.update(data);
+
+        // Kiểm tra nếu có sự thay đổi đơn vị (Điều chuyển)
+        if ((data.unionCellId && data.unionCellId !== oldCellId) || (data.unionBranchId && data.unionBranchId !== oldBranchId)) {
+            const NotificationService = require('./notificationService');
+            await NotificationService.createSystemNotification({
+                title: 'Thông báo điều chuyển đơn vị',
+                content: 'Bạn đã được điều chuyển sang đơn vị sinh hoạt mới. Vui lòng kiểm tra thông tin hồ sơ.',
+                type: 'Hệ thống',
+                targetType: 'Individual',
+                targetId: member.id,
+                senderBranchId: data.unionBranchId || member.unionBranchId
+            });
+        }
+
         return member;
     }
 
@@ -70,6 +88,18 @@ class UnionMemberService {
         const member = await UnionMember.findByPk(id);
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
         await member.update({ status: 'approved', approvedBy: adminId });
+        
+        // Thông báo cho đoàn viên
+        const NotificationService = require('./notificationService');
+        await NotificationService.createSystemNotification({
+            title: 'Hồ sơ đã được phê duyệt',
+            content: `Chúc mừng! Hồ sơ của bạn đã được duyệt. Bạn chính thức sinh hoạt tại ${member.UnionCell?.name || 'Chi đoàn'}`,
+            type: 'Hệ thống',
+            targetType: 'Individual',
+            targetId: member.id,
+            senderBranchId: member.unionBranchId
+        });
+
         return { message: 'Đã duyệt đoàn viên thành công', data: member };
     }
 
@@ -77,6 +107,18 @@ class UnionMemberService {
         const member = await UnionMember.findByPk(id);
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
         await member.update({ status: 'rejected', approvedBy: adminId });
+
+        // Thông báo cho đoàn viên
+        const NotificationService = require('./notificationService');
+        await NotificationService.createSystemNotification({
+            title: 'Hồ sơ bị từ chối',
+            content: 'Thông tin đoàn viên của bạn bị từ chối. Vui lòng kiểm tra và cập nhật lại thông tin chính xác.',
+            type: 'Hệ thống',
+            targetType: 'Individual',
+            targetId: member.id,
+            senderBranchId: member.unionBranchId
+        });
+
         return { message: 'Đã từ chối đoàn viên', data: member };
     }
 

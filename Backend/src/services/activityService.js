@@ -45,13 +45,44 @@ class ActivityService {
     }
 
     static async create(data) {
-        return await Activity.create(data);
+        const activity = await Activity.create(data);
+        
+        // Thông báo về hoạt động/sinh hoạt mới
+        const NotificationService = require('./notificationService');
+        await NotificationService.createSystemNotification({
+            title: `Có ${activity.type.toLowerCase()} mới: ${activity.title}`,
+            content: `${activity.type} sẽ diễn ra vào lúc ${new Date(activity.startDate).toLocaleString('vi-VN')} tại ${activity.location || 'địa điểm thông báo sau'}.`,
+            type: activity.type === 'Sinh hoạt' ? 'Nhắc nhở' : 'Hoạt động',
+            targetType: activity.unionBranchId ? 'Branch' : 'All',
+            targetId: activity.unionBranchId,
+            senderBranchId: activity.unionBranchId
+        });
+
+        return activity;
     }
 
     static async update(id, data) {
         const activity = await Activity.findByPk(id);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
+        
+        const oldStartTime = activity.startDate;
+        const oldLocation = activity.location;
+
         await activity.update(data);
+
+        // Thông báo nếu có sự thay đổi quan trọng (Thời gian/Địa điểm)
+        if ((data.startDate && new Date(data.startDate).getTime() !== new Date(oldStartTime).getTime()) || (data.location && data.location !== oldLocation)) {
+            const NotificationService = require('./notificationService');
+            await NotificationService.createSystemNotification({
+                title: `Thay đổi thông tin: ${activity.title}`,
+                content: `Hoạt động đã có sự thay đổi về thời gian hoặc địa điểm. Vui lòng kiểm tra lại.`,
+                type: 'Nhắc nhở',
+                targetType: activity.unionBranchId ? 'Branch' : 'All',
+                targetId: activity.unionBranchId,
+                senderBranchId: activity.unionBranchId
+            });
+        }
+
         return activity;
     }
 
@@ -73,6 +104,20 @@ class ActivityService {
             defaults: { status, remarks, attendanceTime: new Date() }
         });
         if (!created) await attendance.update({ status, remarks, attendanceTime: new Date() });
+
+        // Nếu điểm danh thành công (Có mặt) -> Thông báo cho đoàn viên
+        if (status === 'Có mặt') {
+            const NotificationService = require('./notificationService');
+            await NotificationService.createSystemNotification({
+                title: 'Điểm danh thành công',
+                content: `Bạn đã được ghi nhận tham gia hoạt động: ${activity.title}`,
+                type: 'Hệ thống',
+                targetType: 'Individual',
+                targetId: member.id,
+                senderBranchId: activity.unionBranchId
+            });
+        }
+
         return attendance;
     }
 
@@ -92,13 +137,12 @@ class ActivityService {
         );
     }
 
-    static async getMemberPoints(memberId) {
+    static async getMemberAttendance(memberId) {
         const attendances = await Attendance.findAll({
             where: { unionMemberId: memberId, status: 'Có mặt' },
-            include: [{ model: Activity, attributes: ['id', 'title', 'point', 'startDate'] }]
+            include: [{ model: Activity, attributes: ['id', 'title', 'startDate'] }]
         });
-        const totalPoints = attendances.reduce((sum, att) => sum + (att.Activity?.point || 0), 0);
-        return { totalPoints, attendances };
+        return { attendances };
     }
 }
 

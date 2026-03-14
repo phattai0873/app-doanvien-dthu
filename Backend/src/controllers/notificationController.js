@@ -13,7 +13,10 @@ const notificationController = {
             senderBranchId = userUnionMember.unionBranchId;
         }
 
-        const result = await NotificationService.getAll({ type, status, senderBranchId, search, page, limit });
+        // Nếu không phải quản trị viên cao cấp, chỉ lấy thông báo có userId để filter theo đối tượng
+        const userId = isSuperAdmin ? null : req.user.id;
+
+        const result = await NotificationService.getAll({ type, status, senderBranchId, search, page, limit, userId });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -50,6 +53,11 @@ const notificationController = {
     sendNotification: asyncHandler(async (req, res) => {
         const notif = await NotificationService.send(req.params.id);
         res.status(200).json({ success: true, data: notif });
+    }),
+
+    markAsRead: asyncHandler(async (req, res) => {
+        const result = await NotificationService.markAsRead(req.params.id, req.user.id);
+        res.status(200).json({ success: true, data: result });
     })
 };
 

@@ -17,6 +17,7 @@ const documentRoutes = require('./routes/documentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const landingRoutes = require('./routes/landingRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -55,6 +56,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/landing', landingRoutes);
+app.use('/api/locations', locationRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

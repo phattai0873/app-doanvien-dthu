@@ -29,7 +29,6 @@ export default function Dashboard() {
         { label: 'Quản lý hồ sơ Đoàn viên', desc: 'Thêm, sửa, xóa thông tin đoàn viên', icon: '👤' },
         { label: 'Điểm danh Hoạt động', desc: 'Ghi nhận điểm rèn luyện tham gia', icon: '✅' },
         { label: 'Phân công Chức vụ', desc: 'Quản lý vai trò trong chi bộ', icon: '🏛️' },
-        { label: 'Theo dõi Đoàn phí', desc: 'Xem ai chưa nộp phí theo kỳ', icon: '💰' },
     ];
 
     return (

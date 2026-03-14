@@ -17,7 +17,7 @@ const {
     DocumentCategory,
     Notification,
     QuizExam, QuizQuestion, QuizOption,
-    UnionFeePayment
+    UnionFeePayment, CellMeetingLocation
 } = require('./models');
 const { sequelize } = require('./configs/db');
 
@@ -233,7 +233,14 @@ async function seed() {
         );
         console.log('  ✔ 3 hoạt động, 9 lượt điểm danh\n');
 
-        // ─── 7. CUỘC HỌP CHI BỘ ──────────────────────────────────
+        // ─── 7. ĐỊA ĐIỂM HỌP ──────────────────────────────────
+        console.log('📌 Tạo Địa điểm họp...');
+        const [locA] = await CellMeetingLocation.findOrCreate({ where: { name: 'Hội trường A' }, defaults: { name: 'Hội trường A', address: 'Tòa A, Tầng 1', capacity: 100 } });
+        const [locB] = await CellMeetingLocation.findOrCreate({ where: { name: 'Phòng họp 1' }, defaults: { name: 'Phòng họp 1', address: 'Tòa B, Tầng 2', capacity: 20 } });
+        const [locC] = await CellMeetingLocation.findOrCreate({ where: { name: 'Văn phòng Đoàn' }, defaults: { name: 'Văn phòng Đoàn', address: 'Khu trung tâm', capacity: 15 } });
+        console.log('  ✔ 3 địa điểm họp\n');
+
+        // ─── 8. CUỘC HỌP CHI BỘ ──────────────────────────────────
         console.log('📌 Tạo Cuộc họp...');
         await CellMeeting.findOrCreate({
             where: { title: 'Họp chi bộ tháng 2/2026' },
@@ -242,6 +249,7 @@ async function seed() {
                 content: 'Tổng kết công tác Đoàn tháng 1, triển khai kế hoạch tháng 2',
                 meetingTime: '2026-02-10T14:00:00',
                 unionCellId: cell1.id,
+                locationId: locB.id,
                 chairpersonId: createdMembers[0].id,
                 secretaryId: createdMembers[1].id,
                 status: 'Hoàn thành',

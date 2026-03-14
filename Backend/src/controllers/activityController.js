@@ -59,8 +59,8 @@ const activityController = {
         res.status(200).json({ success: true, count: result.length, data: result });
     }),
 
-    getMemberPoints: asyncHandler(async (req, res) => {
-        const result = await ActivityService.getMemberPoints(req.params.memberId);
+    getMemberAttendance: asyncHandler(async (req, res) => {
+        const result = await ActivityService.getMemberAttendance(req.params.memberId);
         res.status(200).json({ success: true, data: result });
     })
 };

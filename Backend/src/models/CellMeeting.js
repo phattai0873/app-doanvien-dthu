@@ -24,6 +24,10 @@ const CellMeeting = sequelize.define('CellMeeting', {
     status: {
         type: DataTypes.ENUM('Mới tạo', 'Đang họp', 'Hoàn thành', 'Hủy'),
         defaultValue: 'Mới tạo'
+    },
+    locationId: {
+        type: DataTypes.UUID,
+        allowNull: true
     }
 }, {
     tableName: 'cell_meetings',

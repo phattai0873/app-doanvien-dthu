@@ -7,7 +7,7 @@ router.use(protect);
 
 router.get('/', activityController.getActivities);
 router.post('/', activityController.createActivity);
-router.get('/member/:memberId/points', activityController.getMemberPoints);
+router.get('/member/:memberId/attendance', activityController.getMemberAttendance);
 router.get('/:id', activityController.getActivity);
 router.put('/:id', activityController.updateActivity);
 router.delete('/:id', activityController.deleteActivity);

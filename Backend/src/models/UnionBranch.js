@@ -25,12 +25,6 @@ const UnionBranch = sequelize.define('UnionBranch', {
     phoneNumber: {
         type: DataTypes.STRING
     },
-    secretaryId: {
-        type: DataTypes.UUID
-    },
-    deputySecretaryId: {
-        type: DataTypes.UUID
-    }
 }, {
     tableName: 'union_branches',
     timestamps: true

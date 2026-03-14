@@ -54,9 +54,9 @@ function CreateFeeModal({ cells, onClose, onSave }) {
                             </div>
                         ) : (
                             <>
-                                <input 
-                                    className={INPUT} 
-                                    placeholder="Nhập tên hoặc mã đoàn viên..." 
+                                <input
+                                    className={INPUT}
+                                    placeholder="Nhập tên hoặc mã đoàn viên..."
                                     value={memberSearch}
                                     onChange={e => setMemberSearch(e.target.value)}
                                 />
@@ -68,8 +68,8 @@ function CreateFeeModal({ cells, onClose, onSave }) {
                                             <div className="p-3 text-center text-xs text-gray-400 italic">Không thấy kết quả</div>
                                         ) : (
                                             members.map(m => (
-                                                <button 
-                                                    key={m.id} 
+                                                <button
+                                                    key={m.id}
                                                     className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between border-b last:border-0 border-gray-100 transition"
                                                     onClick={() => handleSelectMember(m)}
                                                 >
@@ -110,8 +110,8 @@ function CreateFeeModal({ cells, onClose, onSave }) {
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
                     <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
-                    <button 
-                        className={BTN_PRIMARY} 
+                    <button
+                        className={BTN_PRIMARY}
                         onClick={() => onSave(form)}
                         disabled={!form.unionMemberId || !form.period || !form.amount}
                     >
@@ -158,7 +158,7 @@ export default function FeesPage() {
     return (
         <div className="space-y-4">
             <div className="flex gap-3 flex-wrap items-center">
-                <select 
+                <select
                     className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition"
                     style={{ width: 220 }}
                     value={selectedCell}

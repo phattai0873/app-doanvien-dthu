@@ -11,5 +11,6 @@ router.get('/:id', notificationController.getNotificationById);
 router.put('/:id', notificationController.updateNotification);
 router.delete('/:id', notificationController.deleteNotification);
 router.patch('/:id/send', notificationController.sendNotification);
+router.patch('/:id/read', notificationController.markAsRead);
 
 module.exports = router;
