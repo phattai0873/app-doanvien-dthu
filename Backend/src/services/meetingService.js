@@ -72,7 +72,8 @@ class MeetingService {
         const sanitizedData = sanitizeUUID(data);
         if (!sanitizedData.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
-            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+            const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
+            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
         }
         const meeting = await Meeting.create(sanitizedData);
         
@@ -93,7 +94,8 @@ class MeetingService {
         const sanitizedData = sanitizeUUID(data);
         if (data.status === 'IN_PROGRESS' && !meeting.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
-            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+            const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
+            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
         }
         await meeting.update(sanitizedData);
 
@@ -163,12 +165,13 @@ class MeetingService {
         return attendance;
     }
 
-    static async refreshCheckinCode(meetingId) {
+    static async refreshCheckinCode(meetingId, customTTL) {
         const meeting = await Meeting.findByPk(meetingId);
         if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);
         
         const newCode = generateCheckinCode();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        const ttl = customTTL ? parseInt(customTTL) : 15;
+        const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
         
         await meeting.update({ 
             checkinCode: newCode, 
@@ -181,7 +184,11 @@ class MeetingService {
     static async getAttendance(meetingId) {
         return await Attendance.findAll({
             where: { meetingId },
-            include: [{ model: UnionMember, attributes: ['id', 'fullName', 'avatar'] }]
+            include: [{ 
+                model: UnionMember, 
+                attributes: ['id', 'fullName', 'avatar', 'memberCode', 'phoneNumber'],
+                include: [{ model: UnionCell, attributes: ['id', 'name'] }]
+            }]
         });
     }
 

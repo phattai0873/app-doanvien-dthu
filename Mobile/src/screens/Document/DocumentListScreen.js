@@ -38,7 +38,7 @@ export const DocumentListScreen = ({ onNavigate }) => {
 
     const filteredDocs = activeCat === 'all'
         ? documents
-        : documents.filter(doc => doc.category_id === activeCat);
+        : documents.filter(doc => doc.categoryId === activeCat);
 
     const renderDocItem = ({ item }) => (
         <TouchableOpacity
@@ -47,14 +47,14 @@ export const DocumentListScreen = ({ onNavigate }) => {
         >
             <View style={styles.fileIconBox}>
                 <Icon
-                    name={item.file_type === 'pdf' ? 'FileText' : 'BookOpen'}
+                    name="FileText"
                     size={28}
-                    color={item.file_type === 'pdf' ? '#EF4444' : '#3B82F6'}
+                    color="#3B82F6"
                 />
             </View>
             <View style={styles.docInfo}>
                 <Text style={styles.docTitle} numberOfLines={2}>{item.title}</Text>
-                <Text style={styles.docMeta}>{item.created_at} • {item.file_type.toUpperCase()}</Text>
+                <Text style={styles.docMeta}>{item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '—'}</Text>
             </View>
             <TouchableOpacity style={styles.downloadBtn}>
                 <Icon name="Download" size={20} color="#9CA3AF" />

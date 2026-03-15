@@ -32,20 +32,21 @@ export const ExamListScreen = ({ onNavigate }) => {
 
     const getStatusStyle = (status) => {
         switch (status) {
-            case 'open': return { bg: '#E6FFFA', text: '#319795', label: 'Đang diễn ra' };
-            case 'upcoming': return { bg: '#EBF8FF', text: '#3182CE', label: 'Sắp bắt đầu' };
-            case 'closed': return { bg: '#FEE2E2', text: '#EF4444', label: 'Đã kết thúc' };
+            case 'UPCOMING': return { bg: '#EBF8FF', text: '#3182CE', label: 'Sắp bắt đầu' };
+            case 'ONGOING': return { bg: '#E6FFFA', text: '#319795', label: 'Đang diễn ra' };
+            case 'FINISHED': return { bg: '#FEE2E2', text: '#EF4444', label: 'Đã kết thúc' };
+            case 'DRAFT': return { bg: '#F3F4F6', text: '#6B7280', label: 'Bản nháp' };
             default: return { bg: '#F3F4F6', text: '#6B7280', label: status };
         }
     };
 
     const renderItem = ({ item }) => {
-        const statusStyle = getStatusStyle(item.status);
+        const { bg, text, label } = getStatusStyle(item.computedStatus);
 
         return (
             <TouchableOpacity
                 style={styles.card}
-                onPress={() => item.status === 'open' && onNavigate && onNavigate('exam_detail', { id: item.id })}
+                onPress={() => item.computedStatus === 'ONGOING' && onNavigate && onNavigate('exam_detail', { id: item.id })}
             >
                 <View style={styles.cardBody}>
                     <View style={styles.examIconBox}>
@@ -53,8 +54,8 @@ export const ExamListScreen = ({ onNavigate }) => {
                     </View>
 
                     <View style={styles.examInfo}>
-                        <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                            <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: bg }]}>
+                            <Text style={[styles.statusText, { color: text }]}>{label}</Text>
                         </View>
                         <Text style={styles.examTitle}>{item.title}</Text>
                         <Text style={styles.examDesc} numberOfLines={2}>{item.description}</Text>
@@ -62,17 +63,17 @@ export const ExamListScreen = ({ onNavigate }) => {
                         <View style={styles.examMeta}>
                             <View style={styles.metaItem}>
                                 <Icon name="Clock" size={14} color="#9CA3AF" />
-                                <Text style={styles.metaText}>{item.duration_minutes} phút</Text>
+                                <Text style={styles.metaText}>{item.timeLimit} phút</Text>
                             </View>
                             <View style={styles.metaItem}>
                                 <Icon name="Calendar" size={14} color="#9CA3AF" />
-                                <Text style={styles.metaText}>{item.end_time}</Text>
+                                <Text style={styles.metaText}>{item.endDate ? new Date(item.endDate).toLocaleDateString('vi-VN') : '—'}</Text>
                             </View>
                         </View>
                     </View>
                 </View>
 
-                {item.status === 'open' && (
+                {item.computedStatus === 'ONGOING' && (
                     <TouchableOpacity
                         style={styles.startBtn}
                         onPress={() => onNavigate && onNavigate('exam_detail', { id: item.id })}

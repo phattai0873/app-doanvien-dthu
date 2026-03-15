@@ -9,6 +9,8 @@ router.use(protect);
 router.get('/', quizController.getExams);
 router.post('/', uploadQuizThumbnail, quizController.createExam);
 router.get('/:id', quizController.getExam);
+router.put('/:id', uploadQuizThumbnail, quizController.updateExam);
+router.delete('/:id', quizController.deleteExam);
 router.post('/:id/submit', quizController.submitAttempt);
 router.get('/:id/attempts', quizController.getAttempts);
 

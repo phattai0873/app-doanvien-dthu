@@ -92,11 +92,19 @@ export const ExamDetailScreen = ({ route, goBack }) => {
                         <Text style={styles.rulesTitle}>QUY ĐỊNH PHÒNG THI</Text>
                         <View style={styles.ruleItem}>
                             <Icon name="Time" size={16} color="#6B7280" />
-                            <Text style={styles.ruleText}>Thời gian làm bài: {exam.duration_minutes} phút</Text>
+                            <Text style={styles.ruleText}>Thời gian làm bài: {exam.timeLimit} phút</Text>
+                        </View>
+                        <View style={styles.ruleItem}>
+                            <Icon name="Calendar" size={16} color="#6B7280" />
+                            <Text style={styles.ruleText}>Bắt đầu: {exam.startDate ? new Date(exam.startDate).toLocaleString('vi-VN') : '—'}</Text>
+                        </View>
+                        <View style={styles.ruleItem}>
+                            <Icon name="Calendar" size={16} color="#6B7280" />
+                            <Text style={styles.ruleText}>Kết thúc: {exam.endDate ? new Date(exam.endDate).toLocaleString('vi-VN') : '—'}</Text>
                         </View>
                         <View style={styles.ruleItem}>
                             <Icon name="CheckCircle" size={16} color="#6B7280" />
-                            <Text style={styles.ruleText}>Số lượng câu hỏi: 20 câu</Text>
+                            <Text style={styles.ruleText}>Số lượng câu hỏi: {exam.QuizQuestions?.length || 0} câu</Text>
                         </View>
                         <View style={styles.ruleItem}>
                             <Icon name="Shield" size={16} color="#6B7280" />
@@ -145,7 +153,7 @@ export const ExamDetailScreen = ({ route, goBack }) => {
                 </View>
                 <View style={styles.timerBadge}>
                     <Icon name="Time" size={16} color="#EF4444" />
-                    <Text style={styles.timerText}>{exam.duration_minutes}:00</Text>
+                    <Text style={styles.timerText}>{exam.timeLimit}:00</Text>
                 </View>
             </View>
 

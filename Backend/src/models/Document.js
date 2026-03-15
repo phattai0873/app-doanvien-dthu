@@ -15,31 +15,15 @@ const Document = sequelize.define('Document', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    fileType: {
-        type: DataTypes.STRING
-    },
     issuedDate: {
         type: DataTypes.DATE
     },
     issuingAuthority: {
         type: DataTypes.STRING
     },
-    unionBranchId: {
-        type: DataTypes.UUID,
-        allowNull: true
-    },
-    unionCellId: {
-        type: DataTypes.UUID,
-        allowNull: true
-    },
-    level: {
-        type: DataTypes.ENUM('SCHOOL', 'BRANCH', 'CELL'),
-        defaultValue: 'SCHOOL',
-        allowNull: false
-    },
     status: {
-        type: DataTypes.ENUM('DRAFT', 'PUBLISHED'),
-        defaultValue: 'PUBLISHED'
+        type: DataTypes.ENUM('PRIVATE', 'PUBLISH'),
+        defaultValue: 'PUBLISH'
     },
     categoryId: {
         type: DataTypes.UUID,

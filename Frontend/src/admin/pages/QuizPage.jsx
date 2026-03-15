@@ -1,23 +1,38 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search, BookOpen, Users, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Swal from 'sweetalert2';
+import toast from 'react-hot-toast';
+import { Pencil, Trash2, Search, BookOpen, Users, Plus, Eye } from 'lucide-react';
 import { quizApi } from '../../services/api';
 
 const BTN_PRIMARY = "flex items-center justify-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-50";
+const BTN_ICON = "p-2 rounded-lg transition shadow-sm border";
+
+const getStatusLabel = (status) => {
+    switch (status) {
+        case 'UPCOMING': return { label: 'Sắp diễn ra', cls: 'bg-blue-100 text-blue-700' };
+        case 'ONGOING': return { label: 'Đang diễn ra', cls: 'bg-green-100 text-green-700' };
+        case 'FINISHED': return { label: 'Đã kết thúc', cls: 'bg-gray-200 text-gray-700' };
+        case 'DRAFT': return { label: 'Bản nháp', cls: 'bg-gray-100 text-gray-600' };
+        default: return { label: status, cls: 'bg-gray-100 text-gray-600' };
+    }
+};
 
 export default function QuizPage() {
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [levelFilter, setLevelFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [selectedExam, setSelectedExam] = useState(null);
 
     const examsQ = useQuery({ 
-        queryKey: ['quiz', search, page, levelFilter], 
+        queryKey: ['quiz', search, page, levelFilter, statusFilter], 
         queryFn: () => quizApi.getAll({ 
             search, page, limit: 10, 
-            level: levelFilter || undefined 
+            level: levelFilter || undefined,
+            status: statusFilter || undefined
         }), 
         keepPreviousData: true 
     });
@@ -27,6 +42,33 @@ export default function QuizPage() {
     const exams = examsQ.data?.data?.data || [];
     const pagination = examsQ.data?.data?.pagination || {};
     const attempts = attemptsQ.data?.data?.data || [];
+    const qc = useQueryClient();
+
+    const deleteMutation = useMutation({
+        mutationFn: quizApi.delete,
+        onSuccess: () => {
+            qc.invalidateQueries(['quiz']);
+            toast.success('Đã xóa kỳ thi thành công');
+        },
+        onError: (err) => toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi xóa!')
+    });
+
+    const handleDelete = (id, title) => {
+        Swal.fire({
+            title: 'Xóa kỳ thi?',
+            text: `Đồng chí có chắc chắn muốn xóa kỳ thi "${title}"? Dữ liệu kết quả làm bài của đoàn viên cũng sẽ bị mất.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Đồng ý xóa',
+            cancelButtonText: 'Hủy'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                deleteMutation.mutate(id);
+            }
+        });
+    };
 
     return (
         <div className={`grid gap-5 ${selectedExam ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
@@ -44,6 +86,12 @@ export default function QuizPage() {
                             <option value="BRANCH">Cấp Khoa</option>
                             <option value="CELL">Cấp Lớp</option>
                         </select>
+                        <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium text-primary-700 bg-primary-50 border-primary-100" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="ONGOING">Đang diễn ra</option>
+                            <option value="UPCOMING">Sắp diễn ra</option>
+                            <option value="FINISHED">Đã kết thúc</option>
+                        </select>
                     </div>
                     <button className={BTN_PRIMARY} onClick={() => navigate('/admin/quiz/create')}>
                         <Plus size={16} /> Tạo kỳ thi
@@ -58,7 +106,7 @@ export default function QuizPage() {
                         {examsQ.isLoading ? <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
                             : exams.length === 0 ? <div className="flex flex-col items-center py-12 gap-2 text-gray-400 text-sm"><BookOpen size={36} /><p>Chưa có kỳ thi nào</p></div>
                                 : <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Tên kỳ thi</th><th className="px-4 py-3 text-left">Cấp độ</th><th className="px-4 py-3 text-left">Thời gian</th><th className="px-4 py-3 text-left">Điểm đạt</th><th className="px-4 py-3 text-left">Kết quả</th></tr></thead>
+                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Tên kỳ thi</th><th className="px-4 py-3 text-left">Cấp độ</th><th className="px-4 py-3 text-left">Lịch thi</th><th className="px-4 py-3 text-center">Trạng thái</th><th className="px-4 py-3 text-left">Hành động</th></tr></thead>
                                     <tbody>
                                         {exams.map(e => (
                                             <tr key={e.id} className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${selectedExam?.id === e.id ? 'bg-primary-50' : ''}`}>
@@ -76,12 +124,43 @@ export default function QuizPage() {
                                                         {e.level === 'SCHOOL' ? 'Trường' : e.level === 'BRANCH' ? 'Khoa' : 'Lớp'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{e.timeLimit ? `${e.timeLimit} phút` : '—'}</td>
-                                                <td className="px-4 py-3"><span className="bg-green-50 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">{e.satisfactoryScore || 0} điểm</span></td>
                                                 <td className="px-4 py-3">
-                                                    <button className="flex items-center gap-2 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition" onClick={() => setSelectedExam(selectedExam?.id === e.id ? null : e)}>
-                                                        <Users size={13} /> Xem kết quả
-                                                    </button>
+                                                    <div className="flex flex-col text-[11px] text-gray-500 font-medium">
+                                                        <span className="flex items-center gap-1 text-blue-600">
+                                                            <span className="font-black">BĐ:</span> 
+                                                            {e.startDate ? (() => {
+                                                                const d = new Date(e.startDate);
+                                                                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                                                            })() : '—'}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 text-red-600">
+                                                            <span className="font-black">KT:</span>
+                                                            {e.endDate ? (() => {
+                                                                const d = new Date(e.endDate);
+                                                                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                                                            })() : '—'}
+                                                        </span>
+                                                        <span className="text-gray-400 mt-1 italic font-normal">{e.timeLimit} phút • Đạt: {e.satisfactoryScore}đ</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    {(() => {
+                                                        const st = getStatusLabel(e.computedStatus);
+                                                        return <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${st.cls}`}>{st.label}</span>
+                                                    })()}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        <button title="Xem kết quả" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-100`} onClick={() => setSelectedExam(selectedExam?.id === e.id ? null : e)}>
+                                                            <Eye size={16} />
+                                                        </button>
+                                                        <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border-gray-100`} onClick={() => navigate(`/admin/quiz/edit/${e.id}`)}>
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border-red-100`} onClick={() => handleDelete(e.id, e.title)}>
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -89,12 +168,12 @@ export default function QuizPage() {
                                 </table>}
                     </div>
                     {pagination.totalPages > 1 && (
-                        <div className="flex items-center justify-end gap-2 px-5 py-4">
-                            <button className="w-8 h-8 rounded-lg border border-gray-200 text-sm flex items-center justify-center disabled:opacity-40" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>‹</button>
+                        <div className="flex items-center justify-end gap-2 px-5 py-4 bg-gray-50/30 border-t border-gray-100">
+                            <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 hover:text-primary-700 disabled:opacity-40 transition" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>‹</button>
                             {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
-                                <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg border text-sm ${p === page ? 'bg-primary-700 text-white border-primary-700' : 'border-gray-200 bg-white'}`}>{p}</button>
+                                <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg border text-[11px] font-black ${p === page ? 'bg-primary-700 text-white border-primary-700 shadow-md shadow-primary-200' : 'border-gray-200 bg-white hover:border-primary-700'}`}>{p}</button>
                             ))}
-                            <button className="w-8 h-8 rounded-lg border border-gray-200 text-sm flex items-center justify-center disabled:opacity-40" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>›</button>
+                            <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 hover:text-primary-700 disabled:opacity-40 transition" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>›</button>
                         </div>
                     )}
                 </div>

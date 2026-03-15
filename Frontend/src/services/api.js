@@ -150,7 +150,7 @@ export const activityApi = {
     updateParticipant: (id, memberId, data) => api.patch(`/activities/${id}/participants/${memberId}`, data),
     getMemberAttendance: (memberId) => api.get(`/activities/member/${memberId}/attendance`),
     checkIn: (id, data) => api.post(`/activities/${id}/check-in`, data),
-    refreshCode: (id) => api.post(`/activities/${id}/refresh-code`),
+    refreshCode: (id, data) => api.post(`/activities/${id}/refresh-code`, data),
     getBranches: () => api.get('/branches', { params: { limit: 100 } }),
     getCells: (branchId) => api.get('/cells', { params: { unionBranchId: branchId, limit: 100 } }),
 };
@@ -180,6 +180,8 @@ export const quizApi = {
     getAll: (params) => api.get('/quiz', { params }),
     getById: (id) => api.get(`/quiz/${id}`),
     create: (formData) => api.post('/quiz', formData, multipartConfig),
+    update: (id, formData) => api.put(`/quiz/${id}`, formData, multipartConfig),
+    delete: (id) => api.delete(`/quiz/${id}`),
     getAttempts: (id, params) => api.get(`/quiz/${id}/attempts`, { params }),
 };
 
@@ -201,7 +203,7 @@ export const meetingApi = {
     updateStatus: (id, status) => api.patch(`/meetings/${id}/status`, { status }),
     getAttendance: (id) => api.get(`/meetings/${id}/attendance`),
     checkIn: (id, data) => api.post(`/meetings/${id}/check-in`, data),
-    refreshCode: (id) => api.post(`/meetings/${id}/refresh-code`),
+    refreshCode: (id, data) => api.post(`/meetings/${id}/refresh-code`, data),
 };
 
 // ─── Văn bản ────────────────────────────────────────────
@@ -211,7 +213,12 @@ export const documentApi = {
     create: (data) => api.post('/documents', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     update: (id, data) => api.put(`/documents/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     delete: (id) => api.delete(`/documents/${id}`),
+    toggleStatus: (id) => api.patch(`/documents/${id}/toggle-status`),
+    // Chuyên mục
     getCategories: () => api.get('/documents/categories'),
+    createCategory: (data) => api.post('/documents/categories', data),
+    updateCategory: (id, data) => api.put(`/documents/categories/${id}`, data),
+    deleteCategory: (id) => api.delete(`/documents/categories/${id}`),
 };
 
 // ─── Thông báo ───────────────────────────────────────────
@@ -244,6 +251,8 @@ export const landingApi = {
 export const locationApi = {
     getAll: () => api.get('/locations'),
     create: (data) => api.post('/locations', data),
+    update: (id, data) => api.put(`/locations/${id}`, data),
+    delete: (id) => api.delete(`/locations/${id}`),
 };
 
 export default api;

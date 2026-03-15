@@ -62,7 +62,8 @@ const meetingController = {
     }),
 
     refreshCheckinCode: asyncHandler(async (req, res) => {
-        const result = await MeetingService.refreshCheckinCode(req.params.id);
+        const { checkinTTL } = req.body;
+        const result = await MeetingService.refreshCheckinCode(req.params.id, checkinTTL);
         res.status(200).json({ success: true, data: result });
     })
 };

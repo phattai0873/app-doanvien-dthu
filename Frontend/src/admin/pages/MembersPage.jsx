@@ -199,30 +199,16 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                        {/* Avatar & Basic */}
-                        <div className="flex flex-col items-center gap-4 min-w-[160px]">
-                            <div className="relative group">
-                                {member.avatar ? (
-                                    <img src={getAvatarUrl(member.avatar)} className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg ring-1 ring-gray-100" alt="" />
-                                ) : (
-                                    <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center text-primary-700 font-black text-4xl border-4 border-white shadow-lg ring-1 ring-gray-100 uppercase">
-                                        {member.fullName.charAt(0)}
-                                    </div>
-                                )}
-                                {!isPending && (
-                                    <div className="absolute -bottom-2 -right-2 bg-white p-1.5 rounded-xl shadow-md border border-gray-100 text-primary-700" title={roleInfo.label}>
-                                        <Shield size={16} fill="currentColor" className="opacity-20" />
-                                    </div>
-                                )}
+                    <div className="flex flex-col gap-6">
+                        {/* Basic Info */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                            <div>
+                                <h4 className="text-xl font-black text-gray-800 tracking-tight">{member.fullName}</h4>
+                                <p className="text-xs text-primary-700 font-mono font-black uppercase tracking-tighter mt-1">{member.memberCode}</p>
                             </div>
-                            <div className="text-center">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusInfo.color}`}>
-                                    {statusInfo.label}
-                                </span>
-                                <h4 className="mt-2 text-lg font-bold text-gray-800 leading-tight">{member.fullName}</h4>
-                                <p className="text-xs text-gray-400 font-mono mt-1 font-bold">{member.memberCode}</p>
-                            </div>
+                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${statusInfo.color}`}>
+                                {statusInfo.label}
+                            </span>
                         </div>
 
                         {/* Details */}
@@ -448,14 +434,9 @@ export default function MembersPage() {
                                     return (
                                         <tr key={m.id} className="hover:bg-gray-50/50 transition">
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center font-black text-sm border border-primary-100 shadow-sm uppercase group-hover:scale-110 transition">
-                                                        {m.fullName.charAt(0)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-mono text-[10px] font-black text-primary-700 uppercase tracking-tight">{m.memberCode}</p>
-                                                        <p className="font-bold text-gray-800">{m.fullName}</p>
-                                                    </div>
+                                                <div>
+                                                    <p className="font-mono text-[10px] font-black text-primary-700 uppercase tracking-tight">{m.memberCode}</p>
+                                                    <p className="font-bold text-gray-800">{m.fullName}</p>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

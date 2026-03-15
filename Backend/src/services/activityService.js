@@ -1,4 +1,4 @@
-const { Activity, Attendance, UnionMember, UnionCell, UnionBranch } = require('../models');
+const { Activity, Attendance, UnionMember, UnionCell, UnionBranch, ActivityParticipant } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 const { sanitizeUUID } = require('../utils/sanitize');
@@ -51,8 +51,8 @@ class ActivityService {
                 { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
                 { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
                 {
-                    model: require('../models').ActivityParticipant,
-                    include: [{ model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'avatar'] }]
+                    model: ActivityParticipant,
+                    include: [{ model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'avatar', 'phoneNumber'], include: [{ model: UnionCell, attributes: ['id', 'name'] }] }]
                 }
             ]
         });
@@ -64,7 +64,8 @@ class ActivityService {
         const sanitizedData = sanitizeUUID(data);
         if (!sanitizedData.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
-            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+            const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
+            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
         }
         // Tự động xác định approvalRole dựa trên level
         if (sanitizedData.level === 'CELL') sanitizedData.approvalRole = 'BRANCH_ADMIN';
@@ -150,7 +151,8 @@ class ActivityService {
         const sanitizedData = sanitizeUUID(data);
         if (data.status === 'IN_PROGRESS' && !activity.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
-            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+            const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
+            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
         }
         await activity.update(sanitizedData);
         return activity;
@@ -197,12 +199,13 @@ class ActivityService {
         return participant;
     }
 
-    static async refreshCheckinCode(id) {
+    static async refreshCheckinCode(id, customTTL) {
         const activity = await Activity.findByPk(id);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
         
         const newCode = generateCheckinCode();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        const ttl = customTTL ? parseInt(customTTL) : 15;
+        const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
         
         await activity.update({ 
             checkinCode: newCode, 

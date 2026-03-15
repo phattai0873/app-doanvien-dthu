@@ -101,7 +101,8 @@ const activityController = {
     }),
 
     refreshCheckinCode: asyncHandler(async (req, res) => {
-        const result = await ActivityService.refreshCheckinCode(req.params.id);
+        const { checkinTTL } = req.body;
+        const result = await ActivityService.refreshCheckinCode(req.params.id, checkinTTL);
         res.status(200).json({ success: true, data: result });
     })
 };

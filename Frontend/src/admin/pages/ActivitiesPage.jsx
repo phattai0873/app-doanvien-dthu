@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Star, QrCode, RotateCw } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Star, QrCode, RotateCw, Download, Copy, Users, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { activityApi } from '../../services/api';
 import { confirmDelete } from '../../utils/swal';
@@ -74,10 +75,14 @@ function ActivityModal({ activity, onClose, onSave }) {
                             <input type="datetime-local" className={INPUT} value={form.endDate?.slice(0, 16) || ''} onChange={e => set('endDate', e.target.value)} />
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Số lượng tối đa</label>
                             <input type="number" className={INPUT} value={form.maxParticipants || ''} onChange={e => set('maxParticipants', e.target.value)} placeholder="Không giới hạn" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Hiệu lực QR (phút)</label>
+                            <input type="number" className={INPUT} value={form.checkinTTL || 15} onChange={e => set('checkinTTL', parseInt(e.target.value))} />
                         </div>
                     </div>
                     <div><label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Địa điểm</label><input className={INPUT} value={form.location || ''} onChange={e => set('location', e.target.value)} /></div>
@@ -122,6 +127,23 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
         }
     };
 
+    const handleDownload = async () => {
+        try {
+            const response = await fetch(qrUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `activity-qr-${code}.png`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (e) {
+            toast.error('Không thể tải QR. Thử lại sau.');
+        }
+    };
+
     return (
         <ModalPortal onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-sm w-full animate-in fade-in zoom-in duration-300">
@@ -133,30 +155,55 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
                 <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 relative group">
                     <img src={qrUrl} alt="QR Code" className={`w-48 h-48 mix-blend-multiply transition ${refreshing ? 'opacity-30 blur-sm' : ''}`} />
                     {refreshing && <div className="absolute inset-0 flex items-center justify-center"><RotateCw className="animate-spin text-primary-700" size={32} /></div>}
+                    
+                    {!refreshing && (
+                        <button 
+                            onClick={handleDownload}
+                            className="absolute -bottom-3 -right-3 bg-white w-10 h-10 rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-primary-700 hover:bg-primary-50 transition"
+                            title="Tải về bộ mã QR"
+                        >
+                            <Download size={18} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="text-center mb-8">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1">Mã xác thực hoạt động</p>
-                    <p className="text-4xl font-black text-primary-700 tracking-[0.2em]">{code}</p>
+                    <div className="flex items-center justify-center gap-3">
+                        <p className="text-4xl font-black text-primary-700 tracking-[0.2em]">{code}</p>
+                        <button 
+                            onClick={() => {
+                                navigator.clipboard.writeText(code);
+                                toast.success('Đã sao chép mã!');
+                            }}
+                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-primary-700 transition"
+                            title="Sao chép mã"
+                        >
+                            <Copy size={20} />
+                        </button>
+                    </div>
                     {expiresAt && (
-                        <div className="mt-3 flex items-center justify-center gap-2">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${timeLeft === 'Đã hết hạn' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                        <div className="mt-3 flex flex-col items-center gap-1">
+                            <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${timeLeft === 'Đã hết hạn' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
                                 Hết hạn sau: {timeLeft}
+                            </span>
+                            <span className="text-[9px] font-bold text-gray-400">
+                                Hiệu lực đến: {new Date(expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ngày {new Date(expiresAt).toLocaleDateString('vi-VN')}
                             </span>
                         </div>
                     )}
                 </div>
 
-                <div className="flex gap-2 w-full">
+                <div className="flex flex-col gap-2 w-full">
                     <button 
                         onClick={handleRefresh} 
                         disabled={refreshing}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary-50 hover:bg-primary-100 text-primary-700 font-bold rounded-xl transition disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-primary-50 hover:bg-primary-100 text-primary-700 font-bold rounded-xl transition disabled:opacity-50"
                     >
                         <RotateCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        Làm mới mã
+                        Làm mới mã (15 phút)
                     </button>
-                    <button onClick={onClose} className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">Đóng</button>
+                    <button onClick={onClose} className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">Đóng</button>
                 </div>
             </div>
         </ModalPortal>
@@ -165,6 +212,7 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
 
 export default function ActivitiesPage() {
     const qc = useQueryClient();
+    const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [levelFilter, setLevelFilter] = useState('');
     const [branchFilter, setBranchFilter] = useState('');
@@ -207,11 +255,11 @@ export default function ActivitiesPage() {
         onError: e => toast.error(e.response?.data?.message || 'Lỗi!') 
     });
     const refreshCodeMutation = useMutation({ 
-        mutationFn: activityApi.refreshCode, 
+        mutationFn: (id) => activityApi.refreshCode(id, { checkinTTL: 15 }), 
         onSuccess: (res) => { 
             qc.invalidateQueries(['activities']); 
             setShowQR(prev => ({ ...prev, code: res.data.data.checkinCode, expiresAt: res.data.data.checkinCodeExpiresAt }));
-            toast.success('Đã làm mới mã điểm danh!'); 
+            toast.success('Đã làm mới mã điểm danh (15 phút)!'); 
         }, 
         onError: e => toast.error(e.response?.data?.message || 'Lỗi!') 
     });
@@ -323,6 +371,13 @@ export default function ActivitiesPage() {
                                                                 <QrCode size={16} />
                                                             </button>
                                                         )}
+                                                        <button 
+                                                            className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
+                                                            title="Danh sách tham gia"
+                                                            onClick={() => navigate(`${a.id}/participants`)}
+                                                        >
+                                                            <Users size={16} />
+                                                        </button>
                                                         <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(a)}><Pencil size={16} /></button>
                                                         <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
                                                             const result = await confirmDelete(a.title);

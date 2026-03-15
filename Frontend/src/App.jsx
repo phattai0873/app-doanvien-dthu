@@ -18,6 +18,7 @@ import EditNewsPage from './admin/pages/EditNewsPage';
 import NewsDetailPage from './admin/pages/NewsDetailPage';
 import QuizPage from './admin/pages/QuizPage';
 import CreateQuizPage from './admin/pages/CreateQuizPage';
+import EditQuizPage from './admin/pages/EditQuizPage';
 import MeetingsPage from './admin/pages/MeetingsPage';
 import DocumentsPage from './admin/pages/DocumentsPage';
 import NotificationsPage from './admin/pages/NotificationsPage';
@@ -26,6 +27,9 @@ import BannersPage from './admin/pages/BannersPage';
 import BranchesPage from './admin/pages/BranchesPage';
 import CellsPage from './admin/pages/CellsPage';
 import LandingSettingsPage from './admin/pages/LandingSettingsPage';
+import LocationsPage from './admin/pages/LocationsPage';
+import ActivityParticipantsPage from './admin/pages/ActivityParticipantsPage';
+import MeetingAttendancePage from './admin/pages/MeetingAttendancePage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +62,7 @@ function AppRoutes() {
         <Route path="news/view/:id" element={<NewsDetailPage />} />
         <Route path="quiz" element={<QuizPage />} />
         <Route path="quiz/create" element={<CreateQuizPage />} />
+        <Route path="quiz/edit/:id" element={<EditQuizPage />} />
         <Route path="meetings" element={<MeetingsPage />} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
@@ -66,6 +71,9 @@ function AppRoutes() {
         <Route path="branches" element={<BranchesPage />} />
         <Route path="cells" element={<CellsPage />} />
         <Route path="landing" element={<LandingSettingsPage />} />
+        <Route path="locations" element={<LocationsPage />} />
+        <Route path="activities/:id/participants" element={<ActivityParticipantsPage />} />
+        <Route path="meetings/:id/attendance" element={<MeetingAttendancePage />} />
       </Route>
       <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />

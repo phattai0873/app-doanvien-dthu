@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Users, QrCode, RotateCw } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Users, QrCode, RotateCw, Download, Copy, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { meetingApi, cellApi, locationApi } from '../../services/api';
 import { confirmDelete } from '../../utils/swal';
@@ -95,12 +96,16 @@ function MeetingModal({ meeting, cells, locations, onClose, onSave }) {
                             <input type="datetime-local" className={INPUT} value={form.meetingTime?.slice(0, 16) || ''} onChange={e => set('meetingTime', e.target.value)} />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Địa điểm *</label>
-                            <select className={INPUT} value={form.locationId || ''} onChange={e => set('locationId', e.target.value)}>
-                                <option value="">-- Chọn địa điểm --</option>
-                                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                            </select>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Thời gian hiệu lực QR (phút)</label>
+                            <input type="number" className={INPUT} value={form.checkinTTL || 15} onChange={e => set('checkinTTL', parseInt(e.target.value))} />
                         </div>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Địa điểm *</label>
+                        <select className={INPUT} value={form.locationId || ''} onChange={e => set('locationId', e.target.value)}>
+                            <option value="">-- Chọn địa điểm --</option>
+                            {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Nội dung tóm tắt</label>
@@ -110,87 +115,6 @@ function MeetingModal({ meeting, cells, locations, onClose, onSave }) {
                 <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
                     <button className={BTN_SECONDARY} onClick={onClose}>Đóng</button>
                     <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Lưu lịch họp</button>
-                </div>
-            </div>
-        </ModalPortal>
-    );
-}
-
-function AttendanceModal({ meeting, onClose }) {
-    const { data: attendanceData, isLoading } = useQuery({
-        queryKey: ['attendance', meeting.id],
-        queryFn: () => meetingApi.getAttendance(meeting.id)
-    });
-
-    const list = attendanceData?.data?.data || [];
-
-    const getStatusCls = (s) => {
-        switch (s) {
-            case 'PRESENT': return 'bg-green-100 text-green-700';
-            case 'LATE': return 'bg-yellow-100 text-yellow-700';
-            case 'ABSENT_REASON': return 'bg-blue-100 text-blue-700';
-            default: return 'bg-red-100 text-red-700';
-        }
-    };
-
-    const getStatusLabel = (s) => {
-        switch (s) {
-            case 'PRESENT': return 'Có mặt';
-            case 'LATE': return 'Muộn';
-            case 'ABSENT_REASON': return 'Phep';
-            case 'ABSENT_NO_REASON': return 'Vắng';
-            default: return s;
-        }
-    };
-
-    return (
-        <ModalPortal onClose={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <div>
-                        <h3 className="font-black text-gray-800 uppercase tracking-tight text-sm">Danh sách điểm danh</h3>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{meeting.title}</p>
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition">✕</button>
-                </div>
-                <div className="p-0 overflow-y-auto flex-1">
-                    {isLoading ? <div className="p-8 text-center text-gray-400 italic">Đang tải...</div>
-                        : list.length === 0 ? <div className="p-8 text-center text-gray-400 italic">Chưa có danh sách điểm danh (Buổi họp phải ở trạng thái Đang diễn ra)</div>
-                            : (
-                                <table className="w-full text-sm text-left">
-                                    <thead className="sticky top-0 bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b border-gray-100">
-                                        <tr>
-                                            <th className="px-6 py-3">Thành viên</th>
-                                            <th className="px-6 py-3 text-center">Trạng thái</th>
-                                            <th className="px-6 py-3">Thời gian</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {list.map(att => (
-                                            <tr key={att.id} className="hover:bg-gray-50/50 transition">
-                                                <td className="px-6 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <img src={att.UnionMember?.avatar || 'https://ui-avatars.com/api/?name=' + att.UnionMember?.fullName} className="w-8 h-8 rounded-full border border-gray-100" />
-                                                        <span className="font-bold text-gray-700">{att.UnionMember?.fullName}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-3 text-center">
-                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusCls(att.status)}`}>
-                                                        {getStatusLabel(att.status)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-3 text-[11px] text-gray-500 font-medium">
-                                                    {att.attendanceTime ? new Date(att.attendanceTime).toLocaleTimeString('vi-VN') : '—'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )
-                    }
-                </div>
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-                    <button className={BTN_SECONDARY} onClick={onClose}>Đóng</button>
                 </div>
             </div>
         </ModalPortal>
@@ -227,6 +151,23 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
         }
     };
 
+    const handleDownload = async () => {
+        try {
+            const response = await fetch(qrUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `meeting-qr-${code}.png`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (e) {
+            toast.error('Không thể tải QR. Thử lại sau.');
+        }
+    };
+
     return (
         <ModalPortal onClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-sm w-full animate-in fade-in zoom-in duration-300">
@@ -238,30 +179,55 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
                 <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 relative group">
                     <img src={qrUrl} alt="QR Code" className={`w-48 h-48 mix-blend-multiply transition ${refreshing ? 'opacity-30 blur-sm' : ''}`} />
                     {refreshing && <div className="absolute inset-0 flex items-center justify-center"><RotateCw className="animate-spin text-primary-700" size={32} /></div>}
+                    
+                    {!refreshing && (
+                        <button 
+                            onClick={handleDownload}
+                            className="absolute -bottom-3 -right-3 bg-white w-10 h-10 rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-primary-700 hover:bg-primary-50 transition"
+                            title="Tải về bộ mã QR"
+                        >
+                            <Download size={18} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="text-center mb-8">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1">Mã xác thực</p>
-                    <p className="text-4xl font-black text-primary-700 tracking-[0.2em]">{code}</p>
+                    <div className="flex items-center justify-center gap-3">
+                        <p className="text-4xl font-black text-primary-700 tracking-[0.2em]">{code}</p>
+                        <button 
+                            onClick={() => {
+                                navigator.clipboard.writeText(code);
+                                toast.success('Đã sao chép mã!');
+                            }}
+                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-primary-700 transition"
+                            title="Sao chép mã"
+                        >
+                            <Copy size={20} />
+                        </button>
+                    </div>
                     {expiresAt && (
-                        <div className="mt-3 flex items-center justify-center gap-2">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${timeLeft === 'Đã hết hạn' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                        <div className="mt-3 flex flex-col items-center gap-1">
+                            <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${timeLeft === 'Đã hết hạn' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
                                 Hết hạn sau: {timeLeft}
+                            </span>
+                            <span className="text-[9px] font-bold text-gray-400">
+                                Hiệu lực đến: {new Date(expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ngày {new Date(expiresAt).toLocaleDateString('vi-VN')}
                             </span>
                         </div>
                     )}
                 </div>
 
-                <div className="flex gap-2 w-full">
+                <div className="flex flex-col gap-2 w-full">
                     <button 
                         onClick={handleRefresh} 
                         disabled={refreshing}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary-50 hover:bg-primary-100 text-primary-700 font-bold rounded-xl transition disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-primary-50 hover:bg-primary-100 text-primary-700 font-bold rounded-xl transition disabled:opacity-50"
                     >
                         <RotateCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        Làm mới mã
+                        Làm mới mã (15 phút)
                     </button>
-                    <button onClick={onClose} className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">Đóng</button>
+                    <button onClick={onClose} className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">Đóng</button>
                 </div>
             </div>
         </ModalPortal>
@@ -270,10 +236,10 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
 
 export default function MeetingsPage() {
     const qc = useQueryClient();
+    const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [modal, setModal] = useState(null);
-    const [viewAttendance, setViewAttendance] = useState(null);
     const [showQR, setShowQR] = useState(null);
     const [levelFilter, setLevelFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
@@ -302,11 +268,11 @@ export default function MeetingsPage() {
     const deleteMutation = useMutation({ mutationFn: meetingApi.delete, onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã xóa!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const statusMutation = useMutation({ mutationFn: ({ id, status }) => meetingApi.updateStatus(id, status), onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã cập nhật trạng thái!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const refreshCodeMutation = useMutation({ 
-        mutationFn: meetingApi.refreshCode, 
+        mutationFn: (id) => meetingApi.refreshCode(id, { checkinTTL: 15 }), 
         onSuccess: (res) => { 
             qc.invalidateQueries(['meetings']); 
             setShowQR(prev => ({ ...prev, code: res.data.data.checkinCode, expiresAt: res.data.data.checkinCodeExpiresAt }));
-            toast.success('Đã làm mới mã điểm danh!'); 
+            toast.success('Đã làm mới mã điểm danh (15 phút)!'); 
         }, 
         onError: e => toast.error(e.response?.data?.message || 'Lỗi!') 
     });
@@ -342,6 +308,11 @@ export default function MeetingsPage() {
                     <option value="1">HK 1</option>
                     <option value="2">HK 2</option>
                 </select>
+                <div className="flex-1"></div>
+                <Link to="/admin/locations" className={BTN_SECONDARY}>
+                    <MapPin size={16} />
+                    Quản lý địa điểm
+                </Link>
                 <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Lên lịch họp mới</button>
             </div>
 
@@ -410,7 +381,7 @@ export default function MeetingsPage() {
                                                         <button 
                                                             className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
                                                             title="Danh sách điểm danh"
-                                                            onClick={() => setViewAttendance(m)}
+                                                            onClick={() => navigate(`${m.id}/attendance`)}
                                                         >
                                                             <Users size={15} />
                                                         </button>
@@ -457,7 +428,6 @@ export default function MeetingsPage() {
                 )}
             </div>
             {modal && <MeetingModal meeting={modal === 'add' ? null : modal} cells={cells} locations={locations} onClose={() => setModal(null)} onSave={handleSave} />}
-            {viewAttendance && <AttendanceModal meeting={viewAttendance} onClose={() => setViewAttendance(null)} />}
             {showQR && (
                 <QRModal 
                     title={showQR.title} 

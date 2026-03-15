@@ -18,7 +18,10 @@ const quizController = {
             }
         }
 
-        const result = await QuizService.getAll({ search, level, unionBranchId, unionCellId, page, limit });
+        const result = await QuizService.getAll({ 
+            search, level, status: req.query.status, 
+            unionBranchId, unionCellId, page, limit 
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -28,7 +31,7 @@ const quizController = {
     }),
 
     createExam: asyncHandler(async (req, res) => {
-        let { title, description, timeLimit, satisfactoryScore, startDate, endDate, questions } = req.body;
+        let { title, description, timeLimit, satisfactoryScore, startDate, endDate, status, questions } = req.body;
         
         let parsedQuestions = [];
         if (typeof questions === 'string') {
@@ -38,7 +41,7 @@ const quizController = {
         }
 
         const examData = {
-            title, description, timeLimit, satisfactoryScore, startDate, endDate,
+            title, description, timeLimit, satisfactoryScore, startDate, endDate, status,
             questions: parsedQuestions
         };
 
@@ -85,6 +88,35 @@ const quizController = {
 
         const result = await QuizService.getAttempts(req.params.id, { search, unionBranchId, page, limit });
         res.status(200).json({ success: true, ...result });
+    }),
+
+    updateExam: asyncHandler(async (req, res) => {
+        let { title, description, timeLimit, satisfactoryScore, startDate, endDate, status, questions } = req.body;
+        
+        const exam = await QuizService.getById(req.params.id);
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
+
+        let parsedQuestions = questions;
+        if (typeof questions === 'string') {
+            try { parsedQuestions = JSON.parse(questions); } catch(e) {}
+        }
+
+        const examData = {
+            title, description, timeLimit, satisfactoryScore, startDate, endDate, status,
+            questions: parsedQuestions
+        };
+
+        if (req.file) {
+            examData.thumbnail = `/uploads/quiz/thumbnails/${req.file.filename}`;
+        }
+
+        const updated = await QuizService.update(req.params.id, examData);
+        res.status(200).json({ success: true, data: updated });
+    }),
+
+    deleteExam: asyncHandler(async (req, res) => {
+        await QuizService.delete(req.params.id);
+        res.status(200).json({ success: true, message: 'Đã xóa kỳ thi thành công' });
     })
 };
 

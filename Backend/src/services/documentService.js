@@ -3,24 +3,15 @@ const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 
 class DocumentService {
-    static async getAll({ search, categoryId, level, unionBranchId, unionCellId, page, limit } = {}) {
+    static async getAll({ search, categoryId, status, page, limit } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
         
         const where = {
             ...buildSearchCondition(search, ['title', 'issuingAuthority']),
             ...(categoryId && { categoryId }),
-            ...(level && { level })
+            ...(status && { status })
         };
-
-        if (unionCellId) {
-            where.unionCellId = unionCellId;
-        } else if (unionBranchId) {
-            where[Op.and] = [
-                { unionBranchId },
-                { level: { [Op.ne]: 'CELL' } }
-            ];
-        }
 
         const result = await Document.findAndCountAll({
             where,
@@ -46,7 +37,6 @@ class DocumentService {
     static async create(data, file) {
         if (file) {
             data.filePath = `/uploads/documents/${file.filename}`;
-            data.fileType = file.mimetype;
         } else if (!data.filePath) {
             throw new ErrorResponse('Vui lòng tải lên tập tin văn bản', 400);
         }
@@ -59,7 +49,6 @@ class DocumentService {
         
         if (file) {
             data.filePath = `/uploads/documents/${file.filename}`;
-            data.fileType = file.mimetype;
         }
         
         await doc.update(data);
@@ -73,8 +62,39 @@ class DocumentService {
         return { message: 'Đã xóa văn bản thành công' };
     }
 
+    static async toggleStatus(id) {
+        const doc = await Document.findByPk(id);
+        if (!doc) throw new ErrorResponse('Không tìm thấy văn bản', 404);
+        doc.status = doc.status === 'PUBLISH' ? 'PRIVATE' : 'PUBLISH';
+        await doc.save();
+        return doc;
+    }
+
     static async getCategories() {
         return await DocumentCategory.findAll({ order: [['name', 'ASC']] });
+    }
+
+    static async createCategory(data) {
+        return await DocumentCategory.create(data);
+    }
+
+    static async updateCategory(id, data) {
+        const cat = await DocumentCategory.findByPk(id);
+        if (!cat) throw new ErrorResponse('Không tìm thấy chuyên mục', 404);
+        await cat.update(data);
+        return cat;
+    }
+
+    static async deleteCategory(id) {
+        const cat = await DocumentCategory.findByPk(id);
+        if (!cat) throw new ErrorResponse('Không tìm thấy chuyên mục', 404);
+        
+        // Check if there are documents in this category
+        const docCount = await Document.count({ where: { categoryId: id } });
+        if (docCount > 0) throw new ErrorResponse('Không thể xóa chuyên mục đang có văn bản', 400);
+
+        await cat.destroy();
+        return { message: 'Đã xóa chuyên mục thành công' };
     }
 }
 

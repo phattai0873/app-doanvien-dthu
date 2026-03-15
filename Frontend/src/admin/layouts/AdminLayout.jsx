@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     LayoutDashboard, Users, Building2, Network,
     Calendar, Newspaper, BookOpen, Wallet, LogOut, Shield,
-    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2
+    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2, MapPin
 } from 'lucide-react';
 import { authApi } from '../../services/api';
 import ModalPortal from '../../components/ModalPortal';
@@ -44,6 +44,7 @@ const PAGE_TITLES = {
     '/admin/users': 'Quản lý Tài khoản',
     '/admin/banners': 'Quản lý Banner',
     '/admin/landing': 'Quản lý Trang Landing',
+    '/admin/locations': 'Quản lý Địa điểm',
 };
 
 export default function AdminLayout() {

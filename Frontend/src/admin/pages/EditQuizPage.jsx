@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, ArrowRight, ArrowLeft, Image as ImageIcon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Trash2, ArrowRight, ArrowLeft, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { quizApi } from '../../services/api';
 
 const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition";
 const BTN_PRIMARY = "flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-50 shadow-sm";
 
-export default function CreateQuizPage() {
+export default function EditQuizPage() {
+    const { id } = useParams();
     const navigate = useNavigate();
     const qc = useQueryClient();
 
@@ -21,11 +22,49 @@ export default function CreateQuizPage() {
         questions: [{ content: '', score: 10, options: [{ content: '', isCorrect: true }, { content: '', isCorrect: false }] }]
     });
 
-    const createMutation = useMutation({
-        mutationFn: quizApi.create,
+    const { data: quizData, isLoading } = useQuery({
+        queryKey: ['quiz', id],
+        queryFn: () => quizApi.getById(id),
+        enabled: !!id
+    });
+
+    useEffect(() => {
+        if (quizData?.data?.data) {
+            const quiz = quizData.data.data;
+            const formatDT = (dt) => {
+                if (!dt) return '';
+                const d = new Date(dt);
+                const pad = (n) => n.toString().padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            };
+
+            setForm({
+                title: quiz.title || '',
+                description: quiz.description || '',
+                timeLimit: quiz.timeLimit || 15,
+                satisfactoryScore: quiz.satisfactoryScore || 50,
+                level: quiz.level || 'SCHOOL',
+                startDate: formatDT(quiz.startDate),
+                endDate: formatDT(quiz.endDate),
+                status: quiz.status || 'UPCOMING',
+                questions: quiz.QuizQuestions?.map(q => ({
+                    content: q.content,
+                    score: q.score,
+                    options: q.QuizOptions?.map(o => ({
+                        content: o.content,
+                        isCorrect: o.isCorrect
+                    })) || []
+                })) || []
+            });
+            if (quiz.thumbnail) setPreview(`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}${quiz.thumbnail}`);
+        }
+    }, [quizData]);
+
+    const updateMutation = useMutation({
+        mutationFn: (data) => quizApi.update(id, data),
         onSuccess: () => {
             qc.invalidateQueries(['quiz']);
-            toast.success('Đã tạo kỳ thi thành công!');
+            toast.success('Đã cập nhật kỳ thi thành công!');
             navigate('/admin/quiz');
         },
         onError: (err) => toast.error(err.response?.data?.message || 'Có lỗi xảy ra!')
@@ -64,14 +103,15 @@ export default function CreateQuizPage() {
         finalForm.append('level', form.level);
         if (form.startDate) finalForm.append('startDate', form.startDate);
         if (form.endDate) finalForm.append('endDate', form.endDate);
-        finalForm.append('status', form.status);
         finalForm.append('questions', JSON.stringify(form.questions));
         if (file) {
             finalForm.append('thumbnail', file);
         }
 
-        createMutation.mutate(finalForm);
+        updateMutation.mutate(finalForm);
     };
+
+    if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary-700" size={40} /></div>;
 
     return (
         <div className="max-w-10xl mx-auto space-y-6">
@@ -80,8 +120,8 @@ export default function CreateQuizPage() {
                     <ArrowLeft size={20} />
                 </button>
                 <div>
-                    <h1 className="text-xl font-black text-gray-800 tracking-tight">Tạo Kỳ thi / Khảo sát mới</h1>
-                    <p className="text-sm text-gray-500 font-medium">Thiết lập thông tin và câu hỏi cho bài kiểm tra</p>
+                    <h1 className="text-xl font-black text-gray-800 tracking-tight">Chỉnh sửa Kỳ thi / Khảo sát</h1>
+                    <p className="text-sm text-gray-500 font-medium">Cập nhật thông tin và danh sách câu hỏi</p>
                 </div>
             </div>
 
@@ -169,12 +209,12 @@ export default function CreateQuizPage() {
                             </div>
 
                             <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
-                                <button 
+                                <button
                                     className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition"
                                     onClick={handleSave}
-                                    disabled={createMutation.isLoading}
+                                    disabled={updateMutation.isLoading}
                                 >
-                                    {createMutation.isLoading ? 'Đang lưu...' : 'Lưu bản nháp'}
+                                    {updateMutation.isLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
                                 </button>
                                 <button className={BTN_PRIMARY} onClick={() => setStep(2)}>Tiếp tục: Cập nhật Câu hỏi <ArrowRight size={16} /></button>
                             </div>
@@ -226,8 +266,8 @@ export default function CreateQuizPage() {
 
                             <div className="pt-6 flex justify-between border-t border-gray-100">
                                 <button className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition" onClick={() => setStep(1)}>Quay lại thông tin chung</button>
-                                <button className={BTN_PRIMARY} onClick={handleSave} disabled={createMutation.isLoading}>
-                                    {createMutation.isLoading ? 'Đang lưu...' : 'Lưu và Phát hành Kỳ thi'}
+                                <button className={BTN_PRIMARY} onClick={handleSave} disabled={updateMutation.isLoading}>
+                                    {updateMutation.isLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
                                 </button>
                             </div>
                         </div>

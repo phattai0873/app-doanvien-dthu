@@ -38,9 +38,10 @@ export const documentService = {
         }
 
         // API THỰC
-        const params = categoryId !== 'all' ? { categoryId } : {};
+        const params = { status: 'PUBLISH' };
+        if (categoryId !== 'all') params.categoryId = categoryId;
         const response = await apiClient.get('/api/documents', { params });
-        // Backend returns { success, data }
+        // Backend returns { success, data, pagination }
         return response.data || [];
     },
 

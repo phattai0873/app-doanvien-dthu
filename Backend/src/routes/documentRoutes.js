@@ -10,6 +10,10 @@ router.get('/:id', documentController.getDocumentById);
 
 // Protected routes
 router.use(protect);
+router.post('/categories', documentController.createCategory);
+router.put('/categories/:id', documentController.updateCategory);
+router.delete('/categories/:id', documentController.deleteCategory);
+router.patch('/:id/toggle-status', documentController.toggleStatus);
 router.post('/', uploadDocument, documentController.createDocument);
 router.put('/:id', uploadDocument, documentController.updateDocument);
 router.delete('/:id', documentController.deleteDocument);

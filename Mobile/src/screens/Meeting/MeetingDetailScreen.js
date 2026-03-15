@@ -9,7 +9,8 @@ import {
     Alert,
     Modal,
     Image,
-    Dimensions
+    Dimensions,
+    Clipboard
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
@@ -43,9 +44,9 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                 if (currentUser && currentUser.Roles && currentUser.Roles.length > 0) {
                     currentUser.role = currentUser.Roles[0].code; // gán role string để dễ dùng
                 }
-                
+
                 setUser(currentUser);
-                
+
                 // Mapping dữ liệu
                 const date = new Date(m.meetingTime);
                 const dateStr = date.toLocaleDateString('vi-VN');
@@ -226,7 +227,7 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                             </>
                         )}
                     </TouchableOpacity>
-                    
+
                     {/* Admin QR Action */}
                     {(user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN') && meeting.checkinCode && (
                         <TouchableOpacity
@@ -259,7 +260,7 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                         </View>
 
                         <View style={styles.qrContainer}>
-                            <Image 
+                            <Image
                                 source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${meeting.checkinCode}` }}
                                 style={[styles.qrImage, refreshing && { opacity: 0.3 }]}
                             />
@@ -267,17 +268,33 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                         </View>
 
                         <Text style={styles.qrLabel}>Mã xác nhận</Text>
-                        <Text style={styles.qrCodeText}>{meeting.checkinCode}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Text style={styles.qrCodeText}>{meeting.checkinCode}</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Clipboard.setString(meeting.checkinCode);
+                                    Alert.alert('Thành công', 'Đã sao chép mã điểm danh');
+                                }}
+                                style={{ backgroundColor: '#F3F4F6', p: 8, borderRadius: 8, padding: 8 }}
+                            >
+                                <Icon name="Copy" size={18} color={COLORS.primary} />
+                            </TouchableOpacity>
+                        </View>
 
                         {meeting.checkinCodeExpiresAt && (
-                            <View style={styles.expireTag}>
-                                <Text style={styles.expireText}>Hết hạn trong: {timeLeft}</Text>
+                            <View style={{ alignItems: 'center', marginTop: 12 }}>
+                                <View style={styles.expireTag}>
+                                    <Text style={styles.expireText}>Hết hạn trong: {timeLeft}</Text>
+                                </View>
+                                <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4, fontWeight: 'bold' }}>
+                                    Hiệu lực đến: {new Date(meeting.checkinCodeExpiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ngày {new Date(meeting.checkinCodeExpiresAt).toLocaleDateString('vi-VN')}
+                                </Text>
                             </View>
                         )}
 
                         <View style={styles.modalFooter}>
-                            <TouchableOpacity 
-                                style={styles.refreshBtn} 
+                            <TouchableOpacity
+                                style={styles.refreshBtn}
                                 onPress={handleRefreshCode}
                                 disabled={refreshing}
                             >

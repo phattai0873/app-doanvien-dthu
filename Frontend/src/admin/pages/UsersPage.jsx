@@ -50,23 +50,10 @@ function UserModal({ user, onClose, onSave }) {
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-5 space-y-4">
-                    <div className="flex items-center gap-4">
-                        <label className="w-16 h-16 rounded-full border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 cursor-pointer overflow-hidden relative group shrink-0 hover:border-primary-500 transition">
-                            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-                            {preview ? (
-                                <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                            ) : (
-                                <Plus size={20} className="text-gray-400" />
-                            )}
-                            <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition">
-                                <span className="text-white text-[10px] uppercase font-bold text-center">Đổi ảnh</span>
-                            </div>
-                        </label>
-                        <div className="flex-1">
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">Tên đăng nhập *</label>
-                            <input className={INPUT} value={form.username} onChange={e => set('username', e.target.value)} placeholder="admin, bithuvien01..." disabled={isEdit} />
-                            {isEdit && <p className="text-xs text-gray-400 mt-1">Không thể thay đổi tên đăng nhập</p>}
-                        </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Tên đăng nhập *</label>
+                        <input className={INPUT} value={form.username} onChange={e => set('username', e.target.value)} placeholder="admin, bithuvien01..." disabled={isEdit} />
+                        {isEdit && <p className="text-xs text-gray-400 mt-1">Không thể thay đổi tên đăng nhập</p>}
                     </div>
                     {!isEdit && (
                         <div>
@@ -226,18 +213,9 @@ export default function UsersPage() {
                                                 <tr key={u.id} className="hover:bg-gray-50/50 transition">
                                                     {/* Tài khoản */}
                                                     <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-700 font-black text-sm border border-primary-100 shadow-sm overflow-hidden">
-                                                                {u.avatar ? (
-                                                                    <img src={getAvatarUrl(u.avatar)} alt="Avt" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    u.username?.[0]?.toUpperCase()
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-bold text-gray-800">{u.username}</p>
-                                                                <p className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-tighter">ID: {u.id?.slice(0, 8)}</p>
-                                                            </div>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800">{u.username}</p>
+                                                            <p className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-tighter">ID: {u.id?.slice(0, 8)}</p>
                                                         </div>
                                                     </td>
                                                     {/* Vai trò */}
