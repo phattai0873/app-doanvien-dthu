@@ -15,6 +15,7 @@ import ActivitiesPage from './admin/pages/ActivitiesPage';
 import NewsPage from './admin/pages/NewsPage';
 import CreateNewsPage from './admin/pages/CreateNewsPage';
 import EditNewsPage from './admin/pages/EditNewsPage';
+import NewsDetailPage from './admin/pages/NewsDetailPage';
 import QuizPage from './admin/pages/QuizPage';
 import CreateQuizPage from './admin/pages/CreateQuizPage';
 import MeetingsPage from './admin/pages/MeetingsPage';
@@ -54,6 +55,7 @@ function AppRoutes() {
         <Route path="news" element={<NewsPage />} />
         <Route path="news/create" element={<CreateNewsPage />} />
         <Route path="news/edit/:id" element={<EditNewsPage />} />
+        <Route path="news/view/:id" element={<NewsDetailPage />} />
         <Route path="quiz" element={<QuizPage />} />
         <Route path="quiz/create" element={<CreateQuizPage />} />
         <Route path="meetings" element={<MeetingsPage />} />

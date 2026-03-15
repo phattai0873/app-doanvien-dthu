@@ -2,25 +2,55 @@ const { UnionCell, UnionBranch, UnionMember } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 
 class UnionCellService {
-    static async getAll({ unionBranchId } = {}) {
-        const where = {};
-        if (unionBranchId) where.unionBranchId = unionBranchId;
+    static async getAll({ unionBranchId, courseYear, status, search, page = 1, limit = 10 } = {}) {
+        const { sequelize } = require('../configs/db');
+        const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
+        const { offset, limit: l } = getPagination({ page, limit });
 
-        return await UnionCell.findAll({
+        const where = {
+            ...buildSearchCondition(search, ['name', 'code', 'courseYear']),
+        };
+        if (unionBranchId) where.unionBranchId = unionBranchId;
+        if (courseYear) where.courseYear = courseYear;
+        if (status) where.status = status;
+
+        const result = await UnionCell.findAndCountAll({
             where,
+            attributes: {
+                include: [
+                    [
+                        sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM union_members AS member
+                            WHERE
+                                member."unionCellId" = "UnionCell".id
+                        )`),
+                        'totalMembers'
+                    ]
+                ]
+            },
             include: [
                 { model: UnionBranch, attributes: ['id', 'name', 'code'] },
-                { model: UnionMember, as: 'SecretaryOfCell', attributes: ['id', 'fullName'] }
+                { 
+                    model: UnionMember, 
+                    as: 'SecretaryOfCell', 
+                    attributes: ['id', 'fullName'],
+                    include: [{ model: require('../models').User, attributes: ['id', 'avatar'] }]
+                }
             ],
-            order: [['name', 'ASC']]
+            order: [['name', 'ASC']],
+            limit: l,
+            offset
         });
+
+        return formatPaginatedResponse(result, page, l);
     }
 
     static async getById(id) {
         const cell = await UnionCell.findByPk(id, {
             include: [
                 { model: UnionBranch, attributes: ['id', 'name', 'code'] },
-                { model: UnionMember, attributes: ['id', 'fullName', 'memberCode'] }
+                { model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'roleInUnion', 'activityStatus'] }
             ]
         });
         if (!cell) throw new ErrorResponse('Không tìm thấy chi đoàn', 404);

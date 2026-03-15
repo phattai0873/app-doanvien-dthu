@@ -9,14 +9,13 @@ const UnionBranch = sequelize.define('UnionBranch', {
     },
     code: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
     },
     name: {
         type: DataTypes.STRING,
         allowNull: false
     },
-    partyLevel: {
+    unionLevel: {
         type: DataTypes.STRING
     },
     officeAddress: {
@@ -25,9 +24,32 @@ const UnionBranch = sequelize.define('UnionBranch', {
     phoneNumber: {
         type: DataTypes.STRING
     },
+    status: {
+        type: DataTypes.ENUM('active', 'inactive'),
+        defaultValue: 'active'
+    },
+    termStartYear: {
+        type: DataTypes.INTEGER
+    },
+    termEndYear: {
+        type: DataTypes.INTEGER
+    },
+    logoUrl: {
+        type: DataTypes.STRING
+    },
+    displayOrder: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    }
 }, {
     tableName: 'union_branches',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['code']
+        }
+    ]
 });
 
 module.exports = UnionBranch;

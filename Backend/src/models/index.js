@@ -7,9 +7,11 @@ const UnionCell = require('./UnionCell');
 const UnionMember = require('./UnionMember');
 const UnionPosition = require('./UnionPosition');
 const UnionMemberPosition = require('./UnionMemberPosition');
+const UnionMemberHistory = require('./UnionMemberHistory');
 const Activity = require('./Activity');
+const ActivityParticipant = require('./ActivityParticipant');
 const Attendance = require('./Attendance');
-const CellMeeting = require('./CellMeeting');
+const Meeting = require('./Meeting');
 const News = require('./News');
 const NewsCategory = require('./NewsCategory');
 const Document = require('./Document');
@@ -24,8 +26,6 @@ const UnionFeePayment = require('./UnionFeePayment');
 const CellMeetingLocation = require('./CellMeetingLocation');
 const Banner = require('./Banner');
 const LandingConfig = require('./LandingConfig');
-
-// ... (Associations)
 
 // Associations
 
@@ -52,10 +52,7 @@ AuditLog.belongsTo(User, { foreignKey: 'userId' });
 UnionBranch.hasMany(UnionCell, { foreignKey: 'unionBranchId' });
 UnionCell.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
-// UnionBranch & UnionMember
-UnionBranch.hasMany(UnionMember, { foreignKey: 'unionBranchId' });
-UnionMember.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
-
+// UnionCell & UnionMember
 UnionCell.hasMany(UnionMember, { foreignKey: 'unionCellId' });
 UnionMember.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 
@@ -74,25 +71,45 @@ UnionPosition.belongsToMany(UnionMember, { through: UnionMemberPosition, foreign
 UnionCell.hasMany(UnionMemberPosition, { foreignKey: 'unionCellId' });
 UnionMemberPosition.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 
-// Activity & Attendance
+// UnionMember History
+UnionMember.hasMany(UnionMemberHistory, { foreignKey: 'unionMemberId' });
+UnionMemberHistory.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+// Activity & Attendance (Nếu vẫn dùng - tuy nhiên ActivityParticipant được ưu tiên hơn)
 Activity.hasMany(Attendance, { foreignKey: 'activityId' });
 Attendance.belongsTo(Activity, { foreignKey: 'activityId' });
+
+// Meeting & Attendance
+Meeting.hasMany(Attendance, { foreignKey: 'meetingId', as: 'Attendances' });
+Attendance.belongsTo(Meeting, { foreignKey: 'meetingId' });
 
 UnionBranch.hasMany(Activity, { foreignKey: 'unionBranchId' });
 Activity.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
+Activity.belongsTo(UnionBranch, { foreignKey: 'organizedByBranchId', as: 'OrganizerBranch' });
+Activity.belongsTo(UnionCell, { foreignKey: 'organizedByCellId', as: 'OrganizerCell' });
+UnionBranch.hasMany(Activity, { foreignKey: 'organizedByBranchId', as: 'OrganizedActivities' });
+UnionCell.hasMany(Activity, { foreignKey: 'organizedByCellId', as: 'OrganizedActivities' });
+
 UnionMember.hasMany(Attendance, { foreignKey: 'unionMemberId' });
 Attendance.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
 
-// CellMeeting
-UnionCell.hasMany(CellMeeting, { foreignKey: 'unionCellId' });
-CellMeeting.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
+// Meeting
+Meeting.belongsTo(UnionBranch, { foreignKey: 'organizerBranchId', as: 'OrganizerBranch' });
+Meeting.belongsTo(UnionCell, { foreignKey: 'organizerCellId', as: 'OrganizerCell' });
+UnionBranch.hasMany(Meeting, { foreignKey: 'organizerBranchId' });
+UnionCell.hasMany(Meeting, { foreignKey: 'organizerCellId' });
 
-UnionMember.hasMany(CellMeeting, { foreignKey: 'secretaryId', as: 'ScribedMeetings' });
+Meeting.belongsTo(UnionMember, { foreignKey: 'chairpersonId', as: 'Chairperson' });
+Meeting.belongsTo(UnionMember, { foreignKey: 'secretaryId', as: 'Secretary' });
+Meeting.belongsTo(CellMeetingLocation, { foreignKey: 'locationId', as: 'Location' });
 
-// CellMeeting & Location
-CellMeetingLocation.hasMany(CellMeeting, { foreignKey: 'locationId' });
-CellMeeting.belongsTo(CellMeetingLocation, { foreignKey: 'locationId' });
+// Activity & Participant
+Activity.hasMany(ActivityParticipant, { foreignKey: 'activityId' });
+ActivityParticipant.belongsTo(Activity, { foreignKey: 'activityId' });
+
+UnionMember.hasMany(ActivityParticipant, { foreignKey: 'memberId' });
+ActivityParticipant.belongsTo(UnionMember, { foreignKey: 'memberId' });
 
 // News & Categories
 NewsCategory.hasMany(News, { foreignKey: 'categoryId' });
@@ -104,6 +121,9 @@ News.belongsTo(User, { foreignKey: 'authorId' });
 UnionBranch.hasMany(News, { foreignKey: 'unionBranchId' });
 News.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
+UnionCell.hasMany(News, { foreignKey: 'unionCellId' });
+News.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
+
 // Document & Categories
 DocumentCategory.hasMany(Document, { foreignKey: 'categoryId' });
 Document.belongsTo(DocumentCategory, { foreignKey: 'categoryId' });
@@ -111,8 +131,11 @@ Document.belongsTo(DocumentCategory, { foreignKey: 'categoryId' });
 UnionBranch.hasMany(Document, { foreignKey: 'unionBranchId' });
 Document.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
+UnionCell.hasMany(Document, { foreignKey: 'unionCellId' });
+Document.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
+
 // Notification & ReadStatus
-Notification.hasMany(NotificationReadStatus, { foreignKey: 'notificationId' });
+Notification.hasMany(NotificationReadStatus, { foreignKey: 'notificationId', as: 'ReadStatuses' });
 NotificationReadStatus.belongsTo(Notification, { foreignKey: 'notificationId' });
 
 User.hasMany(NotificationReadStatus, { foreignKey: 'userId' });
@@ -124,6 +147,9 @@ QuizQuestion.belongsTo(QuizExam, { foreignKey: 'examId' });
 
 UnionBranch.hasMany(QuizExam, { foreignKey: 'unionBranchId' });
 QuizExam.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
+
+UnionCell.hasMany(QuizExam, { foreignKey: 'unionCellId' });
+QuizExam.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 
 QuizQuestion.hasMany(QuizOption, { foreignKey: 'questionId' });
 QuizOption.belongsTo(QuizQuestion, { foreignKey: 'questionId' });
@@ -146,9 +172,9 @@ UnionFeePayment.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
 module.exports = {
     User, Role, Permission, AuditLog,
-    UnionBranch, UnionCell, UnionMember,
+    UnionBranch, UnionCell, UnionMember, UnionMemberHistory,
     UnionPosition, UnionMemberPosition,
-    Activity, Attendance, CellMeeting,
+    Activity, ActivityParticipant, Attendance, Meeting,
     News, NewsCategory,
     Document, DocumentCategory,
     Notification, NotificationReadStatus,

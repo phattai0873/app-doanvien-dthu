@@ -23,12 +23,11 @@ export default function Dashboard() {
     const membersQ = useQuery({ queryKey: ['members-count'], queryFn: () => memberApi.getAll({ limit: 1 }) });
     const activitiesQ = useQuery({ queryKey: ['activities-count'], queryFn: () => activityApi.getAll({ limit: 1 }) });
     const newsQ = useQuery({ queryKey: ['news-count'], queryFn: () => newsApi.getAll({ limit: 1 }) });
-    const quizQ = useQuery({ queryKey: ['quiz-count'], queryFn: () => quizApi.getAll({ limit: 1 }) });
 
     const quickLinks = [
         { label: 'Quản lý hồ sơ Đoàn viên', desc: 'Thêm, sửa, xóa thông tin đoàn viên', icon: '👤' },
-        { label: 'Điểm danh Hoạt động', desc: 'Ghi nhận điểm rèn luyện tham gia', icon: '✅' },
-        { label: 'Phân công Chức vụ', desc: 'Quản lý vai trò trong chi bộ', icon: '🏛️' },
+        { label: 'Điểm danh Hoạt động', desc: 'Ghi nhận tham gia hoạt động', icon: '✅' },
+        { label: 'Phân công Chức vụ', desc: 'Quản lý vai trò trong chi đoàn', icon: '🏛️' },
     ];
 
     return (
@@ -38,7 +37,6 @@ export default function Dashboard() {
                 <StatCard title="Tổng đoàn viên" icon={Users} colorClasses="bg-primary-50 text-primary-700" query={membersQ} />
                 <StatCard title="Hoạt động" icon={Calendar} colorClasses="bg-indigo-50 text-indigo-700" query={activitiesQ} />
                 <StatCard title="Bài tin tức" icon={Newspaper} colorClasses="bg-green-50 text-green-700" query={newsQ} />
-                <StatCard title="Kỳ thi / Khảo sát" icon={BookOpen} colorClasses="bg-orange-50 text-orange-700" query={quizQ} />
             </div>
 
             {/* Welcome card */}

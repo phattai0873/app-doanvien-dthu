@@ -15,7 +15,7 @@ const FILE_TYPE_OPTIONS = ['pdf', 'docx', 'xlsx', 'pptx', 'other'];
 
 function DocumentModal({ doc, onClose, onSave }) {
     const [form, setForm] = useState(doc || {
-        title: '', filePath: '', fileType: 'pdf', issuedDate: '', issuingAuthority: '', categoryId: ''
+        title: '', filePath: '', fileType: 'pdf', issuedDate: '', issuingAuthority: '', categoryId: '', level: 'SCHOOL'
     });
     const [file, setFile] = useState(null);
     const { data: catRes } = useQuery({ queryKey: ['doc-categories'], queryFn: documentApi.getCategories });
@@ -103,9 +103,17 @@ function DocumentModal({ doc, onClose, onSave }) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày ban hành</label>
-                            <input type="date" className={INPUT} value={form.issuedDate?.slice(0, 10) || ''} onChange={e => set('issuedDate', e.target.value)} />
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Phạm vi hiển thị</label>
+                            <select className={INPUT} value={form.level || 'SCHOOL'} onChange={e => set('level', e.target.value)}>
+                                <option value="SCHOOL">Cấp Trường</option>
+                                <option value="BRANCH">Cấp Khoa</option>
+                                <option value="CELL">Cấp Lớp</option>
+                            </select>
                         </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày ban hành</label>
+                        <input type="date" className={INPUT} value={form.issuedDate?.slice(0, 10) || ''} onChange={e => set('issuedDate', e.target.value)} />
                     </div>
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
@@ -128,11 +136,21 @@ export default function DocumentsPage() {
     const qc = useQueryClient();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [levelFilter, setLevelFilter] = useState('');
+    const [branchFilter, setBranchFilter] = useState('');
+    const [cellFilter, setCellFilter] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
     const [modal, setModal] = useState(null);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['documents', search, page],
-        queryFn: () => documentApi.getAll({ search, page, limit: 10 }),
+        queryKey: ['documents', search, page, levelFilter, branchFilter, cellFilter, categoryFilter],
+        queryFn: () => documentApi.getAll({ 
+            search, page, limit: 10,
+            level: levelFilter || undefined,
+            unionBranchId: branchFilter || undefined,
+            unionCellId: cellFilter || undefined,
+            categoryId: categoryFilter || undefined
+        }),
         keepPreviousData: true,
     });
 
@@ -150,8 +168,14 @@ export default function DocumentsPage() {
             <div className="flex gap-3 flex-wrap">
                 <div className="relative">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-72 outline-none focus:border-primary-700 transition" placeholder="Tìm kiếm văn bản..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                    <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition" placeholder="Tìm kiếm văn bản..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                 </div>
+                <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium text-primary-700 bg-primary-50 border-primary-100" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
+                    <option value="">Cấp độ</option>
+                    <option value="SCHOOL">Cấp Trường</option>
+                    <option value="BRANCH">Cấp Khoa</option>
+                    <option value="CELL">Cấp Lớp</option>
+                </select>
                 <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm văn bản</button>
             </div>
 
@@ -165,7 +189,12 @@ export default function DocumentsPage() {
                         : docs.length === 0 ? <div className="text-center py-12 text-gray-400 text-sm">Chưa có văn bản nào</div>
                             : <table className="w-full text-sm">
                                 <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500">
-                                    <th className="px-4 py-3 text-left">Tiêu đề</th><th className="px-4 py-3 text-left">Loại</th><th className="px-4 py-3 text-left">Cơ quan ban hành</th><th className="px-4 py-3 text-left">Ngày ban hành</th><th className="px-4 py-3 text-left">Thao tác</th>
+                                    <th className="px-4 py-3 text-left">Tiêu đề</th>
+                                    <th className="px-4 py-3 text-left">Cấp độ</th>
+                                    <th className="px-4 py-3 text-left">Loại</th>
+                                    <th className="px-4 py-3 text-left">Cơ quan ban hành</th>
+                                    <th className="px-4 py-3 text-left">Ngày ban hành</th>
+                                    <th className="px-4 py-3 text-left">Thao tác</th>
                                 </tr></thead>
                                 <tbody>
                                     {docs.map(d => (
@@ -175,6 +204,11 @@ export default function DocumentsPage() {
                                                     <FileText size={16} className="text-gray-400 flex-shrink-0" />
                                                     <span className="font-semibold">{d.title}</span>
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${d.level === 'SCHOOL' ? 'bg-purple-100 text-purple-700' : d.level === 'BRANCH' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                    {d.level === 'SCHOOL' ? 'Trường' : d.level === 'BRANCH' ? 'Khoa' : 'Lớp'}
+                                                </span>
                                             </td>
                                             <td className="px-4 py-3"><span className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase ${FILE_TYPE_COLORS[d.fileType] || 'bg-gray-100 text-gray-600'}`}>{d.fileType || 'file'}</span></td>
                                             <td className="px-4 py-3 text-gray-500">{d.issuingAuthority || '—'}</td>

@@ -3,17 +3,22 @@ const DocumentService = require('../services/documentService');
 
 const documentController = {
     getDocuments: asyncHandler(async (req, res) => {
-        let { search, categoryId, unionBranchId, page, limit } = req.query;
+        let { search, categoryId, level, unionBranchId, unionCellId, page, limit } = req.query;
 
-        // Phân quyền: Thấy văn bản của khoa mình + văn bản chung toàn trường
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin) {
+            if (isBranchAdmin && req.user.unionBranchId) {
+                unionBranchId = req.user.unionBranchId;
+            } else if (isCellAdmin && req.user.unionCellId) {
+                unionCellId = req.user.unionCellId;
+            }
         }
 
-        const result = await DocumentService.getAll({ search, categoryId, unionBranchId, page, limit });
+        const result = await DocumentService.getAll({ search, categoryId, level, unionBranchId, unionCellId, page, limit });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -25,12 +30,19 @@ const documentController = {
     createDocument: asyncHandler(async (req, res) => {
         const data = req.body;
 
-        // Tự động gán khoa nếu là Admin khoa
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            data.unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin) {
+            if (isCellAdmin && req.user.unionCellId) {
+                data.unionCellId = req.user.unionCellId;
+                data.level = 'CELL';
+            } else if (isBranchAdmin && req.user.unionBranchId) {
+                data.unionBranchId = req.user.unionBranchId;
+                data.level = 'BRANCH';
+            }
         }
 
         const doc = await DocumentService.create(data, req.file);

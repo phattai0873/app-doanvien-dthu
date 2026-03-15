@@ -6,6 +6,7 @@ const { protect } = require('../middlewares/authMiddleware');
 router.use(protect);
 
 router.get('/', unionCellController.getCells);
+router.get('/my', unionCellController.getMyCell);
 router.post('/', unionCellController.createCell);
 router.get('/:id', unionCellController.getCell);
 router.put('/:id', unionCellController.updateCell);

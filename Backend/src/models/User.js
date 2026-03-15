@@ -16,6 +16,11 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: { isEmail: true }
+    },
     tokenDevice: {
         type: DataTypes.STRING
     },
@@ -36,6 +41,15 @@ const User = sequelize.define('User', {
     },
     avatar: {
         type: DataTypes.STRING,
+        allowNull: true
+    },
+    // New scoping fields for Admins
+    unionBranchId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    unionCellId: {
+        type: DataTypes.UUID,
         allowNull: true
     }
 }, {

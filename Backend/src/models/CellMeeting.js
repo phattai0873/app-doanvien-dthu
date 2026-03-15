@@ -28,10 +28,22 @@ const CellMeeting = sequelize.define('CellMeeting', {
     locationId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    chairpersonId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    secretaryId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    unionCellId: {
+        type: DataTypes.UUID,
+        allowNull: true
     }
 }, {
     tableName: 'cell_meetings',
     timestamps: true
 });
 
-module.exports = CellMeeting;   
+module.exports = CellMeeting;

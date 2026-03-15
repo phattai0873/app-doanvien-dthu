@@ -15,28 +15,48 @@ const Notification = sequelize.define('Notification', {
         type: DataTypes.TEXT,
         allowNull: false
     },
-    type: {
-        type: DataTypes.ENUM('Hệ thống', 'Hoạt động', 'Nhắc nhở'),
-        defaultValue: 'Hệ thống'
+    category: {
+        type: DataTypes.ENUM('SYSTEM', 'ACTIVITY', 'MEETING', 'FEE', 'DOCUMENT'),
+        defaultValue: 'SYSTEM'
     },
     targetType: {
-        type: DataTypes.ENUM('All', 'Branch', 'Cell', 'Individual'),
-        defaultValue: 'All'
-    },
-    priority: {
-        type: DataTypes.ENUM('Thấp', 'Trung bình', 'Cao'),
-        defaultValue: 'Trung bình'
-    },
-    status: {
-        type: DataTypes.ENUM('Mới', 'Đã gửi', 'Đã hủy'),
-        defaultValue: 'Mới'
+        type: DataTypes.ENUM('ALL', 'BRANCH', 'CELL', 'ROLE', 'INDIVIDUAL'),
+        defaultValue: 'ALL'
     },
     targetId: {
         type: DataTypes.UUID,
         allowNull: true
     },
+    targetRole: {
+        type: DataTypes.ENUM('SUPER_ADMIN', 'BRANCH_ADMIN', 'CELL_ADMIN', 'MEMBER'),
+        allowNull: true
+    },
+    createdByRole: {
+        type: DataTypes.ENUM('SUPER_ADMIN', 'BRANCH_ADMIN', 'CELL_ADMIN', 'SYSTEM'),
+        defaultValue: 'SYSTEM'
+    },
+    priority: {
+        type: DataTypes.ENUM('LOW', 'MEDIUM', 'HIGH'),
+        defaultValue: 'MEDIUM'
+    },
+    status: {
+        type: DataTypes.ENUM('DRAFT', 'SENT', 'CANCELLED'),
+        defaultValue: 'DRAFT'
+    },
     senderBranchId: {
         type: DataTypes.UUID,
+        allowNull: true
+    },
+    entityType: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    entityId: {
+        type: DataTypes.STRING, // Can be UUID or other ID types
+        allowNull: true
+    },
+    expiresAt: {
+        type: DataTypes.DATE,
         allowNull: true
     }
 }, {

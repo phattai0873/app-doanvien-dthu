@@ -12,8 +12,8 @@ const Attendance = sequelize.define('Attendance', {
         defaultValue: DataTypes.NOW
     },
     status: {
-        type: DataTypes.ENUM('Vắng', 'Có mặt', 'Có phép'),
-        defaultValue: 'Vắng'
+        type: DataTypes.ENUM('PRESENT', 'ABSENT_REASON', 'ABSENT_NO_REASON', 'LATE', 'Vắng', 'Có mặt', 'Có phép'),
+        defaultValue: 'ABSENT_NO_REASON'
     },
     remarks: {
         type: DataTypes.TEXT

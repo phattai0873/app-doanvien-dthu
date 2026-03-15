@@ -1,20 +1,23 @@
 const asyncHandler = require('../utils/asyncHandler');
+const ErrorResponse = require('../utils/errorResponse');
 const UnionCellService = require('../services/unionCellService');
 
 const unionCellController = {
     getCells: asyncHandler(async (req, res) => {
-        let { unionBranchId } = req.query;
+        let { unionBranchId, courseYear, status, search, page, limit } = req.query;
         
-        // Nếu không phải Super Admin, chỉ cho phép quản lý chi đoàn thuộc Liên chi đoàn của mình
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        // Nếu không phải Super Admin, tự động giới hạn theo đơn vị quản lý
+        if (!isSuperAdmin) {
+            if (req.user.unionBranchId) {
+                unionBranchId = req.user.unionBranchId;
+            }
         }
 
-        const cells = await UnionCellService.getAll({ unionBranchId });
-        res.status(200).json({ success: true, count: cells.length, data: cells });
+        const result = await UnionCellService.getAll({ unionBranchId, courseYear, status, search, page, limit });
+        res.status(200).json({ success: true, ...result });
     }),
 
     getCell: asyncHandler(async (req, res) => {
@@ -22,15 +25,21 @@ const unionCellController = {
         res.status(200).json({ success: true, data: cell });
     }),
 
+    getMyCell: asyncHandler(async (req, res) => {
+        const cellId = req.user.UnionMember?.unionCellId;
+        if (!cellId) throw new ErrorResponse('Bạn chưa được phân vào chi đoàn nào', 404);
+        const cell = await UnionCellService.getById(cellId);
+        res.status(200).json({ success: true, data: cell });
+    }),
+
     createCell: asyncHandler(async (req, res) => {
         const data = req.body;
         
-        // Tự động gán Liên chi đoàn nếu không phải Super Admin
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            data.unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin && req.user.unionBranchId) {
+            data.unionBranchId = req.user.unionBranchId;
         }
 
         const cell = await UnionCellService.create(data);

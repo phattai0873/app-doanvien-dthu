@@ -5,17 +5,22 @@ const newsController = {
     // ==================== BÀI VIẾT ====================
 
     getNews: asyncHandler(async (req, res) => {
-        let { status, categoryId, scope, unionBranchId, search, page, limit } = req.query;
+        let { status, categoryId, level, unionBranchId, unionCellId, search, page, limit } = req.query;
 
-        // Phân quyền: Thấy tin tức của khoa mình + tin tức chung toàn trường
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin) {
+            if (isBranchAdmin && req.user.unionBranchId) {
+                unionBranchId = req.user.unionBranchId;
+            } else if (isCellAdmin && req.user.unionCellId) {
+                unionCellId = req.user.unionCellId;
+            }
         }
 
-        const result = await NewsService.getAll({ status, categoryId, scope, unionBranchId, search, page, limit });
+        const result = await NewsService.getAll({ status, categoryId, level, unionBranchId, unionCellId, search, page, limit });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -27,12 +32,19 @@ const newsController = {
     createNews: asyncHandler(async (req, res) => {
         const data = req.body;
 
-        // Tự động gán khoa nếu là Admin khoa
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            data.unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin) {
+            if (isCellAdmin && req.user.unionCellId) {
+                data.unionCellId = req.user.unionCellId;
+                data.level = 'CELL';
+            } else if (isBranchAdmin && req.user.unionBranchId) {
+                data.unionBranchId = req.user.unionBranchId;
+                data.level = 'BRANCH';
+            }
         }
 
         const news = await NewsService.create(data, req.user.id, req.file);

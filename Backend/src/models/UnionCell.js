@@ -9,8 +9,7 @@ const UnionCell = sequelize.define('UnionCell', {
     },
     code: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
     },
     name: {
         type: DataTypes.STRING,
@@ -23,9 +22,34 @@ const UnionCell = sequelize.define('UnionCell', {
     unionBranchId: {
         type: DataTypes.UUID
     },
+    courseYear: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    academicYear: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    status: {
+        type: DataTypes.ENUM('active', 'graduated', 'dissolved'),
+        defaultValue: 'active'
+    },
+    establishedDate: {
+        type: DataTypes.DATEONLY
+    },
+    defaultMeetingLocationId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    }
 }, {
     tableName: 'union_cells',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['code']
+        }
+    ]
 });
 
 module.exports = UnionCell;

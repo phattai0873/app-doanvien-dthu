@@ -143,7 +143,7 @@ export default function AdminLayout() {
                 <nav className="flex-1 py-4 overflow-y-auto scrollbar-hide">
                     {NAV.map((item, i) => {
                         // Quyền Super Admin xem tất cả
-                        const isSuperAdmin = user?.Roles?.some(r => r.code === 'ADMIN');
+                        const isSuperAdmin = user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
                         
                         // Nếu không phải Super Admin, ẩn các mục quản lý Liên chi đoàn và hệ thống
                         if (!isSuperAdmin) {

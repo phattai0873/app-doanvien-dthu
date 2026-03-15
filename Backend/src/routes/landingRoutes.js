@@ -7,7 +7,7 @@ const { protect, authorize } = require('../middlewares/authMiddleware');
 router.get('/config', landingController.getConfigs);
 
 // Admin routes: Cập nhật cấu hình
-router.put('/config', protect, authorize('ADMIN'), landingController.updateConfig);
-router.post('/seed', protect, authorize('ADMIN'), landingController.seedConfigs);
+router.put('/config', protect, authorize('SUPER_ADMIN'), landingController.updateConfig);
+router.post('/seed', protect, authorize('SUPER_ADMIN'), landingController.seedConfigs);
 
 module.exports = router;

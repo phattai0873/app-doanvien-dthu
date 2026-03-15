@@ -114,11 +114,18 @@ export const memberApi = {
     delete: (id) => api.delete(`/members/${id}`),
     approve: (id) => api.patch(`/members/${id}/approve`),
     reject: (id) => api.patch(`/members/${id}/reject`),
+    assignPosition: (id, data) => api.post(`/members/${id}/positions`, data),
+    getBranches: () => api.get('/branches', { params: { limit: 100 } }),
+    getCells: (branchId) => api.get('/cells', { params: { unionBranchId: branchId, limit: 100 } }),
+};
+
+export const positionApi = {
+    getAll: () => api.get('/positions'),
 };
 
 // ─── Liên chi đoàn & Chi đoàn ───────────────────────────
 export const branchApi = {
-    getAll: () => api.get('/branches'),
+    getAll: (params) => api.get('/branches', { params }),
     create: (data) => api.post('/branches', data),
     update: (id, data) => api.put(`/branches/${id}`, data),
     delete: (id) => api.delete(`/branches/${id}`),
@@ -138,7 +145,14 @@ export const activityApi = {
     create: (data) => api.post('/activities', data),
     update: (id, data) => api.put(`/activities/${id}`, data),
     delete: (id) => api.delete(`/activities/${id}`),
+    approve: (id) => api.patch(`/activities/${id}/approve`),
+    register: (id) => api.post(`/activities/${id}/register`),
+    updateParticipant: (id, memberId, data) => api.patch(`/activities/${id}/participants/${memberId}`, data),
     getMemberAttendance: (memberId) => api.get(`/activities/member/${memberId}/attendance`),
+    checkIn: (id, data) => api.post(`/activities/${id}/check-in`, data),
+    refreshCode: (id) => api.post(`/activities/${id}/refresh-code`),
+    getBranches: () => api.get('/branches', { params: { limit: 100 } }),
+    getCells: (branchId) => api.get('/cells', { params: { unionBranchId: branchId, limit: 100 } }),
 };
 
 // ─── Tin tức ─────────────────────────────────────────────
@@ -183,7 +197,11 @@ export const meetingApi = {
     getById: (id) => api.get(`/meetings/${id}`),
     create: (data) => api.post('/meetings', data),
     update: (id, data) => api.put(`/meetings/${id}`, data),
+    delete: (id) => api.delete(`/meetings/${id}`),
     updateStatus: (id, status) => api.patch(`/meetings/${id}/status`, { status }),
+    getAttendance: (id) => api.get(`/meetings/${id}/attendance`),
+    checkIn: (id, data) => api.post(`/meetings/${id}/check-in`, data),
+    refreshCode: (id) => api.post(`/meetings/${id}/refresh-code`),
 };
 
 // ─── Văn bản ────────────────────────────────────────────
@@ -205,6 +223,8 @@ export const notificationApi = {
     delete: (id) => api.delete(`/notifications/${id}`),
     send: (id) => api.patch(`/notifications/${id}/send`),
     markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+    getBranches: () => api.get('/branches', { params: { limit: 100 } }),
+    getCells: (branchId) => api.get('/cells', { params: { unionBranchId: branchId, limit: 100 } }),
 };
 
 // ─── Banner ──────────────────────────────────────────────

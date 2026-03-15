@@ -3,19 +3,22 @@ const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 
 class DocumentService {
-    static async getAll({ search, categoryId, unionBranchId, page, limit } = {}) {
+    static async getAll({ search, categoryId, level, unionBranchId, unionCellId, page, limit } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
         
         const where = {
             ...buildSearchCondition(search, ['title', 'issuingAuthority']),
-            ...(categoryId && { categoryId })
+            ...(categoryId && { categoryId }),
+            ...(level && { level })
         };
 
-        if (unionBranchId) {
-            where[Op.or] = [
-                { unionBranchId: unionBranchId },
-                { unionBranchId: null }
+        if (unionCellId) {
+            where.unionCellId = unionCellId;
+        } else if (unionBranchId) {
+            where[Op.and] = [
+                { unionBranchId },
+                { level: { [Op.ne]: 'CELL' } }
             ];
         }
 

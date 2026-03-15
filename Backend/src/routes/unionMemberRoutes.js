@@ -10,7 +10,7 @@ router.post('/', unionMemberController.createMember);
 router.get('/:id', unionMemberController.getMember);
 router.put('/:id', unionMemberController.updateMember);
 router.delete('/:id', unionMemberController.deleteMember);
-router.patch('/:id/assign-position', unionMemberController.assignPosition);
+router.post('/:id/positions', unionMemberController.assignPosition);
 router.patch('/:id/approve', unionMemberController.approveMember);
 router.patch('/:id/reject', unionMemberController.rejectMember);
 

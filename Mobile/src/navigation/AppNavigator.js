@@ -78,8 +78,8 @@ export const AppNavigator = () => {
         return <LoginScreen onLogin={handleLogin} />;
     }
 
-    // Role-based routing (code trong DB là chữ hoa: ADMIN, SECRETARY, MEMBER)
-    if (userRole && ['admin', 'ADMIN', 'secretary', 'SECRETARY'].includes(userRole)) {
+    // Role-based routing (code trong DB: SUPER_ADMIN, BRANCH_ADMIN, CELL_ADMIN, MEMBER)
+    if (userRole && ['SUPER_ADMIN', 'BRANCH_ADMIN', 'CELL_ADMIN'].includes(userRole)) {
         return <AdminNavigator onLogout={handleLogout} />;
     }
 

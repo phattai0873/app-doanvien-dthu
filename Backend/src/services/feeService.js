@@ -1,4 +1,4 @@
-const { UnionFeePayment, UnionMember, UnionCell } = require('../models');
+const { UnionFeePayment, UnionMember, UnionCell, UnionBranch } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 const { Op } = require('sequelize');
@@ -36,15 +36,19 @@ class FeeService {
     }
 
     static async create(data) {
-        const member = await UnionMember.findByPk(data.unionMemberId);
+        const member = await UnionMember.findByPk(data.unionMemberId, {
+            include: [{ model: UnionCell }]
+        });
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
         
         // Gán tự động Chi đoàn và Liên chi đoàn từ thông tin đoàn viên nếu chưa có
         if (!data.unionCellId && member.unionCellId) {
             data.unionCellId = member.unionCellId;
         }
-        if (!data.unionBranchId && member.unionBranchId) {
-            data.unionBranchId = member.unionBranchId;
+        
+        // unionBranchId được lấy từ UnionCell
+        if (!data.unionBranchId && member.UnionCell?.unionBranchId) {
+            data.unionBranchId = member.UnionCell.unionBranchId;
         }
         
         return await UnionFeePayment.create(data);
@@ -63,13 +67,24 @@ class FeeService {
             ? { id: { [Op.notIn]: paidMemberIds } }
             : {};
 
+        const memberWhere = {
+            ...whereId,
+            ...(unionCellId && { unionCellId }),
+            ...buildSearchCondition(search, ['fullName', 'memberCode', 'phoneNumber'])
+        };
+
+        const cellInclude = {
+            model: UnionCell,
+            attributes: ['id', 'name', 'unionBranchId']
+        };
+
+        if (unionBranchId) {
+            cellInclude.where = { unionBranchId };
+        }
+
         const result = await UnionMember.findAndCountAll({
-            where: {
-                ...whereId,
-                ...(unionCellId && { unionCellId }),
-                ...(unionBranchId && { unionBranchId }),
-                ...buildSearchCondition(search, ['fullName', 'memberCode', 'phoneNumber'])
-            },
+            where: memberWhere,
+            include: [cellInclude],
             attributes: ['id', 'fullName', 'memberCode', 'phoneNumber', 'email'],
             order: [['fullName', 'ASC']],
             limit: l,

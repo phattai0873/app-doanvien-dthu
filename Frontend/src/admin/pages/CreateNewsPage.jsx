@@ -15,7 +15,7 @@ export default function CreateNewsPage() {
     const navigate = useNavigate();
     const qc = useQueryClient();
     const [form, setForm] = useState({
-        title: '', summary: '', content: '', status: 'Nháp', categoryId: '', scope: 'Trường'
+        title: '', summary: '', content: '', status: 'DRAFT', categoryId: '', level: 'SCHOOL'
     });
     const [bannerFile, setBannerFile] = useState(null);
 
@@ -50,11 +50,11 @@ export default function CreateNewsPage() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-4 pb-10">
+        <div className="max-w-10xl mx-auto space-y-4 pb-10">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => navigate('/admin/news')}
                         className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-500"
                     >
@@ -67,12 +67,12 @@ export default function CreateNewsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button className={BTN_SECONDARY} onClick={() => navigate('/admin/news')}>Hủy</button>
-                    <button 
+                    <button
                         className={BTN_PRIMARY}
                         onClick={handleSubmit}
                         disabled={createNews.isPending}
                     >
-                        <Save size={16} /> 
+                        <Save size={16} />
                         {createNews.isPending ? 'Đang lưu...' : 'Lưu bài viết'}
                     </button>
                 </div>
@@ -84,21 +84,21 @@ export default function CreateNewsPage() {
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tiêu đề bài viết <span className="text-red-500">*</span></label>
-                            <input 
+                            <input
                                 className={`${INPUT} text-base font-medium`}
-                                placeholder="Nhập tiêu đề hấp dẫn..." 
-                                value={form.title} 
-                                onChange={e => setForm(f => ({ ...f, title: e.target.value }))} 
+                                placeholder="Nhập tiêu đề hấp dẫn..."
+                                value={form.title}
+                                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                             />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Tóm tắt ngắn</label>
-                            <textarea 
-                                className={INPUT} 
-                                rows={3} 
-                                placeholder="Mô tả ngắn gọn về nội dung bài viết..." 
-                                value={form.summary} 
-                                onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} 
+                            <textarea
+                                className={INPUT}
+                                rows={3}
+                                placeholder="Mô tả ngắn gọn về nội dung bài viết..."
+                                value={form.summary}
+                                onChange={e => setForm(f => ({ ...f, summary: e.target.value }))}
                             />
                         </div>
                         <div>
@@ -115,7 +115,7 @@ export default function CreateNewsPage() {
                 <div className="space-y-4">
                     <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-5">
                         <h3 className="font-bold text-sm text-gray-800 border-b pb-3">Cấu hình bài viết</h3>
-                        
+
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Ảnh đại diện (Banner)</label>
                             <BannerUpload
@@ -135,16 +135,20 @@ export default function CreateNewsPage() {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Cấp tin tức</label>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phạm vi hiển thị</label>
                             <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-                                {['Trường', 'Tỉnh'].map(s => (
+                                {[
+                                    { value: 'SCHOOL', label: 'Trường' },
+                                    { value: 'BRANCH', label: 'Khoa' },
+                                    { value: 'CELL', label: 'Lớp' }
+                                ].map(s => (
                                     <button
-                                        key={s}
+                                        key={s.value}
                                         type="button"
-                                        onClick={() => setForm(f => ({ ...f, scope: s }))}
-                                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition ${form.scope === s ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        onClick={() => setForm(f => ({ ...f, level: s.value }))}
+                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-tighter rounded-md transition ${form.level === s.value ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                     >
-                                        Cấp {s}
+                                        {s.label}
                                     </button>
                                 ))}
                             </div>
@@ -153,8 +157,8 @@ export default function CreateNewsPage() {
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Trạng thái xuất bản</label>
                             <select className={INPUT} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                                <option value="Nháp">Lưu nháp</option>
-                                <option value="Đã đăng">Đăng ngay</option>
+                                <option value="DRAFT">Lưu nháp</option>
+                                <option value="PUBLISHED">Đăng ngay</option>
                             </select>
                         </div>
                     </div>

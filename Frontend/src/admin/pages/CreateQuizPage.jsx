@@ -16,7 +16,7 @@ export default function CreateQuizPage() {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [form, setForm] = useState({
-        title: '', description: '', timeLimit: 15, satisfactoryScore: 50,
+        title: '', description: '', timeLimit: 15, satisfactoryScore: 50, level: 'SCHOOL',
         questions: [{ content: '', score: 10, options: [{ content: '', isCorrect: true }, { content: '', isCorrect: false }] }]
     });
 
@@ -60,6 +60,7 @@ export default function CreateQuizPage() {
         finalForm.append('description', form.description);
         finalForm.append('timeLimit', form.timeLimit);
         finalForm.append('satisfactoryScore', form.satisfactoryScore);
+        finalForm.append('level', form.level);
         finalForm.append('questions', JSON.stringify(form.questions));
         if (file) {
             finalForm.append('thumbnail', file);
@@ -126,13 +127,21 @@ export default function CreateQuizPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-5">
                                         <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phạm vi hiển thị *</label>
+                                            <select className={INPUT} value={form.level} onChange={e => updateForm('level', e.target.value)}>
+                                                <option value="SCHOOL">Cấp Trường</option>
+                                                <option value="BRANCH">Cấp Khoa</option>
+                                                <option value="CELL">Cấp Lớp</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thời gian (phút) *</label>
                                             <input type="number" className={INPUT} value={form.timeLimit} onChange={e => updateForm('timeLimit', Number(e.target.value))} />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Điểm đạt (để vượt qua) *</label>
-                                            <input type="number" className={INPUT} value={form.satisfactoryScore} onChange={e => updateForm('satisfactoryScore', Number(e.target.value))} />
-                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Điểm đạt (để vượt qua) *</label>
+                                        <input type="number" className={INPUT} value={form.satisfactoryScore} onChange={e => updateForm('satisfactoryScore', Number(e.target.value))} />
                                     </div>
                                 </div>
                             </div>
