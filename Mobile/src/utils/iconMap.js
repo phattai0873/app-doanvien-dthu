@@ -40,7 +40,10 @@ export const ICONS = {
     CreditCard: 'card-outline',
     Heart: 'heart-outline',
     Grid: 'grid-outline',
-    List: 'list-outline'
+    List: 'list-outline',
+    RotateCw: 'refresh',
+    X: 'close',
+    Scan: 'scan-outline'
 };
 
 export const Icon = ({ name, size = 24, color = '#000', style }) => (

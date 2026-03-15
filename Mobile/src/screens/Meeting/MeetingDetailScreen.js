@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -6,33 +6,56 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    Alert
+    Alert,
+    Modal,
+    Image,
+    Dimensions
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { SIZES } from '../../constants/sizes';
 import { meetingService } from '../../services/meetingService';
+import { authService } from '../../services/authService';
+
+const { width } = Dimensions.get('window');
 
 export const MeetingDetailScreen = ({ route, onNavigate }) => {
     const { id } = route?.params || {};
     const [meeting, setMeeting] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [user, setUser] = useState(null);
+    const [showQR, setShowQR] = useState(false);
+    const [timeLeft, setTimeLeft] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+    const timerRef = useRef(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const m = await meetingService.getMeetingDetail(id);
+                const [m, userData] = await Promise.all([
+                    meetingService.getMeetingDetail(id),
+                    authService.getCurrentUser()
+                ]);
+
+                // user object returned has a Roles array
+                const currentUser = userData;
+                if (currentUser && currentUser.Roles && currentUser.Roles.length > 0) {
+                    currentUser.role = currentUser.Roles[0].code; // gán role string để dễ dùng
+                }
+                
+                setUser(currentUser);
                 
                 // Mapping dữ liệu
                 const date = new Date(m.meetingTime);
                 const dateStr = date.toLocaleDateString('vi-VN');
                 const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                
+
                 let statusKey = 'scheduled';
-                if (m.status === 'Đang họp') statusKey = 'active';
-                else if (m.status === 'Hoàn thành') statusKey = 'finished';
-                else if (m.status === 'Hủy') statusKey = 'cancelled';
+                if (m.status === 'IN_PROGRESS') statusKey = 'active';
+                else if (m.status === 'COMPLETED') statusKey = 'finished';
+                else if (m.status === 'CANCELLED') statusKey = 'cancelled';
+                else if (m.status === 'SCHEDULED') statusKey = 'scheduled';
 
                 setMeeting({
                     ...m,
@@ -48,10 +71,49 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
         if (id) fetchData();
     }, [id]);
 
+    useEffect(() => {
+        if (showQR && meeting?.checkinCodeExpiresAt) {
+            timerRef.current = setInterval(() => {
+                const diff = new Date(meeting.checkinCodeExpiresAt) - new Date();
+                if (diff <= 0) {
+                    setTimeLeft('Hết hạn');
+                    clearInterval(timerRef.current);
+                } else {
+                    const m = Math.floor(diff / 60000);
+                    const s = Math.floor((diff % 60000) / 1000);
+                    setTimeLeft(`${m}:${s < 10 ? '0' : ''}${s}`);
+                }
+            }, 1000);
+        } else {
+            clearInterval(timerRef.current);
+        }
+        return () => clearInterval(timerRef.current);
+    }, [showQR, meeting?.checkinCodeExpiresAt]);
+
+    const handleRefreshCode = async () => {
+        setRefreshing(true);
+        try {
+            // Cần thêm refreshCheckinCode vào meetingService của Mobile
+            const response = await meetingService.refreshCheckinCode(id);
+            if (response && response.success) {
+                setMeeting(prev => ({
+                    ...prev,
+                    checkinCode: response.data.checkinCode,
+                    checkinCodeExpiresAt: response.data.checkinCodeExpiresAt
+                }));
+                Alert.alert('Thành công', 'Đã làm mới mã điểm danh');
+            }
+        } catch (error) {
+            Alert.alert('Lỗi', 'Không thể làm mới mã');
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const handleAttendance = async () => {
         setSubmitting(true);
         try {
-            await meetingService.submitAttendance(id, 'present');
+            await meetingService.submitAttendance(id);
             Alert.alert('Thành công', 'Đã điểm danh thành công!');
             // Refresh detail
             const data = await meetingService.getMeetingDetail(id);
@@ -112,7 +174,7 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                     </View>
                     <View style={styles.infoTextGroup}>
                         <Text style={styles.infoLabel}>Địa điểm</Text>
-                        <Text style={styles.infoValue}>{meeting.location}</Text>
+                        <Text style={styles.infoValue}>{meeting.Location?.name || meeting.location || '—'}</Text>
                     </View>
                 </View>
             </View>
@@ -164,9 +226,71 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                             </>
                         )}
                     </TouchableOpacity>
+                    
+                    {/* Admin QR Action */}
+                    {(user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN') && meeting.checkinCode && (
+                        <TouchableOpacity
+                            style={[styles.qrBtn, { marginTop: 12 }]}
+                            onPress={() => setShowQR(true)}
+                        >
+                            <Icon name="QrCode" size={20} color={COLORS.primary} />
+                            <Text style={styles.qrBtnText}>HIỂN THỊ MÃ QUÉT (ADMIN)</Text>
+                        </TouchableOpacity>
+                    )}
+
                     <Text style={styles.hintText}>Điểm danh bằng GPS hoặc quét mã QR tại phòng họp.</Text>
                 </View>
             )}
+
+            {/* QR Modal for Admin */}
+            <Modal
+                visible={showQR}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowQR(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Mã điểm danh: {meeting.title}</Text>
+                            <TouchableOpacity onPress={() => setShowQR(false)}>
+                                <Icon name="X" size={24} color="#9CA3AF" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.qrContainer}>
+                            <Image 
+                                source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${meeting.checkinCode}` }}
+                                style={[styles.qrImage, refreshing && { opacity: 0.3 }]}
+                            />
+                            {refreshing && <ActivityIndicator style={styles.absoluteCenter} color={COLORS.primary} size="large" />}
+                        </View>
+
+                        <Text style={styles.qrLabel}>Mã xác nhận</Text>
+                        <Text style={styles.qrCodeText}>{meeting.checkinCode}</Text>
+
+                        {meeting.checkinCodeExpiresAt && (
+                            <View style={styles.expireTag}>
+                                <Text style={styles.expireText}>Hết hạn trong: {timeLeft}</Text>
+                            </View>
+                        )}
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity 
+                                style={styles.refreshBtn} 
+                                onPress={handleRefreshCode}
+                                disabled={refreshing}
+                            >
+                                <Icon name="RotateCw" size={18} color="#FFF" />
+                                <Text style={styles.refreshBtnText}>Làm mới mã</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowQR(false)}>
+                                <Text style={styles.closeBtnText}>Đóng</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 };
@@ -201,5 +325,127 @@ const styles = StyleSheet.create({
     attendanceBtn: { backgroundColor: COLORS.primary, width: '100%', paddingVertical: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     attendanceBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
     disabledBtn: { opacity: 0.7 },
-    hintText: { fontSize: 12, color: '#9CA3AF', marginTop: 12, textAlign: 'center' }
+    hintText: { fontSize: 12, color: '#9CA3AF', marginTop: 12, textAlign: 'center' },
+    qrBtn: {
+        width: '100%',
+        paddingVertical: 14,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        borderWidth: 1.5,
+        borderColor: COLORS.primary,
+        backgroundColor: '#FFF'
+    },
+    qrBtnText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 14 },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        alignItems: 'center',
+        elevation: 5
+    },
+    modalHeader: {
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 20
+    },
+    modalTitle: {
+        flex: 1,
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#9CA3AF',
+        textTransform: 'uppercase'
+    },
+    qrContainer: {
+        padding: 16,
+        backgroundColor: '#F9FAFB',
+        borderRadius: 20,
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        borderColor: '#E5E7EB',
+        marginBottom: 20,
+        position: 'relative'
+    },
+    qrImage: {
+        width: width * 0.5,
+        height: width * 0.5
+    },
+    qrLabel: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#9CA3AF',
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        marginBottom: 4
+    },
+    qrCodeText: {
+        fontSize: 36,
+        fontWeight: 'bold',
+        color: COLORS.primary,
+        letterSpacing: 8
+    },
+    expireTag: {
+        marginTop: 12,
+        backgroundColor: '#FEF3C7',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12
+    },
+    expireText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#D97706'
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 32,
+        width: '100%'
+    },
+    refreshBtn: {
+        flex: 2,
+        backgroundColor: COLORS.primary,
+        paddingVertical: 14,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8
+    },
+    refreshBtnText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    closeBtn: {
+        flex: 1,
+        backgroundColor: '#F3F4F6',
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    closeBtnText: {
+        color: '#4B5563',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    absoluteCenter: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: [{ translateX: -15 }, { translateY: -15 }]
+    }
 });

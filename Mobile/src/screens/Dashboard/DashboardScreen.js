@@ -130,7 +130,7 @@ export const DashboardScreen = ({ onNavigate }) => {
             <View style={styles.headerHero}>
                 <View>
                     <Text style={styles.greeting}>Xin chào,</Text>
-                    <Text style={styles.userName}>{user?.ho_ten || 'Đoàn viên DThU'} 👋</Text>
+                    <Text style={styles.userName}>{user?.UnionMember?.fullName || user?.username || 'Đoàn viên DThU'} 👋</Text>
                 </View>
                 <TouchableOpacity style={styles.notificationBtn} onPress={() => onNavigate('notif')}>
                     <Icon name="Bell" size={24} color={COLORS.gray900} />
@@ -147,14 +147,11 @@ export const DashboardScreen = ({ onNavigate }) => {
             <View style={styles.navGrid}>
                 <View style={styles.row}>
                     <NavButton title="Tin tức" icon={ICON_SET.tintuc} isPng onPress={() => onNavigate('news')} />
-                    <NavButton title="Học tập" icon={ICON_SET.hoctap} isPng onPress={() => onNavigate('theory_study')} />
                     <NavButton title="Sinh hoạt" icon={ICON_SET.sinhhoat} isPng onPress={() => onNavigate('meeting_list')} />
-                    <NavButton title="Đoàn phí" icon={ICON_SET.doanphi} isPng onPress={() => onNavigate('fee_payment')} />
-                </View>
-                <View style={styles.row}>
-                    <NavButton title="Thi đua" icon={ICON_SET.thidua} isPng onPress={() => onNavigate('exam_list')} />
                     <NavButton title="Văn bản" icon={ICON_SET.vanban} isPng onPress={() => onNavigate('document_list')} />
                     <NavButton title="Tình nguyện" icon={ICON_SET.tinhnguyen} isPng onPress={() => onNavigate('volunteer_list')} />
+                </View>
+                <View style={[styles.row, { justifyContent: 'flex-start' }]}>
                     <NavButton title="Cá nhân" icon={ICON_SET.canhan} isPng onPress={() => onNavigate('profile')} />
                 </View>
             </View>

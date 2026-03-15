@@ -25,18 +25,30 @@ const News = sequelize.define('News', {
         type: DataTypes.STRING
     },
     status: {
-        type: DataTypes.ENUM('Nháp', 'Đã đăng'),
-        defaultValue: 'Nháp'
+        type: DataTypes.ENUM('DRAFT', 'PUBLISHED'),
+        defaultValue: 'DRAFT'
     },
-    scope: {
-        type: DataTypes.ENUM('Tỉnh', 'Trường'),
-        defaultValue: 'Trường',
+    level: {
+        type: DataTypes.ENUM('SCHOOL', 'BRANCH', 'CELL'),
+        defaultValue: 'SCHOOL',
         allowNull: false
     },
     publishedAt: {
         type: DataTypes.DATE
     },
     unionBranchId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    unionCellId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    categoryId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    authorId: {
         type: DataTypes.UUID,
         allowNull: true
     }

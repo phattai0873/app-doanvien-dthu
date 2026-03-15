@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { COLORS, SIZES } from '../constants';
 
@@ -10,11 +10,33 @@ const { width } = Dimensions.get('window');
  */
 const Banner = ({ images = [] }) => {
     const [activeIndex, setActiveIndex] = useState(0);
+    const scrollViewRef = useRef(null);
+
+    useEffect(() => {
+        if (images.length > 1) {
+            const timer = setInterval(() => {
+                let nextIndex = activeIndex + 1;
+                if (nextIndex >= images.length) {
+                    nextIndex = 0;
+                }
+                
+                scrollViewRef.current?.scrollTo({
+                    x: nextIndex * width,
+                    animated: true,
+                });
+                setActiveIndex(nextIndex);
+            }, 3000);
+
+            return () => clearInterval(timer);
+        }
+    }, [activeIndex, images.length]);
 
     const handleScroll = (event) => {
         const scrollPosition = event.nativeEvent.contentOffset.x;
         const index = Math.round(scrollPosition / width);
-        setActiveIndex(index);
+        if (index !== activeIndex) {
+            setActiveIndex(index);
+        }
     };
 
     if (images.length === 0) {
@@ -28,6 +50,7 @@ const Banner = ({ images = [] }) => {
     return (
         <View style={styles.container}>
             <ScrollView
+                ref={scrollViewRef}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}

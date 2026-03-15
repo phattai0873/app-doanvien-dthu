@@ -3,17 +3,22 @@ const QuizService = require('../services/quizService');
 
 const quizController = {
     getExams: asyncHandler(async (req, res) => {
-        let { search, unionBranchId, page, limit } = req.query;
+        let { search, level, unionBranchId, unionCellId, page, limit } = req.query;
         
-        // Phân quyền: Thấy kỳ thi của khoa mình + kỳ thi chung toàn trường
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin) {
+            if (isBranchAdmin && req.user.unionBranchId) {
+                unionBranchId = req.user.unionBranchId;
+            } else if (isCellAdmin && req.user.unionCellId) {
+                unionCellId = req.user.unionCellId;
+            }
         }
 
-        const result = await QuizService.getAll({ search, unionBranchId, page, limit });
+        const result = await QuizService.getAll({ search, level, unionBranchId, unionCellId, page, limit });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -37,12 +42,20 @@ const quizController = {
             questions: parsedQuestions
         };
 
-        // Tự động gán khoa nếu là Admin khoa
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
-        const userUnionMember = req.user?.UnionMember;
+        // Phân quyền: Tự động gán đơn vị quản lý dựa trên vai trò
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            examData.unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin) {
+            if (isCellAdmin && req.user.unionCellId) {
+                examData.unionCellId = req.user.unionCellId;
+                examData.level = 'CELL';
+            } else if (isBranchAdmin && req.user.unionBranchId) {
+                examData.unionBranchId = req.user.unionBranchId;
+                examData.level = 'BRANCH';
+            }
         }
 
         if (req.file) {
@@ -63,7 +76,7 @@ const quizController = {
         let { search, unionBranchId, page, limit } = req.query;
 
         // Phân quyền: Chỉ thấy kết quả của đoàn viên thuộc khoa mình (nếu là Admin khoa)
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
+        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
         if (!isSuperAdmin && userUnionMember?.unionBranchId) {

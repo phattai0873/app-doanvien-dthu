@@ -6,7 +6,7 @@ const feeController = {
         let { period, memberId, unionCellId, unionBranchId, search, page, limit } = req.query;
         
         // Phân quyền theo Liên chi đoàn
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
+        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
         if (!isSuperAdmin && userUnionMember?.unionBranchId) {
@@ -26,7 +26,7 @@ const feeController = {
         let { period, unionCellId, unionBranchId, search, page, limit } = req.query;
 
         // Phân quyền theo Liên chi đoàn
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
+        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
         if (!isSuperAdmin && userUnionMember?.unionBranchId) {

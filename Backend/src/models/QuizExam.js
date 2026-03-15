@@ -35,6 +35,19 @@ const QuizExam = sequelize.define('QuizExam', {
     unionBranchId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    unionCellId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    level: {
+        type: DataTypes.ENUM('SCHOOL', 'BRANCH', 'CELL'),
+        defaultValue: 'SCHOOL',
+        allowNull: false
+    },
+    status: {
+        type: DataTypes.ENUM('DRAFT', 'PUBLISHED', 'CLOSED'),
+        defaultValue: 'DRAFT'
     }
 }, {
     tableName: 'quiz_exams',

@@ -14,11 +14,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../constants';
-import bannerService from '../services/bannerService';
-import { newsService } from '../services/newsService';
-import { meetingService } from '../services/meetingService';
 import { API_BASE_URL } from '../services/api';
 import Banner from '../components/Banner';
+import { authService } from '../services/authService';
+import { notificationService } from '../services/notificationService';
+import { financeService } from '../services/financeService';
+import { partyService } from '../services/partyService';
 
 const ICON_SET = {
     tintuc: require('../../assets/iconset/tintuc.png'),
@@ -34,93 +35,7 @@ const ICON_SET = {
 const { width } = Dimensions.get('window');
 
 // --- MOCK DATA ---
-const DB = {
-    user: {
-        id: 1,
-        ho_ten: "Nguyễn Văn A",
-        ma_so: "12345678",
-        avatar: "https://ui-avatars.com/api/?name=Nguyen+Van+A&background=da251d&color=fff&size=150",
-        chuc_vu: "Bí thư Chi đoàn",
-        don_vi: "Chi đoàn Khối Doanh nghiệp",
-        ngay_vao: "03/02/2015",
-        ngay_chinh_thuc: "03/02/2016",
-        trang_thai: "Đoàn viên chính thức",
-        cccd: "03809xxxxxxx",
-        ngay_sinh: "01/01/1985",
-        gioi_tinh: "Nam",
-        sdt: "0987654321",
-        email: "nguyenvana@email.com",
-        dia_chi: "P. Hòa Thuận Tây, Q. Hải Châu, TP. Đà Nẵng",
-        trinh_do_hv: "Đại học",
-        trinh_do_llct: "Cao cấp",
-        nghe_nghiep: "Kỹ sư CNTT",
-        is_verified: false
-    },
-    news_categories: [
-        { id: 'all', name: "Tất cả" },
-        { id: 1, name: "Hoạt động Đoàn" },
-        { id: 2, name: "Gương điển hình" },
-        { id: 3, name: "Tuyên truyền" },
-        { id: 4, name: "Chỉ đạo điều hành" }
-    ],
-    news: [
-        {
-            id: "uuid-1",
-            title: "Hội nghị triển khai nhiệm vụ công tác xây dựng Đảng năm 2026",
-            summary: "Sáng 24/1, Đảng ủy Khối các cơ quan Trung ương tổ chức Hội nghị tổng kết công tác năm 2025...",
-            content: "Nội dung chi tiết...",
-            thumbnailUrl: "https://cdn.chinhphu.vn/334894974524682240/2024/5/16/photo-1-17158229871321727776569.jpg",
-            categoryId: 1,
-            publishedAt: "24/01/2026",
-            source_note: "news"
-        },
-        {
-            id: "uuid-2",
-            title: "Tấm gương đảng viên trẻ tiêu biểu trong lao động sản xuất",
-            summary: "Đồng chí Nguyễn Văn B luôn đi đầu trong các phong trào thi đua, có nhiều sáng kiến...",
-            content: "Nội dung chi tiết...",
-            thumbnailUrl: "https://dangcongsan.vn/DATA/0/2018/05/19/dangcongsan_vn/ho-chi-minh-10-15-56-786.jpg",
-            categoryId: 2,
-            publishedAt: "23/01/2026",
-            source_note: "news"
-        },
-        {
-            id: "uuid-3",
-            title: "Đẩy mạnh học tập và làm theo tư tưởng, đạo đức, phong cách Hồ Chí Minh",
-            summary: "Các cấp ủy đảng cần tiếp tục quán triệt sâu sắc, thực hiện nghiêm túc...",
-            content: "Nội dung chi tiết...",
-            thumbnailUrl: "https://file3.qdnd.vn/data/images/0/2023/06/20/vuhuyen/khanh%20thanh%20nha.jpg",
-            categoryId: 3,
-            publishedAt: "22/01/2026",
-            source_note: "news"
-        }
-    ],
-    party_cell: {
-        id: 10,
-        ten_chi_bo: "Chi đoàn Khối Doanh nghiệp",
-        ma_chi_bo: "CB-DN01",
-        ngay_thanh_lap: "19/05/2010",
-        don_vi_truc_thuoc: "Công ty ABC",
-        so_dang_vien: 24,
-        bi_thu: "Lê Văn B"
-    },
-    party_committee: {
-        id: 1,
-        ten_dang_bo: "Liên chi đoàn Khoa CNTT",
-        ma_dang_bo: "DB-HC",
-        cap_uy: "Cấp Huyện/Quận",
-        bi_thu: "Trần Văn C",
-        dia_chi: "Số 10, Đường Phan Đăng Lưu",
-        sdt: "0236.3.xxx.xxx",
-        tong_so_dang_vien: 5400,
-        so_chi_bo: 120
-    },
-    notifications: [
-        { id: 501, title: "Triệu tập cuộc họp Chi đoàn tháng 6", time: "08:00 - 25/05/2025", type: "meeting", is_urgent: true, is_read: false, sender: "Chi đoàn 3" },
-        { id: 502, title: "Nhắc nhở đóng Đoàn phí", time: "10:30 - 24/05/2025", type: "fee", is_urgent: false, is_read: true, sender: "Ban Tài chính" }
-    ],
-    work_summary: { next_meeting: "25/05 - 08:00", unpaid_fee: "Đã đóng" }
-};
+// Đã xóa Mock Data (DB object) để sử dụng API thật
 
 // --- ICON MAPPING (Lucide -> Ionicons) ---
 const ICONS = {
@@ -173,7 +88,10 @@ const HomeScreen = () => {
     const [categories, setCategories] = useState([]);
     const [loadingNews, setLoadingNews] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [workSummary, setWorkSummary] = useState(DB.work_summary);
+    const [workSummary, setWorkSummary] = useState({ next_meeting: 'Chưa có lịch', unpaid_fee: '...' });
+    const [user, setUser] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+    const [orgInfo, setOrgInfo] = useState({ cell: null, committee: null });
 
     useEffect(() => {
         fetchInitialData();
@@ -244,8 +162,44 @@ const HomeScreen = () => {
                         next_meeting: formattedTime
                     }));
                 }
-            } else {
-                console.error('[Mobile] Lỗi tải Meetings:', results[3].reason);
+            }
+
+            // 5. Lấy thông tin User & Profile liên quan
+            const currentUser = await authService.getCurrentUser();
+            if (currentUser) {
+                const userData = currentUser.data || currentUser;
+                console.log('[Mobile] User Data Loaded:', userData?.username);
+                setUser(userData);
+                
+                // Lấy thông báo thật
+                const notifRes = await notificationService.getNotifications({ limit: 5 });
+                const rawNotifs = notifRes.data || notifRes || [];
+                setNotifications(rawNotifs.map(n => ({
+                    ...n,
+                    time: n.createdAt ? new Date(n.createdAt).toLocaleDateString('vi-VN') : '—',
+                    is_read: !!n.ReadStatuses?.length,
+                    sender: n.Sender?.fullName || 'Hệ thống'
+                })));
+
+                // Lấy thông tin đơn vị (Cell/Branch)
+                if (userData.UnionMember) {
+                    // Lấy trạng thái đoàn phí
+                    const feesRes = await financeService.getFees({ memberId: userData.UnionMember.id, limit: 1 });
+                    const fees = feesRes.data || feesRes || [];
+                    const unpaid = fees.some(f => f.status !== 'paid');
+                    setWorkSummary(prev => ({
+                        ...prev,
+                        unpaid_fee: unpaid ? 'Chưa đóng' : 'Đã đóng'
+                    }));
+
+                    // Lấy tên Chi đoàn/Liên chi đoàn
+                    try {
+                        const org = await partyService.getOrgInfo();
+                        setOrgInfo(org);
+                    } catch (e) {
+                        console.log('Error fetching org info:', e);
+                    }
+                }
             }
 
         } catch (error) {
@@ -279,14 +233,21 @@ const HomeScreen = () => {
 
     // Render Logic
     const renderContent = () => {
-        if (currentScreen === 'member_info') return <MemberInfoScreen user={DB.user} onBack={goBack} />;
-        if (currentScreen === 'org_info') return <OrgInfoScreen cell={DB.party_cell} committee={DB.party_committee} onBack={goBack} />;
+        if (currentScreen === 'member_info') return <MemberInfoScreen user={user?.UnionMember} onBack={goBack} />;
+        if (currentScreen === 'org_info') return <OrgInfoScreen cell={orgInfo.cell} committee={orgInfo.committee} onBack={goBack} />;
 
         switch (activeTab) {
             case 'news': return <NewsFeed categories={categories} news={news} banners={banners} loading={loadingNews} refreshing={refreshing} onRefresh={onRefresh} activeScope={activeScope} onScopeChange={setActiveScope} />;
             case 'work': return <WorkDashboard summary={workSummary} refreshing={refreshing} onRefresh={onRefresh} />;
-            case 'notif': return <NotificationScreen notifications={DB.notifications} refreshing={refreshing} onRefresh={onRefresh} />;
-            case 'profile': return <ProfileScreen user={DB.user} onNavigate={navigateTo} refreshing={refreshing} onRefresh={onRefresh} />;
+            case 'notif': return <NotificationScreen notifications={notifications} refreshing={refreshing} onRefresh={onRefresh} />;
+            case 'profile': 
+                if (!user && !loadingNews) return (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: '#6B7280' }}>Vui lòng đăng nhập để xem thông tin</Text>
+                    </View>
+                );
+                if (!user) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color="#da251d" /></View>;
+                return <ProfileScreen user={user} onNavigate={navigateTo} refreshing={refreshing} onRefresh={onRefresh} />;
             default: return <NewsFeed categories={categories} news={news} banners={banners} loading={loadingNews} refreshing={refreshing} onRefresh={onRefresh} activeScope={activeScope} onScopeChange={setActiveScope} />;
         }
     };
@@ -487,14 +448,6 @@ const WorkDashboard = ({ summary, refreshing, onRefresh }) => (
                 <Text style={styles.summaryValueLight}>{summary.next_meeting}</Text>
                 <Text style={styles.summaryTable}>table: cell_meetings</Text>
             </View>
-            <View style={[styles.summaryCard, styles.bgWhite]}>
-                <View style={styles.cardIconAbs}>
-                    <Icon name="Wallet" size={60} color="rgba(238,0,51,0.1)" />
-                </View>
-                <Text style={styles.summaryLabelDark}>ĐOÀN PHÍ</Text>
-                <Text style={styles.summaryValueRed}>{summary.unpaid_fee}</Text>
-                <Text style={styles.summaryTableDark}>table: party_fees</Text>
-            </View>
         </View>
 
         <Text style={styles.sectionHeader}>NHIỆM VỤ TRỌNG TÂM</Text>
@@ -502,15 +455,7 @@ const WorkDashboard = ({ summary, refreshing, onRefresh }) => (
         <View style={styles.gridContainer}>
             <View style={styles.gridRow}>
                 <WorkCard isPng pngIcon={ICON_SET.sinhhoat} bg="#EBF8FF" color="#3182CE" title="Sinh hoạt Chi đoàn" desc="Điểm danh & Tài liệu" table="cell_meetings" />
-                <WorkCard isPng pngIcon={ICON_SET.doanphi} bg="#F0FFF4" color="#38A169" title="Đóng Đoàn phí" desc="Thanh toán trực tuyến" table="union_fee_payments" />
-            </View>
-            <View style={styles.gridRow}>
-                <WorkCard isPng pngIcon={ICON_SET.thidua} bg="#FFFAF0" color="#DD6B20" title="Thi đua & Trắc nghiệm" desc="Cuộc thi định kỳ" table="quiz_exams" />
                 <WorkCard isPng pngIcon={ICON_SET.vanban} bg="#E6FFFA" color="#319795" title="Kho Tài liệu" desc="Văn kiện, Nghị quyết" table="documents" />
-            </View>
-            <View style={styles.gridRow}>
-                <WorkCard isPng pngIcon={ICON_SET.hoctap} bg="#FAF5FF" color="#805AD5" title="Học tập Lý luận" desc="Lớp bồi dưỡng" table="political_studies" />
-                <View style={{ flex: 1 }} />
             </View>
         </View>
     </ScrollView>
@@ -577,13 +522,16 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
     >
         <View style={styles.profileCard}>
             <View style={styles.avatarWrapper}>
-                <Image source={{ uri: user.avatar }} style={styles.avatar} />
+                <Image 
+                    source={user?.avatar ? { uri: `${API_BASE_URL}${user.avatar}` } : { uri: `https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=da251d&color=fff` }} 
+                    style={styles.avatar} 
+                />
             </View>
             <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{user.ho_ten}</Text>
-                <Text style={styles.profileRole}>{user.chuc_vu}</Text>
+                <Text style={styles.profileName}>{user?.UnionMember?.fullName || user?.username}</Text>
+                <Text style={styles.profileRole}>{user?.Roles?.[0]?.name || 'Đoàn viên'}</Text>
                 <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>{user.trang_thai}</Text>
+                    <Text style={styles.statusText}>{user?.isActive ? 'Tài khoản đã kích hoạt' : 'Chờ phê duyệt'}</Text>
                 </View>
             </View>
         </View>
@@ -611,28 +559,39 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
     </ScrollView>
 );
 
-const MemberInfoScreen = ({ user }) => (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {!user.is_verified && (
-            <View style={styles.alertBox}>
-                <Icon name="AlertTriangle" size={20} color="#F97316" />
-                <View style={{ marginLeft: 10, flex: 1 }}>
-                    <Text style={styles.alertTitle}>Chưa xác thực CCCD</Text>
-                    <TouchableOpacity style={styles.alertBtn}>
-                        <Text style={styles.alertBtnText}>Xác thực ngay</Text>
-                    </TouchableOpacity>
+const MemberInfoScreen = ({ user, onBack }) => {
+    if (!user) return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Icon name="Info" size={48} color="#D1D5DB" />
+            <Text style={{ marginTop: 10, color: '#6B7280', textAlign: 'center' }}>
+                Không tìm thấy hồ sơ Đoàn viên liên kết với tài khoản này.
+            </Text>
+            <TouchableOpacity onPress={onBack} style={{ marginTop: 20, padding: 10, backgroundColor: '#da251d', borderRadius: 8 }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Quay lại</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
+    return (
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+            {user.status === 'pending' && (
+                <View style={styles.alertBox}>
+                    <Icon name="AlertTriangle" size={20} color="#F97316" />
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                        <Text style={styles.alertTitle}>Hồ sơ chờ phê duyệt</Text>
+                        <Text style={styles.alertText}>Vui lòng chờ quản trị viên xác thực hồ sơ của bạn.</Text>
+                    </View>
                 </View>
-            </View>
-        )}
+            )}
 
         <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
                 <Icon name="User" size={18} color="#da251d" />
                 <Text style={styles.sectionTitle}>THÔNG TIN CÁ NHÂN</Text>
             </View>
-            <InputReadOnly label="Họ tên" value={user.ho_ten} />
-            <InputReadOnly label="Ngày sinh" value={user.ngay_sinh} />
-            <InputReadOnly label="CCCD" value={user.cccd} />
+            <InputReadOnly label="Họ tên" value={user?.fullName} />
+            <InputReadOnly label="Ngày sinh" value={user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('vi-VN') : '—'} />
+            <InputReadOnly label="Mã số Đoàn viên" value={user?.memberCode} />
         </View>
 
         <View style={styles.sectionCard}>
@@ -640,38 +599,47 @@ const MemberInfoScreen = ({ user }) => (
                 <Icon name="Phone" size={18} color="#da251d" />
                 <Text style={styles.sectionTitle}>THÔNG TIN LIÊN HỆ</Text>
             </View>
-            <InputReadOnly label="Số điện thoại" value={user.sdt} />
-            <InputReadOnly label="Email" value={user.email} />
-            <InputReadOnly label="Địa chỉ" value={user.dia_chi} />
+            <InputReadOnly label="Số điện thoại" value={user?.phoneNumber || '—'} />
+            <InputReadOnly label="Địa chỉ" value={user?.permanentAddress || '—'} />
         </View>
-    </ScrollView>
-);
+        </ScrollView>
+    );
+};
 
-const OrgInfoScreen = ({ cell, committee }) => (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.orgCard}>
-            <Icon name="Users" size={40} color="#da251d" style={{ alignSelf: 'center', marginBottom: 10 }} />
-            <Text style={styles.orgName}>{cell.ten_chi_bo}</Text>
-            <Text style={styles.orgCode}>{cell.ma_chi_bo}</Text>
-            <View style={styles.divider} />
-            <View style={styles.orgRow}>
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.orgLabel}>THÀNH LẬP</Text>
-                    <Text style={styles.orgValue}>{cell.ngay_thanh_lap}</Text>
-                </View>
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.orgLabel}>ĐẢNG VIÊN</Text>
-                    <Text style={styles.orgValue}>{cell.so_dang_vien}</Text>
+const OrgInfoScreen = ({ cell, committee }) => {
+    if (!cell) return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator color="#da251d" />
+            <Text style={{ marginTop: 10, color: '#6B7280' }}>Đang tải thông tin tổ chức...</Text>
+        </View>
+    );
+
+    return (
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+            <View style={styles.orgCard}>
+                <Icon name="Users" size={40} color="#da251d" style={{ alignSelf: 'center', marginBottom: 10 }} />
+                <Text style={styles.orgName}>{cell?.name || 'Chưa tham gia Chi đoàn'}</Text>
+                <Text style={styles.orgCode}>{cell?.code || '—'}</Text>
+                <View style={styles.divider} />
+                <View style={styles.orgRow}>
+                    <View style={{ alignItems: 'center' }}>
+                        <Text style={styles.orgLabel}>THÀNH LẬP</Text>
+                        <Text style={styles.orgValue}>{cell.establishedDate ? new Date(cell.establishedDate).toLocaleDateString('vi-VN') : '—'}</Text>
+                    </View>
+                    <View style={{ alignItems: 'center' }}>
+                        <Text style={styles.orgLabel}>SỐ ĐOÀN VIÊN</Text>
+                        <Text style={styles.orgValue}>{cell.memberCount || 0}</Text>
+                    </View>
                 </View>
             </View>
-        </View>
 
-        <View style={styles.sectionCard}>
-            <InputReadOnly label="Bí thư Chi đoàn" value={cell.bi_thu} />
-            <InputReadOnly label="Liên chi đoàn" value={committee.ten_dang_bo} />
-        </View>
-    </ScrollView>
-);
+            <View style={styles.sectionCard}>
+                <InputReadOnly label="Bí thư Chi đoàn" value={cell.SecretaryOfCell?.fullName || 'Chưa cập nhật'} />
+                <InputReadOnly label="Liên chi đoàn" value={committee?.name || 'Chưa cập nhật'} />
+            </View>
+        </ScrollView>
+    );
+};
 
 const MenuRow = ({ icon, color, label, onPress, isPng, pngIcon }) => (
     <TouchableOpacity style={styles.menuRow} onPress={onPress}>

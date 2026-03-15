@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 class NewsService {
-    static async getAll({ status, categoryId, scope, unionBranchId, search, page, limit } = {}) {
+    static async getAll({ status, categoryId, level, unionBranchId, unionCellId, search, page, limit } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
 
@@ -13,13 +13,15 @@ class NewsService {
             ...buildSearchCondition(search, ['title', 'summary']),
             ...(status && { status }),
             ...(categoryId && { categoryId }),
-            ...(scope && { scope })
+            ...(level && { level })
         };
 
-        if (unionBranchId) {
-            where[Op.or] = [
-                { unionBranchId: unionBranchId },
-                { unionBranchId: null }
+        if (unionCellId) {
+            where.unionCellId = unionCellId;
+        } else if (unionBranchId) {
+            where[Op.and] = [
+                { unionBranchId },
+                { level: { [Op.ne]: 'CELL' } } // Lọc bài viết của Khoa hoặc Trường (không lấy của Lớp)
             ];
         }
 
@@ -27,7 +29,7 @@ class NewsService {
             where,
             include: [
                 { model: NewsCategory, attributes: ['id', 'name', 'slug'] },
-                { model: User, attributes: ['id', 'username'], foreignKey: 'authorId' }
+                { model: User, attributes: ['id', 'username'] }
             ],
             order: [['createdAt', 'DESC']],
             limit: l,
@@ -41,7 +43,7 @@ class NewsService {
         const news = await News.findByPk(id, {
             include: [
                 { model: NewsCategory, attributes: ['id', 'name', 'slug'] },
-                { model: User, attributes: ['id', 'username'], foreignKey: 'authorId' }
+                { model: User, attributes: ['id', 'username'] }
             ]
         });
         if (!news) throw new ErrorResponse('Không tìm thấy bài viết', 404);
@@ -49,7 +51,12 @@ class NewsService {
     }
 
     static async create(data, authorId, bannerFile) {
-        const newsData = { ...data, authorId, status: data.status || 'Nháp' };
+        const newsData = { 
+            ...data, 
+            authorId, 
+            status: data.status || 'DRAFT',
+            level: data.level || 'SCHOOL'
+        };
 
         if (bannerFile) {
             newsData.bannerUrl = `/uploads/news/banners/${bannerFile.filename}`;
@@ -67,7 +74,7 @@ class NewsService {
         if (bannerFile) {
             // Xóa banner cũ nếu có
             if (news.bannerUrl) {
-                const oldPath = path.join(__dirname, '../../', news.bannerUrl);
+                const oldPath = path.join(__dirname, '../../../', news.bannerUrl); // Fix path depth
                 if (fs.existsSync(oldPath)) {
                     fs.unlinkSync(oldPath);
                 }
@@ -75,10 +82,9 @@ class NewsService {
             updateData.bannerUrl = `/uploads/news/banners/${bannerFile.filename}`;
         }
 
-        // Nếu muốn xóa banner (gửi removeBanner=true)
         if (data.removeBanner === 'true' || data.removeBanner === true) {
             if (news.bannerUrl) {
-                const oldPath = path.join(__dirname, '../../', news.bannerUrl);
+                const oldPath = path.join(__dirname, '../../../', news.bannerUrl);
                 if (fs.existsSync(oldPath)) {
                     fs.unlinkSync(oldPath);
                 }
@@ -94,14 +100,14 @@ class NewsService {
     static async publish(id) {
         const news = await News.findByPk(id);
         if (!news) throw new ErrorResponse('Không tìm thấy bài viết', 404);
-        await news.update({ status: 'Đã đăng', publishedAt: new Date() });
+        await news.update({ status: 'PUBLISHED', publishedAt: new Date() });
         return news;
     }
 
     static async unpublish(id) {
         const news = await News.findByPk(id);
         if (!news) throw new ErrorResponse('Không tìm thấy bài viết', 404);
-        await news.update({ status: 'Nháp', publishedAt: null });
+        await news.update({ status: 'DRAFT', publishedAt: null });
         return news;
     }
 

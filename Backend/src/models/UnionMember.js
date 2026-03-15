@@ -9,8 +9,7 @@ const UnionMember = sequelize.define('UnionMember', {
     },
     memberCode: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
     },
     fullName: {
         type: DataTypes.STRING,
@@ -21,11 +20,11 @@ const UnionMember = sequelize.define('UnionMember', {
         allowNull: false
     },
     gender: {
-        type: DataTypes.STRING
+        type: DataTypes.ENUM('male', 'female'),
+        defaultValue: 'male'
     },
     identityNumber: {
-        type: DataTypes.STRING,
-        unique: true
+        type: DataTypes.STRING
     },
     email: {
         type: DataTypes.STRING,
@@ -49,8 +48,7 @@ const UnionMember = sequelize.define('UnionMember', {
         type: DataTypes.DATEONLY
     },
     memberCardNumber: {
-        type: DataTypes.STRING,
-        unique: true
+        type: DataTypes.STRING
     },
     joinedPlace: {
         type: DataTypes.STRING
@@ -68,22 +66,36 @@ const UnionMember = sequelize.define('UnionMember', {
         type: DataTypes.ENUM('pending', 'approved', 'rejected'),
         defaultValue: 'pending'
     },
+    activityStatus: {
+        type: DataTypes.ENUM('active', 'transferred', 'graduated', 'paused'),
+        defaultValue: 'active'
+    },
+    roleInUnion: {
+        type: DataTypes.ENUM('member', 'vice_secretary', 'secretary', 'commissioner'),
+        defaultValue: 'member'
+    },
     approvedBy: {
         type: DataTypes.UUID,
         allowNull: true
-    },
-    unionBranchId: {
-        type: DataTypes.UUID
     },
     unionCellId: {
         type: DataTypes.UUID
     },
     userId: {
         type: DataTypes.UUID
+    },
+    avatar: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     tableName: 'union_members',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { unique: true, fields: ['memberCode'] },
+        { unique: true, fields: ['identityNumber'] },
+        { unique: true, fields: ['memberCardNumber'] }
+    ]
 });
 
 module.exports = UnionMember;

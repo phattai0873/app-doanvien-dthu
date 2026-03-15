@@ -7,6 +7,7 @@ router.use(protect);
 
 router.get('/', unionBranchController.getBranches);
 router.get('/stats', unionBranchController.getBranchStats);
+router.get('/my', unionBranchController.getMyBranch);
 router.get('/:id/stats', unionBranchController.getBranchStats);
 router.post('/', unionBranchController.createBranch);
 router.get('/:id', unionBranchController.getBranch);

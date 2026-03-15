@@ -32,20 +32,25 @@ export const meetingService = {
 
         // API THỰC
         const response = await apiClient.get(`/api/meetings/${id}`);
-        return response.data;
+        return response.data?.data;
     },
 
-    // [POST] /api/meetings/attendance
-    submitAttendance: async (data) => {
+    // [POST] /api/meetings/{id}/check-in
+    submitAttendance: async (meetingId, checkinCode) => {
         if (USE_SUPABASE) {
-            const { error } = await supabase.from('meeting_attendance').insert([data]);
+            const { error } = await supabase.from('meeting_attendance').insert([{ meeting_id: meetingId, status: 'PRESENT' }]);
             if (error) throw error;
             return { success: true };
         }
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r({ success: true }), SIMULATE_DELAY));
 
         // API THỰC
-        return await apiClient.post('/api/meetings/attendance', data);
+        return await apiClient.post(`/api/meetings/${meetingId}/check-in`, { checkinCode });
+    },
+
+    refreshCheckinCode: async (meetingId) => {
+        if (USE_MOCK_API) return { success: true, data: { checkinCode: 'NEW123', checkinCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000) } };
+        return await apiClient.post(`/api/meetings/${meetingId}/refresh-code`);
     },
 
     getLocations: async () => {
@@ -57,7 +62,7 @@ export const meetingService = {
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r([{ id: 1, name: "Hội trường A" }]), SIMULATE_DELAY));
 
         // API THỰC
-        const response = await apiClient.get('/api/meetings/locations');
+        const response = await apiClient.get('/api/locations');
         return response.data || [];
     }
 };

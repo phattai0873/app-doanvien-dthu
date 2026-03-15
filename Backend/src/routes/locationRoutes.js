@@ -6,6 +6,6 @@ const { protect, authorize } = require('../middlewares/authMiddleware');
 router.use(protect);
 
 router.get('/', locationController.getAll);
-router.post('/', authorize('ADMIN'), locationController.create);
+router.post('/', authorize('SUPER_ADMIN'), locationController.create);
 
 module.exports = router;

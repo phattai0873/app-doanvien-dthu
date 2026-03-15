@@ -31,6 +31,13 @@ export const notificationService = {
         // API THỰC
         const response = await apiClient.get(`/api/notifications/${id}`);
         return response.data;
+    },
+
+    // [PATCH] /api/notifications/{id}/read
+    markAsRead: async (id) => {
+        if (USE_SUPABASE || USE_MOCK_API) return { success: true };
+        const response = await apiClient.patch(`/api/notifications/${id}/read`);
+        return response.data;
     }
 };
 

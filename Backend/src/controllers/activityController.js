@@ -1,20 +1,42 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ActivityService = require('../services/activityService');
+const ErrorResponse = require('../utils/errorResponse');
 
 const activityController = {
     getActivities: asyncHandler(async (req, res) => {
-        let { upcoming, unionBranchId, search, page, limit } = req.query;
+        let { upcoming, unionBranchId, search, page, limit, level, status } = req.query;
         
-        // Phân quyền: Thấy hoạt động của khoa mình + hoạt động chung toàn trường
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
+        // Phân quyền scoping
+        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
         if (!isSuperAdmin && userUnionMember?.unionBranchId) {
             unionBranchId = userUnionMember.unionBranchId;
         }
 
-        const result = await ActivityService.getAll({ upcoming, unionBranchId, search, page, limit });
+        const result = await ActivityService.getAll({ upcoming, unionBranchId, search, page, limit, level, status });
         res.status(200).json({ success: true, ...result });
+    }),
+
+    // ... (getActivity, createActivity, updateActivity, deleteActivity remain similar)
+
+    approveActivity: asyncHandler(async (req, res) => {
+        const activity = await ActivityService.approveActivity(req.params.id);
+        res.status(200).json({ success: true, data: activity });
+    }),
+
+    registerParticipant: asyncHandler(async (req, res) => {
+        const memberId = req.user.UnionMember?.id;
+        if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
+        
+        const participant = await ActivityService.registerParticipant(req.params.id, memberId);
+        res.status(201).json({ success: true, data: participant });
+    }),
+
+    updateParticipant: asyncHandler(async (req, res) => {
+        const { memberId } = req.params;
+        const participant = await ActivityService.updateParticipantStatus(req.params.id, memberId, req.body);
+        res.status(200).json({ success: true, data: participant });
     }),
 
     getActivity: asyncHandler(async (req, res) => {
@@ -26,7 +48,7 @@ const activityController = {
         const data = req.body;
         
         // Tự động gán khoa nếu là Admin khoa
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'ADMIN');
+        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
         if (!isSuperAdmin && userUnionMember?.unionBranchId) {
@@ -59,8 +81,27 @@ const activityController = {
         res.status(200).json({ success: true, count: result.length, data: result });
     }),
 
+    checkIn: asyncHandler(async (req, res) => {
+        const memberId = req.user.UnionMember?.id;
+        if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
+        
+        const { checkinCode } = req.body;
+        const result = await ActivityService.checkIn(req.params.id, memberId, checkinCode);
+        res.status(200).json({ success: true, data: result });
+    }),
+
     getMemberAttendance: asyncHandler(async (req, res) => {
         const result = await ActivityService.getMemberAttendance(req.params.memberId);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    getSummary: asyncHandler(async (req, res) => {
+        const result = await ActivityService.getSummary(req.user);
+        res.status(200).json(result); // Trả về object trực tiếp theo mong đợi của Mobile workService
+    }),
+
+    refreshCheckinCode: asyncHandler(async (req, res) => {
+        const result = await ActivityService.refreshCheckinCode(req.params.id);
         res.status(200).json({ success: true, data: result });
     })
 };

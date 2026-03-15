@@ -10,9 +10,17 @@ export default function QuizPage() {
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [levelFilter, setLevelFilter] = useState('');
     const [selectedExam, setSelectedExam] = useState(null);
 
-    const examsQ = useQuery({ queryKey: ['quiz', search, page], queryFn: () => quizApi.getAll({ search, page, limit: 10 }), keepPreviousData: true });
+    const examsQ = useQuery({ 
+        queryKey: ['quiz', search, page, levelFilter], 
+        queryFn: () => quizApi.getAll({ 
+            search, page, limit: 10, 
+            level: levelFilter || undefined 
+        }), 
+        keepPreviousData: true 
+    });
     const attemptsQ = useQuery({ queryKey: ['attempts', selectedExam?.id], queryFn: () => quizApi.getAttempts(selectedExam.id, { limit: 50 }), enabled: !!selectedExam });
 
 
@@ -25,9 +33,17 @@ export default function QuizPage() {
             {/* Danh sách kỳ thi */}
             <div className="space-y-4">
                 <div className="flex gap-3 justify-between">
-                    <div className="relative">
-                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-72 outline-none focus:border-primary-700 transition" placeholder="Tìm kỳ thi..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                    <div className="flex gap-2">
+                        <div className="relative">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition" placeholder="Tìm kỳ thi..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                        </div>
+                        <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium text-primary-700 bg-primary-50 border-primary-100" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
+                            <option value="">Tất cả cấp độ</option>
+                            <option value="SCHOOL">Cấp Trường</option>
+                            <option value="BRANCH">Cấp Khoa</option>
+                            <option value="CELL">Cấp Lớp</option>
+                        </select>
                     </div>
                     <button className={BTN_PRIMARY} onClick={() => navigate('/admin/quiz/create')}>
                         <Plus size={16} /> Tạo kỳ thi
@@ -42,7 +58,7 @@ export default function QuizPage() {
                         {examsQ.isLoading ? <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
                             : exams.length === 0 ? <div className="flex flex-col items-center py-12 gap-2 text-gray-400 text-sm"><BookOpen size={36} /><p>Chưa có kỳ thi nào</p></div>
                                 : <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Tên kỳ thi</th><th className="px-4 py-3 text-left">Thời gian</th><th className="px-4 py-3 text-left">Điểm đạt</th><th className="px-4 py-3 text-left">Kết quả</th></tr></thead>
+                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Tên kỳ thi</th><th className="px-4 py-3 text-left">Cấp độ</th><th className="px-4 py-3 text-left">Thời gian</th><th className="px-4 py-3 text-left">Điểm đạt</th><th className="px-4 py-3 text-left">Kết quả</th></tr></thead>
                                     <tbody>
                                         {exams.map(e => (
                                             <tr key={e.id} className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${selectedExam?.id === e.id ? 'bg-primary-50' : ''}`}>
@@ -54,6 +70,11 @@ export default function QuizPage() {
                                                         <span>{e.title}</span>
                                                         <span className="text-[10px] text-gray-400 font-normal line-clamp-1">{e.description}</span>
                                                     </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-[10px] font-bold">
+                                                    <span className={`px-2 py-0.5 rounded-full ${e.level === 'SCHOOL' ? 'bg-purple-100 text-purple-700' : e.level === 'BRANCH' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                        {e.level === 'SCHOOL' ? 'Trường' : e.level === 'BRANCH' ? 'Khoa' : 'Lớp'}
+                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-gray-500 text-xs">{e.timeLimit ? `${e.timeLimit} phút` : '—'}</td>
                                                 <td className="px-4 py-3"><span className="bg-green-50 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">{e.satisfactoryScore || 0} điểm</span></td>

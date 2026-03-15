@@ -9,7 +9,7 @@ const unionMemberRoutes = require('./routes/unionMemberRoutes');
 const unionBranchRoutes = require('./routes/unionBranchRoutes');
 const unionCellRoutes = require('./routes/unionCellRoutes');
 const activityRoutes = require('./routes/activityRoutes');
-const cellMeetingRoutes = require('./routes/cellMeetingRoutes');
+const meetingRoutes = require('./routes/meetingRoutes');
 const newsRoutes = require('./routes/newsRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const feeRoutes = require('./routes/feeRoutes');
@@ -18,6 +18,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const landingRoutes = require('./routes/landingRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const positionRoutes = require('./routes/positionRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -48,7 +49,7 @@ app.use('/api/members', unionMemberRoutes);
 app.use('/api/branches', unionBranchRoutes);
 app.use('/api/cells', unionCellRoutes);
 app.use('/api/activities', activityRoutes);
-app.use('/api/meetings', cellMeetingRoutes);
+app.use('/api/meetings', meetingRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/fees', feeRoutes);
@@ -57,6 +58,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/landing', landingRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/positions', positionRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

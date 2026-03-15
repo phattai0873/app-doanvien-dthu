@@ -104,7 +104,7 @@ export const MainNavigator = ({ onLogout }) => {
                     case 'dashboard': return <DashboardScreen onNavigate={navigateTo} />;
                     case 'news': return <NewsFeedScreen />;
                     case 'work': return <CongTacDoanScreen onNavigate={navigateTo} />;
-                    case 'notif': return <NotificationScreen />;
+                    case 'notif': return <NotificationScreen onNavigate={navigateTo} />;
                     case 'profile': return <ProfileScreen onNavigate={navigateTo} onLogout={onLogout} />;
                     case 'meeting_list': return <MeetingListScreen onNavigate={navigateTo} />;
                     case 'exam_list': return <ExamListScreen onNavigate={navigateTo} />;

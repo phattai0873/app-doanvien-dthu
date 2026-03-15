@@ -6,18 +6,19 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 
-// Load models (triggers sync)
+// Load models
 const {
     User, Role, Permission,
     UnionBranch, UnionCell,
-    UnionMember, UnionPosition, UnionMemberPosition,
+    UnionMember, UnionMemberHistory,
     Activity, Attendance,
     CellMeeting,
     NewsCategory, News,
     DocumentCategory,
     Notification,
     QuizExam, QuizQuestion, QuizOption,
-    UnionFeePayment, CellMeetingLocation
+    UnionFeePayment, CellMeetingLocation,
+    UnionPosition
 } = require('./models');
 const { sequelize } = require('./configs/db');
 
@@ -28,20 +29,26 @@ async function seed() {
         await sequelize.sync({ alter: true });
         console.log('✅ Sync bảng xong\n');
 
+        const salt = 10;
+
         // ─── 1. ROLES & PERMISSIONS ──────────────────────────────
         console.log('📌 Tạo Roles & Permissions...');
 
-        const [adminRole] = await Role.findOrCreate({
-            where: { code: 'ADMIN' },
-            defaults: { code: 'ADMIN', name: 'Quản trị viên', description: 'Toàn quyền hệ thống', isSystem: true, isActive: true }
+        const [superAdminRole] = await Role.findOrCreate({
+            where: { code: 'SUPER_ADMIN' },
+            defaults: { code: 'SUPER_ADMIN', name: 'Quản trị viên Đoàn trường', description: 'Toàn quyền hệ thống', isSystem: true, isActive: true }
         });
-        const [secretaryRole] = await Role.findOrCreate({
-            where: { code: 'SECRETARY' },
-            defaults: { code: 'SECRETARY', name: 'Bí thư', description: 'Quản lý chi bộ', isSystem: false, isActive: true }
+        const [branchAdminRole] = await Role.findOrCreate({
+            where: { code: 'BRANCH_ADMIN' },
+            defaults: { code: 'BRANCH_ADMIN', name: 'Bí thư Liên chi đoàn', description: 'Quản lý cấp Khoa', isSystem: false, isActive: true }
+        });
+        const [cellAdminRole] = await Role.findOrCreate({
+            where: { code: 'CELL_ADMIN' },
+            defaults: { code: 'CELL_ADMIN', name: 'Bí thư Chi đoàn', description: 'Quản lý cấp Lớp', isSystem: false, isActive: true }
         });
         const [memberRole] = await Role.findOrCreate({
             where: { code: 'MEMBER' },
-            defaults: { code: 'MEMBER', name: 'Đoàn viên', description: 'Đoàn viên thường', isSystem: false, isActive: true }
+            defaults: { code: 'MEMBER', name: 'Đoàn viên', description: 'Cấp đoàn viên thường', isSystem: false, isActive: true }
         });
 
         const permDefs = [
@@ -53,131 +60,150 @@ async function seed() {
             { code: 'news:manage', name: 'Quản lý tin tức', module: 'news' },
             { code: 'fee:manage', name: 'Quản lý đoàn phí', module: 'fee' },
             { code: 'quiz:manage', name: 'Quản lý kỳ thi', module: 'quiz' },
+            { code: 'branch:manage', name: 'Quản lý Liên chi đoàn', module: 'branch' },
+            { code: 'cell:manage', name: 'Quản lý Chi đoàn', module: 'cell' },
+            { code: 'user:manage', name: 'Quản lý Tài khoản', module: 'user' },
+            { code: 'banner:manage', name: 'Quản lý Banner', module: 'banner' },
+            { code: 'document:manage', name: 'Quản lý Văn bản', module: 'document' },
+            { code: 'notification:manage', name: 'Quản lý Thông báo', module: 'notification' },
+            { code: 'landing:manage', name: 'Quản lý Landing Page', module: 'landing' },
         ];
 
         const perms = await Promise.all(
             permDefs.map(p => Permission.findOrCreate({ where: { code: p.code }, defaults: { ...p, isActive: true } }).then(([r]) => r))
         );
 
-        await adminRole.setPermissions(perms);
-        await secretaryRole.setPermissions(perms.filter(p => ['member:read', 'activity:manage', 'fee:manage'].includes(p.code)));
+        await superAdminRole.setPermissions(perms);
+        await branchAdminRole.setPermissions(perms.filter(p => ['member:read', 'activity:manage', 'fee:manage'].includes(p.code)));
+        await cellAdminRole.setPermissions(perms.filter(p => ['member:read', 'activity:manage'].includes(p.code)));
 
-        console.log('  ✔ Đã tạo 3 role, 8 permission\n');
+        console.log(`  ✔ Đã tạo 4 role, ${perms.length} permission\n`);
 
-        // ─── 2. USERS ─────────────────────────────────────────────
+        // ─── 2. TỔ CHỨC ───────────────────────────────────────────
+        console.log('📌 Tạo Tổ chức...');
+
+        const [branch1] = await UnionBranch.findOrCreate({
+            where: { code: 'LCD-KTCN' },
+            defaults: {
+                code: 'LCD-KTCN', name: 'Liên chi đoàn Khoa Kỹ thuật & Công nghệ',
+                unionLevel: 'Liên chi đoàn cơ sở',
+                officeAddress: 'Tòa A, Tầng 3 - Trường ĐHKT ĐTHU',
+                phoneNumber: '0901234567',
+                status: 'active',
+                termStartYear: 2024, termEndYear: 2027
+            }
+        });
+        const [branch2] = await UnionBranch.findOrCreate({
+            where: { code: 'LCD-QTKD' },
+            defaults: {
+                code: 'LCD-QTKD', name: 'Liên chi đoàn Khoa Quản trị Kinh doanh',
+                unionLevel: 'Liên chi đoàn cơ sở',
+                officeAddress: 'Tòa B, Tầng 2 - Trường ĐHKT ĐTHU',
+                phoneNumber: '0907654321',
+                status: 'active',
+                termStartYear: 2024, termEndYear: 2027
+            }
+        });
+
+        const [cell1] = await UnionCell.findOrCreate({
+            where: { code: 'CD-CNTT' },
+            defaults: { 
+                code: 'CD-CNTT', name: 'Chi đoàn Công nghệ thông tin', 
+                unionBranchId: branch1.id, memberCount: 0,
+                courseYear: 'K2022', academicYear: '2022-2026', status: 'active'
+            }
+        });
+        const [cell2] = await UnionCell.findOrCreate({
+            where: { code: 'CD-DTVT' },
+            defaults: { 
+                code: 'CD-DTVT', name: 'Chi đoàn Điện tử - Viễn thông', 
+                unionBranchId: branch1.id, memberCount: 0,
+                courseYear: 'K2022', academicYear: '2022-2026', status: 'active'
+            }
+        });
+        const [cell3] = await UnionCell.findOrCreate({
+            where: { code: 'CD-QTKD' },
+            defaults: { 
+                code: 'CD-QTKD', name: 'Chi đoàn Quản trị Kinh doanh', 
+                unionBranchId: branch2.id, memberCount: 0,
+                courseYear: 'K2021', academicYear: '2021-2025', status: 'active'
+            }
+        });
+
+        console.log('  ✔ 2 Liên chi đoàn, 3 Chi đoàn con\n');
+
+        // ─── 3. USERS ─────────────────────────────────────────────
         console.log('📌 Tạo Users...');
-        const salt = await bcrypt.genSalt(10);
-
+        
         const [adminUser] = await User.findOrCreate({
             where: { username: 'admin' },
             defaults: {
                 username: 'admin',
                 passwordHash: await bcrypt.hash('Admin@123', salt),
-                isActive: true, isLocked: false
+                email: 'admin@dthu.edu.vn',
+                isActive: true
             }
         });
+
         const [bithUser] = await User.findOrCreate({
             where: { username: 'bithu_nguyen' },
             defaults: {
                 username: 'bithu_nguyen',
                 passwordHash: await bcrypt.hash('Bithu@123', salt),
-                isActive: true, isLocked: false
+                email: 'nvan.an@dthu.edu.vn',
+                isActive: true,
+                unionBranchId: branch1.id,
+                unionCellId: cell1.id
             }
         });
+
         const [memberUser1] = await User.findOrCreate({
             where: { username: 'tran_thi_b' },
             defaults: {
                 username: 'tran_thi_b',
                 passwordHash: await bcrypt.hash('Member@123', salt),
-                isActive: true, isLocked: false
+                email: 'tthi.binh@dthu.edu.vn',
+                isActive: true
             }
         });
 
-        await adminUser.setRoles([adminRole]);
-        await bithUser.setRoles([secretaryRole]);
+        await adminUser.setRoles([superAdminRole]);
+        await bithUser.setRoles([cellAdminRole]);
         await memberUser1.setRoles([memberRole]);
         console.log('  ✔ Đã tạo 3 user (admin / bithu_nguyen / tran_thi_b)\n');
 
-        // ─── 3. TỔ CHỨC ───────────────────────────────────────────
-        console.log('📌 Tạo Tổ chức...');
-
-        const [branch1] = await UnionBranch.findOrCreate({
-            where: { code: 'CB-KTCN' },
-            defaults: {
-                code: 'CB-KTCN', name: 'Chi bộ Khoa Kỹ thuật & Công nghệ',
-                partyLevel: 'Chi bộ cơ sở',
-                officeAddress: 'Tòa A, Tầng 3 - Trường ĐHKT ĐTHU',
-                phoneNumber: '0901234567'
-            }
-        });
-        const [branch2] = await UnionBranch.findOrCreate({
-            where: { code: 'CB-QTKD' },
-            defaults: {
-                code: 'CB-QTKD', name: 'Chi bộ Khoa Quản trị Kinh doanh',
-                partyLevel: 'Chi bộ cơ sở',
-                officeAddress: 'Tòa B, Tầng 2 - Trường ĐHKT ĐTHU',
-                phoneNumber: '0907654321'
-            }
-        });
-
-        const [cell1] = await UnionCell.findOrCreate({
-            where: { code: 'TO-CNTT' },
-            defaults: { code: 'TO-CNTT', name: 'Tổ Công nghệ thông tin', unionBranchId: branch1.id, memberCount: 0 }
-        });
-        const [cell2] = await UnionCell.findOrCreate({
-            where: { code: 'TO-DTVT' },
-            defaults: { code: 'TO-DTVT', name: 'Tổ Điện tử - Viễn thông', unionBranchId: branch1.id, memberCount: 0 }
-        });
-        const [cell3] = await UnionCell.findOrCreate({
-            where: { code: 'TO-QTKD' },
-            defaults: { code: 'TO-QTKD', name: 'Tổ Quản trị Kinh doanh', unionBranchId: branch2.id, memberCount: 0 }
-        });
-
-        console.log('  ✔ 2 Chi bộ, 3 Tổ/Chi bộ con\n');
-
-        // ─── 4. CHỨC VỤ ───────────────────────────────────────────
-        const [posBithu] = await UnionPosition.findOrCreate({ where: { name: 'Bí thư' }, defaults: { name: 'Bí thư', scopeLevel: 'BRANCH' } });
-        const [posPBithu] = await UnionPosition.findOrCreate({ where: { name: 'Phó Bí thư' }, defaults: { name: 'Phó Bí thư', scopeLevel: 'BRANCH' } });
-        const [posUyVien] = await UnionPosition.findOrCreate({ where: { name: 'Ủy viên' }, defaults: { name: 'Ủy viên', scopeLevel: 'BRANCH' } });
-        const [posDV] = await UnionPosition.findOrCreate({ where: { name: 'Đoàn viên' }, defaults: { name: 'Đoàn viên', scopeLevel: 'CELL' } });
-
-        // ─── 5. ĐOÀN VIÊN ─────────────────────────────────────────
+        // ─── 4. ĐOÀN VIÊN ─────────────────────────────────────────
         console.log('📌 Tạo Đoàn viên...');
 
         const memberDefs = [
-            { memberCode: 'DV001', fullName: 'Nguyễn Văn An', dateOfBirth: '2002-05-12', gender: 'Nam', email: 'nvan.an@dthu.edu.vn', phoneNumber: '0901111111', identityNumber: '001202001001', memberCardNumber: 'TN001', joinedDate: '2021-09-05', unionCellId: cell1.id, unionBranchId: branch1.id, userId: bithUser.id },
-            { memberCode: 'DV002', fullName: 'Trần Thị Bình', dateOfBirth: '2002-08-20', gender: 'Nu', email: 'tthi.binh@dthu.edu.vn', phoneNumber: '0902222222', identityNumber: '001202001002', memberCardNumber: 'TN002', joinedDate: '2021-09-05', unionCellId: cell1.id, unionBranchId: branch1.id, userId: memberUser1.id },
-            { memberCode: 'DV003', fullName: 'Lê Hoàng Cường', dateOfBirth: '2001-03-15', gender: 'Nam', email: 'lh.cuong@dthu.edu.vn', phoneNumber: '0903333333', identityNumber: '001202001003', memberCardNumber: 'TN003', joinedDate: '2020-09-10', unionCellId: cell1.id, unionBranchId: branch1.id },
-            { memberCode: 'DV004', fullName: 'Phạm Thị Dung', dateOfBirth: '2003-11-02', gender: 'Nu', email: 'pth.dung@dthu.edu.vn', phoneNumber: '0904444444', identityNumber: '001202001004', memberCardNumber: 'TN004', joinedDate: '2022-09-01', unionCellId: cell2.id, unionBranchId: branch1.id },
-            { memberCode: 'DV005', fullName: 'Hoàng Văn Em', dateOfBirth: '2002-07-18', gender: 'Nam', email: 'hv.em@dthu.edu.vn', phoneNumber: '0905555555', identityNumber: '001202001005', memberCardNumber: 'TN005', joinedDate: '2021-09-05', unionCellId: cell2.id, unionBranchId: branch1.id },
-            { memberCode: 'DV006', fullName: 'Vũ Thị Phương', dateOfBirth: '2002-01-25', gender: 'Nu', email: 'vt.phuong@dthu.edu.vn', phoneNumber: '0906666666', identityNumber: '001202001006', memberCardNumber: 'TN006', joinedDate: '2021-09-05', unionCellId: cell3.id, unionBranchId: branch2.id },
-            { memberCode: 'DV007', fullName: 'Đỗ Minh Quân', dateOfBirth: '2001-09-30', gender: 'Nam', email: 'dm.quan@dthu.edu.vn', phoneNumber: '0907777777', identityNumber: '001202001007', memberCardNumber: 'TN007', joinedDate: '2020-09-10', unionCellId: cell3.id, unionBranchId: branch2.id },
-            { memberCode: 'DV008', fullName: 'Ngô Thị Hồng', dateOfBirth: '2003-04-11', gender: 'Nu', email: 'nth.hong@dthu.edu.vn', phoneNumber: '0908888888', identityNumber: '001202001008', memberCardNumber: 'TN008', joinedDate: '2022-09-01', unionCellId: cell3.id, unionBranchId: branch2.id },
-            { memberCode: 'DV009', fullName: 'Bùi Thị Lan', dateOfBirth: '2002-12-05', gender: 'Nu', email: 'bth.lan@dthu.edu.vn', phoneNumber: '0909999999', identityNumber: '001202001009', memberCardNumber: 'TN009', joinedDate: '2021-09-05', unionCellId: cell1.id, unionBranchId: branch1.id },
-            { memberCode: 'DV010', fullName: 'Trương Văn Minh', dateOfBirth: '2001-06-20', gender: 'Nam', email: 'tv.minh@dthu.edu.vn', phoneNumber: '0910010010', identityNumber: '001202001010', memberCardNumber: 'TN010', joinedDate: '2020-09-10', unionCellId: cell2.id, unionBranchId: branch1.id },
+            { memberCode: 'DV001', fullName: 'Nguyễn Văn An', dateOfBirth: '2002-05-12', gender: 'male', email: 'nvan.an@dthu.edu.vn', phoneNumber: '0901111111', identityNumber: '001202001001', memberCardNumber: 'TN001', joinedDate: '2021-09-05', unionCellId: cell1.id, userId: bithUser.id, roleInUnion: 'secretary', activityStatus: 'active', status: 'approved' },
+            { memberCode: 'DV002', fullName: 'Trần Thị Bình', dateOfBirth: '2002-08-20', gender: 'female', email: 'tthi.binh@dthu.edu.vn', phoneNumber: '0902222222', identityNumber: '001202001002', memberCardNumber: 'TN002', joinedDate: '2021-09-05', unionCellId: cell1.id, userId: memberUser1.id, roleInUnion: 'member', activityStatus: 'active', status: 'approved' },
+            { memberCode: 'DV003', fullName: 'Lê Hoàng Cường', dateOfBirth: '2001-03-15', gender: 'male', email: 'lh.cuong@dthu.edu.vn', phoneNumber: '0903333333', identityNumber: '001202001003', memberCardNumber: 'TN003', joinedDate: '2020-09-10', unionCellId: cell1.id, roleInUnion: 'member', activityStatus: 'active', status: 'approved' },
+            { memberCode: 'DV004', fullName: 'Phạm Thị Dung', dateOfBirth: '2003-11-02', gender: 'female', email: 'pth.dung@dthu.edu.vn', phoneNumber: '0904444444', identityNumber: '001202001004', memberCardNumber: 'TN004', joinedDate: '2022-09-01', unionCellId: cell2.id },
+            { memberCode: 'DV005', fullName: 'Hoàng Văn Em', dateOfBirth: '2002-07-18', gender: 'male', email: 'hv.em@dthu.edu.vn', phoneNumber: '0905555555', identityNumber: '001202001005', memberCardNumber: 'TN005', joinedDate: '2021-09-05', unionCellId: cell2.id },
+            { memberCode: 'DV006', fullName: 'Vũ Thị Phương', dateOfBirth: '2002-01-25', gender: 'female', email: 'vt.phuong@dthu.edu.vn', phoneNumber: '0906666666', identityNumber: '001202001006', memberCardNumber: 'TN006', joinedDate: '2021-09-05', unionCellId: cell3.id },
+            { memberCode: 'DV007', fullName: 'Đỗ Minh Quân', dateOfBirth: '2001-09-30', gender: 'male', email: 'dm.quan@dthu.edu.vn', phoneNumber: '0907777777', identityNumber: '001202001007', memberCardNumber: 'TN007', joinedDate: '2020-09-10', unionCellId: cell3.id },
+            { memberCode: 'DV008', fullName: 'Ngô Thị Hồng', dateOfBirth: '2003-04-11', gender: 'female', email: 'nth.hong@dthu.edu.vn', phoneNumber: '0908888888', identityNumber: '001202001008', memberCardNumber: 'TN008', joinedDate: '2022-09-01', unionCellId: cell3.id },
+            { memberCode: 'DV009', fullName: 'Bùi Thị Lan', dateOfBirth: '2002-12-05', gender: 'female', email: 'bth.lan@dthu.edu.vn', phoneNumber: '0909999999', identityNumber: '001202001009', memberCardNumber: 'TN009', joinedDate: '2021-09-05', unionCellId: cell1.id },
+            { memberCode: 'DV010', fullName: 'Trương Văn Minh', dateOfBirth: '2001-06-20', gender: 'male', email: 'tv.minh@dthu.edu.vn', phoneNumber: '0910010010', identityNumber: '001202001010', memberCardNumber: 'TN010', joinedDate: '2020-09-10', unionCellId: cell2.id },
         ];
 
         const createdMembers = await Promise.all(
             memberDefs.map(m => UnionMember.findOrCreate({ where: { memberCode: m.memberCode }, defaults: m }).then(([r]) => r))
         );
 
-        // Phân công chức vụ
-        await UnionMemberPosition.findOrCreate({
-            where: { unionMemberId: createdMembers[0].id, unionPositionId: posBithu.id },
-            defaults: { unionMemberId: createdMembers[0].id, unionPositionId: posBithu.id, unionCellId: cell1.id, assignedDate: '2022-01-01', isActive: true }
-        });
-        await UnionMemberPosition.findOrCreate({
-            where: { unionMemberId: createdMembers[1].id, unionPositionId: posPBithu.id },
-            defaults: { unionMemberId: createdMembers[1].id, unionPositionId: posPBithu.id, unionCellId: cell1.id, assignedDate: '2022-01-01', isActive: true }
-        });
-
-        // Cập nhật bí thư cho chi bộ
-        await branch1.update({ secretaryId: createdMembers[0].id });
-        await cell1.update({ memberCount: 4 });
-        await cell2.update({ memberCount: 3 });
-        await cell3.update({ memberCount: 3 });
-
         console.log(`  ✔ ${createdMembers.length} đoàn viên\n`);
+
+        // ─── 5. LỊCH SỬ ĐOÀN VIÊN ───────────────────────────────
+        console.log('📌 Tạo Lịch sử đoàn viên...');
+        await UnionMemberHistory.create({
+            unionMemberId: createdMembers[0].id,
+            type: 'role_change',
+            oldValue: 'member',
+            newValue: 'secretary',
+            note: 'Được bầu làm Bí thư chi đoàn nhiệm kỳ 2024-2025',
+            actionDate: '2024-10-01'
+        });
 
         // ─── 6. HOẠT ĐỘNG & ĐIỂM DANH ────────────────────────────
         console.log('📌 Tạo Hoạt động...');
@@ -189,7 +215,7 @@ async function seed() {
                 description: 'Chương trình hiến máu tình nguyện nhân dịp Tết Nguyên Đán 2026',
                 location: 'Hội trường A - Trường ĐHKT ĐTHU',
                 startDate: '2026-01-15T07:30:00', endDate: '2026-01-15T11:30:00',
-                point: 15, isMandatory: false
+                point: 15, isMandatory: false, unionBranchId: branch1.id
             }
         });
         const [act2] = await Activity.findOrCreate({
@@ -199,17 +225,7 @@ async function seed() {
                 description: 'Đại hội tổng kết và bầu cử Ban chấp hành Đoàn mới',
                 location: 'Hội trường lớn - Tòa A',
                 startDate: '2026-03-20T08:00:00', endDate: '2026-03-20T17:00:00',
-                point: 20, isMandatory: true
-            }
-        });
-        const [act3] = await Activity.findOrCreate({
-            where: { title: 'Tình nguyện Mùa hè xanh 2025' },
-            defaults: {
-                title: 'Tình nguyện Mùa hè xanh 2025',
-                description: 'Chiến dịch tình nguyện tại huyện Châu Thành, tỉnh Đồng Tháp',
-                location: 'Huyện Châu Thành, Đồng Tháp',
-                startDate: '2025-07-01T06:00:00', endDate: '2025-07-14T18:00:00',
-                point: 30, isMandatory: false
+                point: 20, isMandatory: true, unionBranchId: branch1.id
             }
         });
 
@@ -217,13 +233,7 @@ async function seed() {
         const attendanceDefs = [
             { activityId: act1.id, unionMemberId: createdMembers[0].id, status: 'Có mặt' },
             { activityId: act1.id, unionMemberId: createdMembers[1].id, status: 'Có mặt' },
-            { activityId: act1.id, unionMemberId: createdMembers[2].id, status: 'Vắng' },
-            { activityId: act1.id, unionMemberId: createdMembers[3].id, status: 'Có phép' },
             { activityId: act2.id, unionMemberId: createdMembers[0].id, status: 'Có mặt' },
-            { activityId: act2.id, unionMemberId: createdMembers[1].id, status: 'Có mặt' },
-            { activityId: act2.id, unionMemberId: createdMembers[2].id, status: 'Có mặt' },
-            { activityId: act3.id, unionMemberId: createdMembers[0].id, status: 'Có mặt' },
-            { activityId: act3.id, unionMemberId: createdMembers[4].id, status: 'Có mặt' },
         ];
         await Promise.all(
             attendanceDefs.map(a => Attendance.findOrCreate({
@@ -231,21 +241,16 @@ async function seed() {
                 defaults: { ...a, attendanceTime: new Date() }
             }))
         );
-        console.log('  ✔ 3 hoạt động, 9 lượt điểm danh\n');
+        console.log('  ✔ Các hoạt động và điểm danh\n');
 
-        // ─── 7. ĐỊA ĐIỂM HỌP ──────────────────────────────────
-        console.log('📌 Tạo Địa điểm họp...');
-        const [locA] = await CellMeetingLocation.findOrCreate({ where: { name: 'Hội trường A' }, defaults: { name: 'Hội trường A', address: 'Tòa A, Tầng 1', capacity: 100 } });
+        // ─── 7. ĐỊA ĐIỂM & SINH HOẠT ─────────────────────────────
+        console.log('📌 Tạo Sinh hoạt Chi đoàn...');
         const [locB] = await CellMeetingLocation.findOrCreate({ where: { name: 'Phòng họp 1' }, defaults: { name: 'Phòng họp 1', address: 'Tòa B, Tầng 2', capacity: 20 } });
-        const [locC] = await CellMeetingLocation.findOrCreate({ where: { name: 'Văn phòng Đoàn' }, defaults: { name: 'Văn phòng Đoàn', address: 'Khu trung tâm', capacity: 15 } });
-        console.log('  ✔ 3 địa điểm họp\n');
-
-        // ─── 8. CUỘC HỌP CHI BỘ ──────────────────────────────────
-        console.log('📌 Tạo Cuộc họp...');
+        
         await CellMeeting.findOrCreate({
-            where: { title: 'Họp chi bộ tháng 2/2026' },
+            where: { title: 'Sinh hoạt chi đoàn tháng 2/2026' },
             defaults: {
-                title: 'Họp chi bộ tháng 2/2026',
+                title: 'Sinh hoạt chi đoàn tháng 2/2026',
                 content: 'Tổng kết công tác Đoàn tháng 1, triển khai kế hoạch tháng 2',
                 meetingTime: '2026-02-10T14:00:00',
                 unionCellId: cell1.id,
@@ -256,36 +261,11 @@ async function seed() {
                 minutes: 'Cuộc họp diễn ra đúng giờ với sự tham dự của 4/4 đoàn viên...'
             }
         });
-        await CellMeeting.findOrCreate({
-            where: { title: 'Họp chi bộ tháng 3/2026' },
-            defaults: {
-                title: 'Họp chi bộ tháng 3/2026',
-                content: 'Chuẩn bị Đại hội Đoàn, phân công nhiệm vụ',
-                meetingTime: '2026-03-05T14:00:00',
-                unionCellId: cell1.id,
-                chairpersonId: createdMembers[0].id,
-                secretaryId: createdMembers[1].id,
-                status: 'Mới tạo'
-            }
-        });
-        console.log('  ✔ 2 cuộc họp chi bộ\n');
 
         // ─── 8. TIN TỨC ───────────────────────────────────────────
         console.log('📌 Tạo Tin tức...');
-        const [catHoatDong] = await NewsCategory.findOrCreate({ where: { name: 'Tin hoạt động' }, defaults: { name: 'Tin hoạt động' } });
         const [catThongBao] = await NewsCategory.findOrCreate({ where: { name: 'Thông báo' }, defaults: { name: 'Thông báo' } });
-        const [catGuong] = await NewsCategory.findOrCreate({ where: { name: 'Gương điển hình' }, defaults: { name: 'Gương điển hình' } });
 
-        await News.findOrCreate({
-            where: { title: 'Thành công chiến dịch Hiến máu Xuân 2026' },
-            defaults: {
-                title: 'Thành công chiến dịch Hiến máu Xuân 2026',
-                summary: 'Chiến dịch hiến máu tình nguyện thu hút hơn 200 đơn vị máu',
-                content: 'Ngày 15/01/2026, Đoàn trường ĐHKT ĐTHU phối hợp tổ chức...',
-                categoryId: catHoatDong.id, authorId: adminUser.id,
-                status: 'Đã đăng', publishedAt: new Date('2026-01-16')
-            }
-        });
         await News.findOrCreate({
             where: { title: 'Thông báo Đại hội Đoàn nhiệm kỳ 2026-2028' },
             defaults: {
@@ -296,115 +276,52 @@ async function seed() {
                 status: 'Đã đăng', publishedAt: new Date('2026-03-01')
             }
         });
-        await News.findOrCreate({
-            where: { title: 'Gương điển hình: Nguyễn Văn An - Sinh viên 5 tốt 2025' },
-            defaults: {
-                title: 'Gương điển hình: Nguyễn Văn An - Sinh viên 5 tốt 2025',
-                summary: 'Đoàn viên xuất sắc đạt danh hiệu Sinh viên 5 tốt cấp Trung ương',
-                content: 'Đoàn viên Nguyễn Văn An, lớp CNTT2022...',
-                categoryId: catGuong.id, authorId: adminUser.id,
-                status: 'Đã đăng', publishedAt: new Date('2026-02-20')
-            }
-        });
-        await News.findOrCreate({
-            where: { title: 'Kế hoạch hoạt động Đoàn tháng 4/2026 (bản nháp)' },
-            defaults: {
-                title: 'Kế hoạch hoạt động Đoàn tháng 4/2026 (bản nháp)',
-                summary: 'Dự thảo kế hoạch các hoạt động tháng 4',
-                content: 'Nội dung đang được soạn thảo...',
-                categoryId: catThongBao.id, authorId: adminUser.id,
-                status: 'Nháp'
-            }
-        });
-        console.log('  ✔ 3 danh mục, 4 bài viết\n');
 
-        // ─── 9. THI & KHẢO SÁT ───────────────────────────────────
-        console.log('📌 Tạo Kỳ thi...');
+        // ─── 9. THI & ĐOÀN PHÍ ───────────────────────────────────
+        console.log('📌 Tạo Kỳ thi & Đoàn phí...');
         const [exam1] = await QuizExam.findOrCreate({
             where: { title: 'Tìm hiểu Nghị quyết Đại hội Đoàn lần XIV' },
             defaults: {
                 title: 'Tìm hiểu Nghị quyết Đại hội Đoàn lần XIV',
-                description: 'Bài thi tìm hiểu về nội dung Nghị quyết Đại hội Đoàn TNCS HCM lần XIV',
                 timeLimit: 30, satisfactoryScore: 7,
                 startDate: '2026-03-01', endDate: '2026-03-31'
             }
         });
 
-        const q1 = await QuizQuestion.findOrCreate({
-            where: { examId: exam1.id, content: 'Chủ đề của Đại hội Đoàn TNCS HCM lần XIV là gì?' },
+        await UnionFeePayment.findOrCreate({
+            where: { unionMemberId: createdMembers[0].id, period: 'Q1/2026' },
+            defaults: { unionMemberId: createdMembers[0].id, period: 'Q1/2026', amount: 10000, paymentDate: '2026-01-06', unionBranchId: branch1.id, unionCellId: cell1.id }
+        });
+
+        // ─── 10. THÔNG BÁO ──────────────────────────────────────────
+        console.log('📌 Tạo Thông báo mẫu...');
+        await Notification.findOrCreate({
+            where: { title: 'Chào mừng bạn đến với ứng dụng Quản lý Đoàn viên ĐTHU' },
             defaults: {
-                examId: exam1.id,
-                content: 'Chủ đề của Đại hội Đoàn TNCS HCM lần XIV là gì?',
-                questionType: 'SINGLE', score: 2, order: 1
+                title: 'Chào mừng bạn đến với ứng dụng Quản lý Đoàn viên ĐTHU',
+                content: 'Ứng dụng đã chính thức đi vào hoạt động. Hãy cập nhật hồ sơ của bạn ngay.',
+                category: 'SYSTEM', targetType: 'ALL', createdByRole: 'SUPER_ADMIN', status: 'Sent'
             }
-        }).then(([r]) => r);
+        });
 
-        await Promise.all([
-            QuizOption.findOrCreate({ where: { questionId: q1.id, content: 'Đoàn kết - Sáng tạo - Phát triển' }, defaults: { questionId: q1.id, content: 'Đoàn kết - Sáng tạo - Phát triển', isCorrect: false } }),
-            QuizOption.findOrCreate({ where: { questionId: q1.id, content: 'Thanh niên với khát vọng phát triển đất nước phồn vinh, hạnh phúc' }, defaults: { questionId: q1.id, content: 'Thanh niên với khát vọng phát triển đất nước phồn vinh, hạnh phúc', isCorrect: true } }),
-            QuizOption.findOrCreate({ where: { questionId: q1.id, content: 'Đoàn TNCS HCM - Xung kích, sáng tạo, tiên phong' }, defaults: { questionId: q1.id, content: 'Đoàn TNCS HCM - Xung kích, sáng tạo, tiên phong', isCorrect: false } }),
-        ]);
-
-        const q2 = await QuizQuestion.findOrCreate({
-            where: { examId: exam1.id, content: 'Đoàn TNCS Hồ Chí Minh được thành lập vào ngày tháng năm nào?' },
-            defaults: {
-                examId: exam1.id,
-                content: 'Đoàn TNCS Hồ Chí Minh được thành lập vào ngày tháng năm nào?',
-                questionType: 'SINGLE', score: 2, order: 2
-            }
-        }).then(([r]) => r);
-
-        await Promise.all([
-            QuizOption.findOrCreate({ where: { questionId: q2.id, content: '26/03/1930' }, defaults: { questionId: q2.id, content: '26/03/1930', isCorrect: true } }),
-            QuizOption.findOrCreate({ where: { questionId: q2.id, content: '19/05/1941' }, defaults: { questionId: q2.id, content: '19/05/1941', isCorrect: false } }),
-            QuizOption.findOrCreate({ where: { questionId: q2.id, content: '02/09/1945' }, defaults: { questionId: q2.id, content: '02/09/1945', isCorrect: false } }),
-        ]);
-
-        // Lượt làm bài mẫu
-        await Promise.all(
-            createdMembers.slice(0, 5).map((m, i) =>
-                require('./models').QuizAttempt.findOrCreate({
-                    where: { examId: exam1.id, unionMemberId: m.id },
-                    defaults: {
-                        examId: exam1.id, unionMemberId: m.id,
-                        score: [8, 6, 10, 4, 9][i],
-                        correctAnswersCount: [4, 3, 5, 2, 4][i],
-                        submitTime: new Date()
-                    }
-                })
-            )
-        );
-        console.log('  ✔ 1 kỳ thi, 2 câu hỏi, 5 lượt làm bài\n');
-
-        // ─── 10. ĐOÀN PHÍ ─────────────────────────────────────────
-        console.log('📌 Tạo Đoàn phí...');
-        const feeDefs = [
-            { unionMemberId: createdMembers[0].id, period: 'Q4/2025', amount: 10000, paymentDate: '2025-10-05', note: 'Nộp đúng hạn' },
-            { unionMemberId: createdMembers[1].id, period: 'Q4/2025', amount: 10000, paymentDate: '2025-10-08' },
-            { unionMemberId: createdMembers[2].id, period: 'Q4/2025', amount: 10000, paymentDate: '2025-10-10' },
-            { unionMemberId: createdMembers[3].id, period: 'Q4/2025', amount: 10000, paymentDate: '2025-10-12' },
-            { unionMemberId: createdMembers[4].id, period: 'Q4/2025', amount: 10000, paymentDate: '2025-10-15' },
-            { unionMemberId: createdMembers[0].id, period: 'Q1/2026', amount: 10000, paymentDate: '2026-01-06', note: 'Nộp đầu năm' },
-            { unionMemberId: createdMembers[1].id, period: 'Q1/2026', amount: 10000, paymentDate: '2026-01-10' },
-            // DV003..DV010 chưa nộp Q1/2026 (để test tính năng unpaid)
+        // ─── 11. CHỨC VỤ ──────────────────────────────────────────
+        console.log('📌 Tạo Chức vụ (Positions)...');
+        const positionDefs = [
+            { name: 'Bí thư Chi đoàn', scopeLevel: 'CELL', description: 'Người đứng đầu Chi đoàn' },
+            { name: 'Phó Bí thư Chi đoàn', scopeLevel: 'CELL', description: 'Phó người đứng đầu Chi đoàn' },
+            { name: 'Ủy viên Ban chấp hành Chi đoàn', scopeLevel: 'CELL', description: 'Thành viên BCH Chi đoàn' },
+            { name: 'Bí thư Liên chi đoàn', scopeLevel: 'BRANCH', description: 'Người đứng đầu Liên chi đoàn (Khoa)' },
+            { name: 'Phó Bí thư Liên chi đoàn', scopeLevel: 'BRANCH', description: 'Phó người đứng đầu Liên chi đoàn (Khoa)' }
         ];
         await Promise.all(
-            feeDefs.map(f => UnionFeePayment.findOrCreate({
-                where: { unionMemberId: f.unionMemberId, period: f.period },
-                defaults: f
+            positionDefs.map(p => UnionPosition.findOrCreate({ 
+                where: { name: p.name, scopeLevel: p.scopeLevel }, 
+                defaults: p 
             }))
         );
-        console.log('  ✔ 7 bản ghi đoàn phí (8 người chưa nộp Q1/2026)\n');
+        console.log('  ✔ Đã tạo các chức vụ mẫu\n');
 
-        // ─── DONE ──────────────────────────────────────────────────
         console.log('🎉 SEED THÀNH CÔNG!\n');
-        console.log('==========================================');
-        console.log('Tài khoản mặc định:');
-        console.log('  Admin   : admin / Admin@123');
-        console.log('  Bí thư  : bithu_nguyen / Bithu@123');
-        console.log('  Đoàn viên: tran_thi_b / Member@123');
-        console.log('==========================================\n');
-
     } catch (err) {
         console.error('❌ Seed thất bại:', err.message);
         console.error(err);
