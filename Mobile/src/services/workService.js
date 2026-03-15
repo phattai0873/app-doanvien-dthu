@@ -21,6 +21,11 @@ export const workService = {
         } catch (e) {
             return { next_meeting: 'Chưa có lịch', unpaid_fee: 'Đã hoàn thành' };
         }
+    },
+
+    refreshCheckinCode: async (id) => {
+        if (USE_MOCK_API) return { success: true, data: { checkinCode: 'ACT123', checkinCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000) } };
+        return await apiClient.post(`/api/activities/${id}/refresh-code`);
     }
 };
 

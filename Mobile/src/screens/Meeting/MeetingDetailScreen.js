@@ -33,11 +33,17 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [m, currentUser] = await Promise.all([
+                const [m, userData] = await Promise.all([
                     meetingService.getMeetingDetail(id),
                     authService.getCurrentUser()
                 ]);
 
+                // user object returned has a Roles array
+                const currentUser = userData;
+                if (currentUser && currentUser.Roles && currentUser.Roles.length > 0) {
+                    currentUser.role = currentUser.Roles[0].code; // gán role string để dễ dùng
+                }
+                
                 setUser(currentUser);
                 
                 // Mapping dữ liệu
