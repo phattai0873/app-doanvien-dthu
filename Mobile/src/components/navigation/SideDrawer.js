@@ -109,7 +109,7 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
                     {/* Nav Items */}
                     <View style={styles.navSection}>
                         <DrawerItem icon="Grid" label="Bảng điều khiển" id="dashboard" />
-                        <DrawerItem icon="Home" label="Bản tin" id="news" />
+                        <DrawerItem icon="Newspaper" label="Bản tin" id="news" />
                         <DrawerItem icon="Briefcase" label="Công tác Đoàn" id="work" />
                         <DrawerItem icon="List" label="Sinh hoạt" id="meeting_list" />
                         <DrawerItem icon="Award" label="Cuộc thi" id="exam_list" />

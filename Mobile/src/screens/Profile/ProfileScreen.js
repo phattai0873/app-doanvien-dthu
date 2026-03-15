@@ -44,6 +44,12 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                         <Text style={styles.statusText}>{user?.trang_thai_doan}</Text>
                     </View>
                 </View>
+                <TouchableOpacity 
+                    style={styles.editIconBtn} 
+                    onPress={() => onNavigate('edit_profile')}
+                >
+                    <Icon name="Settings" size={20} color={COLORS.gray400} />
+                </TouchableOpacity>
             </View>
 
             <View style={styles.menuGroup}>
@@ -51,11 +57,11 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                 <View style={styles.menuDivider} />
                 <MenuRow icon="Users" color={COLORS.primary} label="Thông tin Tổ chức Đoàn" onPress={() => onNavigate('org_info')} />
                 <View style={styles.menuDivider} />
-                <MenuRow icon="QrCode" color={COLORS.gray700} label="Thẻ Đoàn viên điện tử" />
+                <MenuRow icon="QrCode" color={COLORS.gray700} label="Thẻ Đoàn viên điện tử" onPress={() => onNavigate('qr_card')} />
             </View>
 
             <View style={styles.menuGroup}>
-                <MenuRow icon="Settings" color={COLORS.gray600} label="Cài đặt" />
+                <MenuRow icon="Settings" color={COLORS.gray600} label="Cài đặt" onPress={() => onNavigate('settings')} />
                 <View style={styles.menuDivider} />
                 <MenuRow icon="FileText" color={COLORS.gray600} label="Điều khoản sử dụng" />
             </View>
@@ -93,7 +99,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 20,
         elevation: 5,
-        marginBottom: 20
+        marginBottom: 20,
+        position: 'relative'
+    },
+    editIconBtn: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        padding: 5
     },
     avatarWrapper: {
         position: 'absolute',

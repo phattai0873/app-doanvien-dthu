@@ -11,7 +11,7 @@ export const HomeFAB = ({ onPress }) => {
             activeOpacity={0.8}
         >
             <View style={styles.iconContainer}>
-                <Icon name="Grid" size={28} color={COLORS.white} />
+                <Icon name="Home" size={28} color={COLORS.white} />
             </View>
         </TouchableOpacity>
     );

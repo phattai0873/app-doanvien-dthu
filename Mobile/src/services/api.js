@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // CỜ CẤU HÌNH: 
-export const USE_MOCK_API = false;
+// 🔧 DEV MODE: Tắt kết nối backend thực, dùng dữ liệu giả để xem UI
+export const USE_MOCK_API = false;  // ← Đổi lại false khi cần kết nối backend thực
 export const USE_SUPABASE = false;
 
 const TOKEN_KEY = 'auth_token';
@@ -11,7 +12,8 @@ const TOKEN_KEY = 'auth_token';
 // Base URL của API - Thay đổi theo môi trường
 // Android Emulator dùng 10.0.2.2 để gọi localhost máy tính
 // iOS Emulator hoặc thiết bị thực dùng localhost/IP
-const DEV_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+// Dùng IP máy tính của bạn để thiết bị thực (Expo Go) có thể kết nối được
+const DEV_HOST = '192.168.1.4'; 
 export const API_BASE_URL = `http://${DEV_HOST}:5000`;
 
 const apiClient = axios.create({

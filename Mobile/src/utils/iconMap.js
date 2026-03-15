@@ -43,7 +43,8 @@ export const ICONS = {
     List: 'list-outline',
     RotateCw: 'refresh',
     X: 'close',
-    Scan: 'scan-outline'
+    Scan: 'scan-outline',
+    Newspaper: 'newspaper-outline'
 };
 
 export const Icon = ({ name, size = 24, color = '#000', style }) => (

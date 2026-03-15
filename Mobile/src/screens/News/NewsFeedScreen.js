@@ -5,7 +5,7 @@ import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
 import { newsService } from '../../services/newsService';
 
-export const NewsFeedScreen = () => {
+export const NewsFeedScreen = ({ onNavigate }) => {
     const [activeCat, setActiveCat] = useState('all');
     const [activeScope, setActiveScope] = useState('Trường'); // Default to Trường
     const [categories, setCategories] = useState([]);
@@ -105,7 +105,10 @@ export const NewsFeedScreen = () => {
 
             {/* Hero News */}
             {heroNews && (
-                <View style={styles.heroCard}>
+                <TouchableOpacity 
+                    style={styles.heroCard}
+                    onPress={() => onNavigate && onNavigate('news_detail', { id: heroNews.id })}
+                >
                     <View style={styles.heroImageContainer}>
                         <Image source={{ uri: heroNews.thumbnailUrl }} style={styles.heroImage} />
                         <View style={styles.badgeContainer}>
@@ -120,7 +123,7 @@ export const NewsFeedScreen = () => {
                             <Text style={styles.metaText}>{heroNews.publishedAt}</Text>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
             )}
 
             <View style={styles.divider} />
@@ -128,7 +131,11 @@ export const NewsFeedScreen = () => {
             {/* List News */}
             <View style={styles.listContainer}>
                 {listNews.map(item => (
-                    <TouchableOpacity key={item.id} style={styles.newsItem}>
+                    <TouchableOpacity 
+                        key={item.id} 
+                        style={styles.newsItem}
+                        onPress={() => onNavigate && onNavigate('news_detail', { id: item.id })}
+                    >
                         <View style={styles.newsThumb}>
                             <Image source={{ uri: item.thumbnailUrl }} style={styles.imgCover} />
                         </View>

@@ -107,8 +107,26 @@ export const partyService = {
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.user), SIMULATE_DELAY));
 
         // API THỰC
-        const response = await apiClient.get('/api/users/me'); // Get current user profile
-        return response.user || response.data;
+        const response = await apiClient.get('/api/users/me'); // response is response.data
+        const userData = response.data || response;
+        const member = userData.UnionMember || {};
+        
+        // Map backend fields to frontend expected fields
+        return {
+            ...userData,
+            ho_ten: member.fullName || userData.username,
+            chuc_vu_doan: member.roleInUnion === 'member' ? 'Đoàn viên' : 
+                         member.roleInUnion === 'secretary' ? 'Bí thư' :
+                         member.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn',
+            trang_thai_doan: member.status === 'approved' ? 'Đang hoạt động' : 'Chờ duyệt',
+            anh_dai_dien: member.avatar ? `${apiClient.defaults.baseURL}${member.avatar}` : 'https://picsum.photos/200',
+            sdt: member.phoneNumber,
+            email: member.email,
+            cccd: member.identityNumber,
+            ngay_sinh: member.dateOfBirth,
+            dia_chi: member.permanentAddress,
+            is_verified: member.status === 'approved'
+        };
     },
 
     // 4. Custom: My Profile (Composite)

@@ -53,56 +53,67 @@ export const VolunteerListScreen = () => {
         );
     };
 
-    const renderItem = ({ item }) => (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <View style={styles.statusBox}>
-                    <Icon name="Compass" size={24} color={COLORS.primary} />
-                    <View style={styles.statusInfo}>
-                        <Text style={styles.activityTitle}>{item.title}</Text>
-                        <View style={styles.metaRow}>
-                            <Icon name="MapPin" size={12} color="#9CA3AF" />
-                            <Text style={styles.metaText}>{item.location}</Text>
+    const renderItem = ({ item }) => {
+        const startDate = item.startDate ? new Date(item.startDate).toLocaleDateString('vi-VN') : '...';
+        const startTime = item.startDate ? new Date(item.startDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+        const maxParticipants = item.maxParticipants || 100;
+        const registeredCount = item.participantCount || (item.ActivityParticipants ? item.ActivityParticipants.length : 0);
+        const progress = Math.min((registeredCount / maxParticipants) * 100, 100);
+        const isOpen = item.status === 'APPROVED' || item.status === 'IN_PROGRESS';
+
+        return (
+            <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                    <View style={styles.statusBox}>
+                        <Icon name="Compass" size={24} color={COLORS.primary} />
+                        <View style={styles.statusInfo}>
+                            <Text style={styles.activityTitle}>{item.title}</Text>
+                            <View style={styles.metaRow}>
+                                <Icon name="MapPin" size={12} color="#9CA3AF" />
+                                <Text style={styles.metaText}>{item.location || 'Chưa xác định'}</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
-            </View>
 
-            <View style={styles.cardBody}>
-                <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
+                <View style={styles.cardBody}>
+                    <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
 
-                <View style={[styles.infoLine, { marginTop: 12 }]}>
-                    <Icon name="Time" size={14} color="#6B7280" />
-                    <Text style={styles.infoText}>Bắt đầu: {item.start_time}</Text>
+                    <View style={[styles.infoLine, { marginTop: 12 }]}>
+                        <Icon name="Time" size={14} color="#6B7280" />
+                        <Text style={styles.infoText}>Bắt đầu: {startDate} {startTime}</Text>
+                    </View>
+
+                    <View style={styles.participantInfo}>
+                        <View style={styles.progressBarBg}>
+                            <View
+                                style={[
+                                    styles.progressBarFill,
+                                    { width: `${progress}%` }
+                                ]}
+                            />
+                        </View>
+                        <View style={styles.participantRow}>
+                            <Text style={styles.participantText}>Đã đăng ký: {registeredCount}/{maxParticipants}</Text>
+                            <Text style={[styles.statusLabel, { color: isOpen ? '#10B981' : '#EF4444' }]}>
+                                {isOpen ? 'Đang nhận' : 'Đã đóng'}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
 
-                <View style={styles.participantInfo}>
-                    <View style={styles.progressBarBg}>
-                        <View
-                            style={[
-                                styles.progressBarFill,
-                                { width: `${(item.registered_count / item.max_participants) * 100}%` }
-                            ]}
-                        />
-                    </View>
-                    <View style={styles.participantRow}>
-                        <Text style={styles.participantText}>Đã đăng ký: {item.registered_count}/{item.max_participants}</Text>
-                        <Text style={styles.statusLabel}>{item.status === 'open' ? 'Đang nhận' : 'Đã đóng'}</Text>
-                    </View>
-                </View>
+                <TouchableOpacity
+                    style={[styles.actionBtn, !isOpen && styles.disabledBtn]}
+                    disabled={!isOpen}
+                    onPress={() => handleRegister(item)}
+                >
+                    <Text style={styles.actionBtnText}>
+                        {isOpen ? 'ĐĂNG KÝ THAM GIA' : 'HẾT HẠN / ĐÃ ĐÓNG'}
+                    </Text>
+                </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-                style={[styles.actionBtn, item.status !== 'open' && styles.disabledBtn]}
-                disabled={item.status !== 'open'}
-                onPress={() => handleRegister(item)}
-            >
-                <Text style={styles.actionBtnText}>
-                    {item.status === 'open' ? 'ĐĂNG KÝ THAM GIA' : 'HẾT HẠN / ĐỦ NGƯỜI'}
-                </Text>
-            </TouchableOpacity>
-        </View>
-    );
+        );
+    };
 
     if (loading) {
         return (
