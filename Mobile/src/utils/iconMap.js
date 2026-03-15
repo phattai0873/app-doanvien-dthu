@@ -44,7 +44,8 @@ export const ICONS = {
     RotateCw: 'refresh',
     X: 'close',
     Scan: 'scan-outline',
-    Copy: 'copy-outline'
+    Copy: 'copy-outline',
+    Newspaper: 'newspaper-outline'
 };
 
 export const Icon = ({ name, size = 24, color = '#000', style }) => (

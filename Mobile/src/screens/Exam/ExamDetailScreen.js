@@ -178,7 +178,7 @@ export const ExamDetailScreen = ({ route, goBack }) => {
                 <TouchableOpacity
                     style={[styles.navBtn, currentQuestion === 0 && styles.disabledBtn]}
                     disabled={currentQuestion === 0}
-                    onPress={() => setCurrentScreen(curr => curr - 1)}
+                    onPress={() => setCurrentQuestion(curr => curr - 1)}
                 >
                     <Text style={styles.navBtnText}>Quay lại</Text>
                 </TouchableOpacity>

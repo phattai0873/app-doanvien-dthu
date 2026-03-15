@@ -15,6 +15,7 @@ import { COLORS, SIZES, IMAGES } from '../../constants';
 import Button from '../../components/common/Button';
 import TextInput from '../../components/common/TextInput';
 import { authService } from '../../services/authService';
+import { USE_MOCK_API } from '../../services/api';
 
 const LoginScreen = ({ onLogin }) => {
     const [username, setUsername] = useState('');
@@ -127,6 +128,16 @@ const LoginScreen = ({ onLogin }) => {
                         loading={loading}
                         style={styles.loginButton}
                     />
+
+                    {/* 🔧 DEV MODE: Nút đăng nhập nhanh, chỉ hiện khi USE_MOCK_API = true */}
+                    {USE_MOCK_API && (
+                        <TouchableOpacity
+                            onPress={() => onLogin && onLogin({ success: true, token: 'mock-token', role: 'user' })}
+                            style={styles.devLoginButton}
+                        >
+                            <Text style={styles.devLoginText}>🔧 Đăng nhập nhanh (Dev)</Text>
+                        </TouchableOpacity>
+                    )}
                     
                     <TouchableOpacity onPress={() => setShowRegister(true)} style={styles.registerLink}>
                         <Text style={styles.registerText}>
@@ -206,6 +217,16 @@ const styles = StyleSheet.create({
     forgotPasswordButton: { alignSelf: 'flex-end', marginBottom: 24 },
     forgotPasswordText: { fontSize: 14, color: COLORS.primary, fontWeight: '700' },
     loginButton: { marginTop: 8 },
+    devLoginButton: {
+        marginTop: 12,
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: '#FFF3CD',
+        borderWidth: 1,
+        borderColor: '#FFC107',
+        alignItems: 'center',
+    },
+    devLoginText: { fontSize: 14, color: '#856404', fontWeight: '700' },
     registerLink: {
         alignItems: 'center',
         paddingVertical: 16,

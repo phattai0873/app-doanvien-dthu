@@ -143,15 +143,12 @@ export const DashboardScreen = ({ onNavigate }) => {
                 {banners.length > 0 && <Banner images={banners} />}
             </View>
 
-            {/* Quick Navigation 4x4 Grid */}
+            {/* Quick Navigation Grid - 4 mục đều hàng */}
             <View style={styles.navGrid}>
                 <View style={styles.row}>
                     <NavButton title="Tin tức" icon={ICON_SET.tintuc} isPng onPress={() => onNavigate('news')} />
-                    <NavButton title="Sinh hoạt" icon={ICON_SET.sinhhoat} isPng onPress={() => onNavigate('meeting_list')} />
                     <NavButton title="Văn bản" icon={ICON_SET.vanban} isPng onPress={() => onNavigate('document_list')} />
                     <NavButton title="Tình nguyện" icon={ICON_SET.tinhnguyen} isPng onPress={() => onNavigate('volunteer_list')} />
-                </View>
-                <View style={[styles.row, { justifyContent: 'flex-start' }]}>
                     <NavButton title="Cá nhân" icon={ICON_SET.canhan} isPng onPress={() => onNavigate('profile')} />
                 </View>
             </View>
@@ -176,7 +173,7 @@ export const DashboardScreen = ({ onNavigate }) => {
                         contentContainerStyle={styles.newsScroll}
                     >
                         {news.map((item, index) => (
-                            <NewsCard key={index} item={item} onPress={() => onNavigate('news')} />
+                            <NewsCard key={index} item={item} onPress={() => onNavigate('news_detail', { id: item.id })} />
                         ))}
                     </ScrollView>
                 )}
@@ -264,16 +261,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     iconCircle: {
-        width: 56, // Reduced from 64
-        height: 56, // Reduced from 64
-        borderRadius: 16,
+        width: 70,
+        height: 70,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 4, // Reduced from 8
+        marginBottom: 6,
     },
     pngIcon: {
-        width: 50, // Reduced from 64
-        height: 50, // Reduced from 64
+        width: 64,
+        height: 64,
     },
     navLabel: {
         fontSize: 12,

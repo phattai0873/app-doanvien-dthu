@@ -1,39 +1,39 @@
-import { USE_MOCK_API, USE_SUPABASE } from './api';
-import { supabase } from './supabaseClient';
-import { MOCK_DB } from '../constants/mockData';
-
-const SIMULATE_DELAY = 500;
+import apiClient from './api';
 
 export const volunteerService = {
-    // [GET] /api/volunteer-activities
+    // [GET] /api/activities?type=Hoạt động
     getActivities: async () => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('volunteer_activities').select('*').order('thoi_gian', { ascending: true });
-            if (error) throw error;
-            return data;
+        try {
+            const res = await apiClient.get('/api/activities', {
+                params: { level: 'BRANCH' } // Show all activities at Branch level regardless of status for now
+            });
+            // apiClient returns response.data directly
+            return res.rows || [];
+        } catch (error) {
+            console.error('Error fetching activities:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.volunteer_activities), SIMULATE_DELAY));
     },
 
-    // [GET] /api/volunteer-activities/{id}
+    // [GET] /api/activities/{id}
     getActivityDetail: async (id) => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('volunteer_activities').select('*').eq('id', id).single();
-            if (error) throw error;
-            return data;
+        try {
+            const res = await apiClient.get(`/api/activities/${id}`);
+            return res.data || res;
+        } catch (error) {
+            console.error('Error fetching activity detail:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.volunteer_activities.find(v => v.id === id)), SIMULATE_DELAY));
     },
 
-    // [POST] /api/activity-registrations
-    register: async (activityId, memberId) => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('activity_registrations').insert([
-                { hoat_dong_id: activityId, dang_vien_id: memberId, trang_thai_dang_ky: 'da_dang_ky' }
-            ]);
-            if (error) throw error;
-            return data;
+    // [POST] /api/activities/{id}/register
+    register: async (activityId) => {
+        try {
+            const res = await apiClient.post(`/api/activities/${activityId}/register`);
+            return res.data;
+        } catch (error) {
+            console.error('Error registering for activity:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r({ success: true }), SIMULATE_DELAY));
     }
 };

@@ -21,24 +21,26 @@ export const MeetingListScreen = ({ onNavigate }) => {
     const fetchData = async () => {
         try {
             const res = await meetingService.getMeetings();
-            const rawData = res.data || (Array.isArray(res) ? res : []);
+            // Backend returns { success, rows: [], count: 0 }
+            const rawData = res.data?.rows || res.rows || [];
             
-            // Mapping dữ liệu từ Backend sang format Mobile App mong muốn
             const mappedData = rawData.map(m => {
                 const date = new Date(m.meetingTime);
                 const dateStr = date.toLocaleDateString('vi-VN');
                 const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                 
-                // Map trạng thái từ Tiếng Việt sang Key Tiếng Anh của UI
+                // Map status from Backend (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED) to UI
                 let statusKey = 'scheduled';
-                if (m.status === 'Đang họp') statusKey = 'active';
-                else if (m.status === 'Hoàn thành') statusKey = 'finished';
-                else if (m.status === 'Hủy') statusKey = 'cancelled';
+                if (m.status === 'IN_PROGRESS') statusKey = 'active';
+                else if (m.status === 'COMPLETED') statusKey = 'finished';
+                else if (m.status === 'CANCELLED') statusKey = 'cancelled';
+                else if (m.status === 'SCHEDULED') statusKey = 'scheduled';
 
                 return {
                     ...m,
                     status: statusKey,
-                    start_time: `${dateStr} - ${timeStr}`
+                    start_time: `${dateStr} - ${timeStr}`,
+                    locationName: m.Location?.name || 'Phòng họp trực tuyến'
                 };
             });
 
@@ -104,7 +106,7 @@ export const MeetingListScreen = ({ onNavigate }) => {
 
             <View style={styles.infoRow}>
                 <Icon name="MapPin" size={16} color="#9CA3AF" />
-                <Text style={styles.infoText}>{item.location}</Text>
+                <Text style={styles.infoText}>{item.locationName || 'Chưa xác định'}</Text>
             </View>
 
             <View style={styles.cardFooter}>

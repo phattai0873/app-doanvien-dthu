@@ -1,69 +1,58 @@
-import apiClient, { USE_MOCK_API, USE_SUPABASE } from './api';
-import { supabase } from './supabaseClient';
-import { MOCK_DB } from '../constants/mockData';
-
-const SIMULATE_DELAY = 500;
+import apiClient from './api';
 
 export const meetingService = {
     // [GET] /api/meetings
     getMeetings: async (params) => {
-        if (USE_SUPABASE) {
-            const query = supabase.from('cell_meetings').select('*');
-            if (params?.cellId) query.eq('chi_bo_id', params.cellId);
-            const { data, error } = await query;
-            if (error) throw error;
-            return data;
+        try {
+            const response = await apiClient.get('/api/meetings', { params });
+            // apiClient already returns response.data
+            return response || { rows: [], count: 0 };
+        } catch (error) {
+            console.error('Error fetching meetings:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.cell_meetings), SIMULATE_DELAY));
-
-        // API THỰC
-        const response = await apiClient.get('/api/meetings', { params });
-        return response.data || [];
     },
 
     // [GET] /api/meetings/{id}
     getMeetingDetail: async (id) => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('cell_meetings').select('*').eq('id', id).single();
-            if (error) throw error;
-            return data;
+        try {
+            const response = await apiClient.get(`/api/meetings/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching meeting detail:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.cell_meetings.find(m => m.id === id)), SIMULATE_DELAY));
-
-        // API THỰC
-        const response = await apiClient.get(`/api/meetings/${id}`);
-        return response.data?.data;
     },
 
     // [POST] /api/meetings/{id}/check-in
     submitAttendance: async (meetingId, checkinCode) => {
-        if (USE_SUPABASE) {
-            const { error } = await supabase.from('meeting_attendance').insert([{ meeting_id: meetingId, status: 'PRESENT' }]);
-            if (error) throw error;
-            return { success: true };
+        try {
+            const response = await apiClient.post(`/api/meetings/${meetingId}/check-in`, { checkinCode });
+            return response.data;
+        } catch (error) {
+            console.error('Error submitting attendance:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r({ success: true }), SIMULATE_DELAY));
-
-        // API THỰC
-        return await apiClient.post(`/api/meetings/${meetingId}/check-in`, { checkinCode });
     },
 
     refreshCheckinCode: async (meetingId) => {
-        if (USE_MOCK_API) return { success: true, data: { checkinCode: 'NEW123', checkinCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000) } };
-        return await apiClient.post(`/api/meetings/${meetingId}/refresh-code`);
+        try {
+            const response = await apiClient.post(`/api/meetings/${meetingId}/refresh-code`);
+            return response.data;
+        } catch (error) {
+            console.error('Error refreshing check-in code:', error);
+            throw error;
+        }
     },
 
     getLocations: async () => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('meeting_locations').select('*');
-            if (error) throw error;
-            return data;
+        try {
+            const response = await apiClient.get('/api/locations');
+            return response.data?.rows || [];
+        } catch (error) {
+            console.error('Error fetching locations:', error);
+            throw error;
         }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r([{ id: 1, name: "Hội trường A" }]), SIMULATE_DELAY));
-
-        // API THỰC
-        const response = await apiClient.get('/api/locations');
-        return response.data || [];
     }
 };
 
