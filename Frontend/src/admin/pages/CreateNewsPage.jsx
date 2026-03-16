@@ -104,7 +104,7 @@ export default function CreateNewsPage() {
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nội dung chi tiết <span className="text-red-500">*</span></label>
                             <NewsEditor
-                                value={form.content}
+                                initialContent={form.content}
                                 onChange={(html) => setForm(f => ({ ...f, content: html }))}
                             />
                         </div>

@@ -24,8 +24,12 @@ class NotificationService {
                 { expiresAt: null }
             ];
 
-            // Lấy thông tin đoàn viên của user
-            const member = await UnionMember.findOne({ where: { userId } });
+            // Lấy thông tin đoàn viên của user để biết Cell và Branch
+            const { UnionCell } = require('../models');
+            const member = await UnionMember.findOne({ 
+                where: { userId },
+                include: [{ model: UnionCell }]
+            });
             
             // Logic Target: ALL, ROLE (nếu khớp role user), BRANCH (nếu khớp), CELL (nếu khớp), INDIVIDUAL (nếu khớp)
             const targetConditions = [
@@ -37,8 +41,11 @@ class NotificationService {
             }
 
             if (member) {
-                targetConditions.push({ [Op.and]: [{ targetType: 'BRANCH' }, { targetId: member.unionBranchId }] });
-                targetConditions.push({ [Op.and]: [{ targetType: 'CELL' }, { targetId: member.unionCellId }] });
+                const branchId = member.UnionCell ? member.UnionCell.unionBranchId : null;
+                const cellId = member.unionCellId || null;
+
+                targetConditions.push({ [Op.and]: [{ targetType: 'BRANCH' }, { targetId: branchId }] });
+                targetConditions.push({ [Op.and]: [{ targetType: 'CELL' }, { targetId: cellId }] });
                 targetConditions.push({ [Op.and]: [{ targetType: 'INDIVIDUAL' }, { targetId: member.id }] });
             }
 

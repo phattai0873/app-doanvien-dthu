@@ -16,11 +16,14 @@ export default function EditNewsPage() {
     const navigate = useNavigate();
     const qc = useQueryClient();
 
-    const [form, setForm] = useState({
-        title: '', summary: '', content: '', status: 'DRAFT', categoryId: '', level: 'SCHOOL', bannerUrl: ''
-    });
+    const [form, setForm] = useState(null);
     const [bannerFile, setBannerFile] = useState(null);
     const [removeBanner, setRemoveBanner] = useState(false);
+
+    // Reset form khi chuyển sang bài viết khác
+    useEffect(() => {
+        setForm(null);
+    }, [id]);
 
     // Fetch bài viết hiện tại
     const { data: newsData, isLoading: isFetching } = useQuery({
@@ -37,19 +40,21 @@ export default function EditNewsPage() {
     const categoryList = catData?.data?.data || catData?.data || [];
 
     useEffect(() => {
-        if (newsData?.data?.data) {
-            const n = newsData.data.data;
+        // Lấy dữ liệu bài viết từ phản hồi API
+        const news = newsData?.data?.data || newsData?.data;
+
+        if (news && news.id === id && !form) {
             setForm({
-                title: n.title,
-                summary: n.summary || '',
-                content: n.content,
-                status: n.status,
-                categoryId: n.categoryId || '',
-                level: n.level || 'SCHOOL',
-                bannerUrl: n.bannerUrl || ''
+                title: news.title || '',
+                summary: news.summary || '',
+                content: news.content || '',
+                status: news.status || 'DRAFT',
+                categoryId: news.categoryId || '',
+                level: news.level || 'SCHOOL',
+                bannerUrl: news.bannerUrl || ''
             });
         }
-    }, [newsData]);
+    }, [newsData, id, form]);
 
     const updateNews = useMutation({
         mutationFn: (fd) => newsApi.update(id, fd),
@@ -79,7 +84,7 @@ export default function EditNewsPage() {
         updateNews.mutate(fd);
     };
 
-    if (isFetching) {
+    if (isFetching || !form) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
                 <Loader2 size={32} className="animate-spin mb-2" />
@@ -143,7 +148,8 @@ export default function EditNewsPage() {
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nội dung chi tiết <span className="text-red-500">*</span></label>
                             <NewsEditor
-                                value={form.content}
+                                key={`editor-${id}-${form.content ? form.content.length : 0}`}
+                                initialContent={form.content}
                                 onChange={(html) => setForm(f => ({ ...f, content: html }))}
                             />
                         </div>

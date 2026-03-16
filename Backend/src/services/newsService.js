@@ -51,11 +51,17 @@ class NewsService {
     }
 
     static async create(data, authorId, bannerFile) {
+        // Chuyển đổi các chuỗi trống sang null cho các trường UUID để tránh lỗi Postgres
+        const cleanData = { ...data };
+        ['categoryId', 'unionBranchId', 'unionCellId'].forEach(field => {
+            if (cleanData[field] === '') cleanData[field] = null;
+        });
+
         const newsData = { 
-            ...data, 
+            ...cleanData, 
             authorId, 
-            status: data.status || 'DRAFT',
-            level: data.level || 'SCHOOL'
+            status: cleanData.status || 'DRAFT',
+            level: cleanData.level || 'SCHOOL'
         };
 
         if (bannerFile) {

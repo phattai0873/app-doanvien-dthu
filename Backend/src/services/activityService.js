@@ -32,7 +32,8 @@ class ActivityService {
             where[Op.or] = [
                 { unionBranchId: unionBranchId },
                 { organizedByBranchId: unionBranchId },
-                { level: 'SCHOOL' },
+                { level: 'SCHOOL' }
+            ];
         }
 
         if (upcoming === 'true') {

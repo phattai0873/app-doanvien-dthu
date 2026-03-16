@@ -10,6 +10,10 @@ const api = axios.create({
 export const landingApi = {
   getConfig: () => api.get('/landing/config'),
   getDocuments: (params) => api.get('/documents', { params }),
+  getNews: (params) => api.get('/news', { params }),
+  getNewsById: (id) => api.get(`/news/${id}`),
+  getNewsCategories: () => api.get('/news/categories'),
+  getBanners: () => api.get('/banners', { params: { activeOnly: 'true' } }),
   register: (data) => api.post('/users/register', data),
 };
 
