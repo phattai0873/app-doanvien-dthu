@@ -1,4 +1,4 @@
-import apiClient, { USE_MOCK_API, USE_SUPABASE } from './api';
+import apiClient, { USE_MOCK_API, USE_SUPABASE, API_BASE_URL } from './api';
 import { supabase } from './supabaseClient';
 import { MOCK_DB } from '../constants/mockData';
 
@@ -16,7 +16,7 @@ export const partyService = {
 
         // API THỰC
         const response = await apiClient.get('/api/branches');
-        return response.data || [];
+        return response;
     },
 
     getCommitteeDetail: async (id) => {
@@ -43,7 +43,7 @@ export const partyService = {
 
         // API THỰC
         const response = await apiClient.get('/api/cells');
-        return response.data || [];
+        return response;
     },
 
     getCellDetail: async (id) => {
@@ -90,7 +90,7 @@ export const partyService = {
 
         // API THỰC
         const response = await apiClient.get(`/api/members/${id}`);
-        return response.data;
+        return response;
     },
 
     approveMember: async (id) => {
@@ -100,6 +100,22 @@ export const partyService = {
 
     rejectMember: async (id) => {
         const response = await apiClient.patch(`/api/members/${id}/reject`);
+        return response;
+    },
+
+    getMyMemberProfile: async () => {
+        // [GET] /api/members/me
+        try {
+            const response = await apiClient.get('/api/members/me');
+            return response;
+        } catch (error) {
+            return null;
+        }
+    },
+
+    createMemberProfile: async (data) => {
+        // [POST] /api/members
+        const response = await apiClient.post('/api/members', data);
         return response;
     },
 
@@ -118,15 +134,31 @@ export const partyService = {
             chuc_vu_doan: member.roleInUnion === 'member' ? 'Đoàn viên' : 
                          member.roleInUnion === 'secretary' ? 'Bí thư' :
                          member.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn',
-            trang_thai_doan: member.status === 'approved' ? 'Đang hoạt động' : 'Chờ duyệt',
-            anh_dai_dien: member.avatar ? `${apiClient.defaults.baseURL}${member.avatar}` : 'https://picsum.photos/200',
+            trang_thai_doan: member.status === 'approved' ? 'Đang hoạt động' : 
+                            member.status === 'pending' ? 'Chờ duyệt' : 'Chưa duyệt',
+            // Avatar lấy từ bảng Users (userData.avatar) theo yêu cầu, dự phòng bằng member.avatar
+            anh_dai_dien: userData.avatar ? `${API_BASE_URL}${userData.avatar}` : 
+                          (member.avatar ? `${API_BASE_URL}${member.avatar}` : null),
             sdt: member.phoneNumber,
-            email: member.email,
+            email: member.email || userData.email,
             cccd: member.identityNumber,
             ngay_sinh: member.dateOfBirth,
             dia_chi: member.permanentAddress,
-            is_verified: member.status === 'approved'
+            is_verified: member.status === 'approved',
+            ma_so: member.memberCode,
+            gioi_tinh: member.gender === 'male' ? 'Nam' : 'Nữ',
+            que_quan: member.hometown,
+            ngay_vao_doan: member.joinedDate,
+            noi_vao_doan: member.joinedPlace,
+            trinh_do: member.educationLevel,
+            nghe_nghiep: member.occupation
         };
+    },
+
+    updateMemberProfile: async (id, data) => {
+        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r({ success: true }), SIMULATE_DELAY));
+        const response = await apiClient.put(`/api/members/${id}`, data);
+        return response;
     },
 
     // 4. Custom: My Profile (Composite)
@@ -146,10 +178,11 @@ export const partyService = {
 
         // API THỰC
         const response = await apiClient.get('/api/users/me');
+        const userData = response.data || response;
         return {
-            member: response.user || response.data,
-            cell: null, // Should be linked in user record or fetched
-            committee: null
+            member: userData,
+            cell: userData.UnionMember?.UnionCell || null,
+            committee: userData.UnionMember?.UnionCell?.UnionBranch || null
         };
     },
 
@@ -165,17 +198,21 @@ export const partyService = {
             });
         }
 
-        // API THỰC
+        // API THỰC: Tận dụng dữ liệu đã có trong profile
         try {
-            const cellRes = await apiClient.get('/api/cells/my');
-            const branchRes = await apiClient.get('/api/branches/my');
+            const response = await apiClient.get('/api/users/me');
+            const userData = response.data || response;
+            const member = userData?.UnionMember || {};
+            const cell = member.UnionCell || null;
+            const branch = cell?.UnionBranch || null;
+
             return {
-                cell: cellRes.data,
-                committee: branchRes.data
+                cell: cell,
+                committee: branch
             };
         } catch (e) {
+            console.error('Error fetching org info:', e);
             return { cell: null, committee: null };
         }
     }
 };
-

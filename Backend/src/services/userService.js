@@ -3,13 +3,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
 const ErrorResponse = require('../utils/errorResponse');
+const { safeDate } = require('../utils/dateUtils');
+
 
 class UserService {
     /**
      * @description Register a new user
      */
     static async register(userData) {
-        const { username, password, fullName, studentId, dateOfBirth, phoneNumber } = userData;
+        const { username, password } = userData;
 
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
@@ -22,36 +24,18 @@ class UserService {
         // Tạo user
         const user = await User.create({ 
             username, 
-            passwordHash 
+            passwordHash,
+            isActive: true // Mặc định cho phép login sau khi đăng ký? 
+                           // Theo flow của user: "User đăng ký -> Backend tạo users -> Step 2: Login thành công"
+                           // Vậy isActive nên là true. Nếu cần duyệt tài khoản thì để false.
         });
 
         // Gán role mặc định
-        const { UnionMember, Role } = require('../models');
+        const { Role } = require('../models');
         const defaultRole = await Role.findOne({ where: { code: 'MEMBER' } }) || await Role.findOne({ where: { code: 'user' } });
         if (defaultRole) {
             await user.addRole(defaultRole);
         }
-
-        // Tạo thông tin thẻ đoàn viên với status: 'pending'
-        const memberData = {
-            userId: user.id,
-            fullName: fullName || username,
-            memberCode: studentId || `TEMP-${user.id.split('-')[0]}`,
-            dateOfBirth: dateOfBirth || '2000-01-01',
-            phoneNumber: phoneNumber || null,
-            status: 'pending'
-        };
-        const member = await UnionMember.create(memberData);
-
-        // Thông báo cho user về việc đăng ký thành công
-        const NotificationService = require('./notificationService');
-        await NotificationService.createSystemNotification({
-            title: 'Đăng ký tài khoản thành công',
-            content: 'Bạn đã đăng ký thành công. Vui lòng chờ quản trị viên phê duyệt hồ sơ đoàn viên.',
-            type: 'Hệ thống',
-            targetType: 'Individual',
-            targetId: member.id
-        });
 
         const accessToken = generateAccessToken(user.id);
         const refreshToken = generateRefreshToken(user.id);
@@ -65,7 +49,7 @@ class UserService {
             username: user.username,
             accessToken,
             refreshToken,
-            message: 'Đăng ký tải khoản và gửi thông tin đoàn viên để duyệt thành công.'
+            message: 'Đăng ký tài khoản thành công. Vui lòng hoàn thiện hồ sơ đoàn viên ở bước tiếp theo.'
         };
     }
 
@@ -166,18 +150,74 @@ class UserService {
      * @description Get user by ID
      */
     static async getUserById(userId) {
-        const { Role, UnionMember } = require('../models');
+        const { Role, UnionMember, UnionCell, UnionBranch } = require('../models');
         const user = await User.findByPk(userId, {
             attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
             include: [
                 { model: Role, through: { attributes: [] } },
-                { model: UnionMember }
+                { 
+                    model: UnionMember,
+                    include: [
+                        { 
+                            model: UnionCell, 
+                            include: [{ model: UnionBranch }] 
+                        }
+                    ]
+                }
             ]
         });
         if (!user) {
             throw new ErrorResponse('Không tìm thấy người dùng', 404);
         }
+
+        // Add statistics if it's a member
+        if (user.UnionMember) {
+            const stats = await this.getUserStatistics(user.UnionMember.id);
+            user.setDataValue('statistics', stats);
+        }
+
         return user;
+    }
+
+    /**
+     * @description Get statistics for a union member
+     */
+    static async getUserStatistics(memberId) {
+        const { ActivityParticipant, Attendance, QuizAttempt } = require('../models');
+        const { Op } = require('sequelize');
+
+        // 1. Total points from activities
+        const totalPoints = await ActivityParticipant.sum('scoreAwarded', {
+            where: { memberId, attendanceStatus: 'PRESENT' }
+        }) || 0;
+
+        // 2. Count of attended meetings
+        const meetingsAttended = await Attendance.count({
+            where: { 
+                unionMemberId: memberId, 
+                status: { [Op.in]: ['PRESENT', 'Có mặt', 'LATE'] } 
+            }
+        });
+
+        // 3. Count of quiz attempts
+        const quizCount = await QuizAttempt.count({
+            where: { unionMemberId: memberId }
+        });
+
+        return {
+            totalPoints,
+            meetingsAttended,
+            quizCount,
+            rank: this.calculateRank(totalPoints)
+        };
+    }
+
+    static calculateRank(points) {
+        if (points >= 500) return 'A+';
+        if (points >= 300) return 'A';
+        if (points >= 150) return 'B+';
+        if (points >= 50) return 'B';
+        return 'C';
     }
     /**
      * @description Update user info (username, isActive, avatar)

@@ -4,7 +4,7 @@ import {
     Text, 
     StyleSheet, 
     TouchableOpacity, 
-    Image,
+    Image as RNImage,
     ActivityIndicator,
     Dimensions,
     Platform
@@ -55,7 +55,7 @@ export const QRCardScreen = ({ onBack }) => {
                 <View style={styles.card}>
                     {/* Top Header of Card */}
                     <View style={styles.cardHeader}>
-                        <Image source={IMAGES.logo} style={styles.logo} resizeMode="contain" />
+                        <RNImage source={IMAGES.logo} style={styles.logo} resizeMode="contain" />
                         <View style={styles.cardHeaderText}>
                             <Text style={styles.orgName}>ĐOÀN TNCS HỒ CHÍ MINH</Text>
                             <Text style={styles.schoolName}>TRƯỜNG ĐẠI HỌC ĐỒNG THÁP</Text>
@@ -65,7 +65,7 @@ export const QRCardScreen = ({ onBack }) => {
                     {/* Member Info Section */}
                     <View style={styles.cardMain}>
                         <View style={styles.memberAvatarWrapper}>
-                            <Image source={{ uri: user?.anh_dai_dien }} style={styles.memberAvatar} />
+                            <RNImage source={{ uri: user?.anh_dai_dien }} style={styles.memberAvatar} />
                         </View>
                         
                         <View style={styles.memberDetails}>

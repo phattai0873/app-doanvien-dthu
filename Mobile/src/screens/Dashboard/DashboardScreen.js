@@ -6,7 +6,7 @@ import {
     ScrollView,
     TouchableOpacity,
     Dimensions,
-    Image,
+    Image as RNImage,
     ActivityIndicator,
     Platform,
     RefreshControl
@@ -46,7 +46,7 @@ const NavButton = ({ title, icon, color, isPng, onPress }) => (
     >
         <View style={[styles.iconCircle, { backgroundColor: isPng ? 'transparent' : color + '15' }]}>
             {isPng ? (
-                <Image source={icon} style={styles.pngIcon} resizeMode="contain" />
+                <RNImage source={icon} style={styles.pngIcon} resizeMode="contain" />
             ) : (
                 <Icon name={icon} size={24} color={color} />
             )}
@@ -57,7 +57,7 @@ const NavButton = ({ title, icon, color, isPng, onPress }) => (
 
 const NewsCard = ({ item, onPress }) => (
     <TouchableOpacity style={styles.newsCard} onPress={() => onPress(item)} activeOpacity={0.9}>
-        <Image source={{ uri: item.thumbnailUrl || 'https://picsum.photos/400/300' }} style={styles.newsImage} />
+        <RNImage source={{ uri: item.thumbnailUrl || 'https://picsum.photos/400/300' }} style={styles.newsImage} />
         <View style={styles.newsOverlay}>
             <View style={styles.categoryBadge}>
                 <Text style={styles.categoryText}>{item.Category?.name || 'TIN TỨC'}</Text>

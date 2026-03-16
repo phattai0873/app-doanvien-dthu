@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    ScrollView, 
-    TouchableOpacity, 
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
     ActivityIndicator,
     Alert,
-    Platform
+    Platform,
+    Linking
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
 import { documentService } from '../../services/documentService';
+import { API_BASE_URL } from '../../services/api';
 
 export const DocumentDetailScreen = ({ route, onBack }) => {
     const { id } = route?.params || {};
@@ -21,37 +23,37 @@ export const DocumentDetailScreen = ({ route, onBack }) => {
     useEffect(() => {
         const fetchDetail = async () => {
             try {
-                const docs = await documentService.getDocuments();
-                const found = docs.find(item => item.id == id);
-                setDoc(found);
+                const res = await documentService.getDocumentDetail(id);
+                // The service already returns res.data or res
+                setDoc(res.data || res);
             } catch (error) {
                 console.error("Failed to fetch document detail:", error);
             } finally {
                 setLoading(false);
             }
         };
-
         if (id) fetchDetail();
     }, [id]);
 
-    const handleDownload = () => {
-        Alert.alert(
-            "Tải tài liệu",
-            `Bạn có muốn tải xuống "${doc.title}"?`,
-            [
-                { text: "Hủy", style: "cancel" },
-                { 
-                    text: "Tải xuống", 
-                    onPress: () => {
-                        // Mock download progress
-                        Alert.alert("Thông báo", "Đang bắt đầu tải tài liệu...");
-                        setTimeout(() => {
-                            Alert.alert("Thành công", "Đã tải tài liệu vào thư mục Downloads của bạn.");
-                        }, 2000);
-                    } 
-                }
-            ]
-        );
+    const handleOpenDocument = async () => {
+        if (!doc?.filePath) {
+            Alert.alert("Lỗi", "Không tìm thấy đường dẫn tài liệu");
+            return;
+        }
+
+        try {
+            const url = `${API_BASE_URL}${doc.filePath}`;
+            const supported = await Linking.canOpenURL(url);
+
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                Alert.alert("Lỗi", "Không thể mở tài liệu này. Vui lòng kiểm tra trình duyệt hoặc ứng dụng đọc PDF.");
+            }
+        } catch (error) {
+            console.error("Error opening document:", error);
+            Alert.alert("Lỗi", "Có lỗi xảy ra khi mở tài liệu.");
+        }
     };
 
     if (loading) {
@@ -76,42 +78,34 @@ export const DocumentDetailScreen = ({ route, onBack }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={onBack} style={styles.backIcon}>
-                    <Icon name="ArrowLeft" size={24} color={COLORS.gray700} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={1}>Thông tin tài liệu</Text>
-                <View style={{ width: 24 }} />
-            </View>
-
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.iconWrapper}>
-                    <Icon 
-                        name={doc.file_type === 'pdf' ? 'FileText' : 'BookOpen'} 
-                        size={64} 
-                        color={doc.file_type === 'pdf' ? '#EF4444' : '#3B82F6'} 
+                    <Icon
+                        name={doc.filePath?.endsWith('.pdf') ? 'FileText' : 'File'}
+                        size={64}
+                        color={doc.filePath?.endsWith('.pdf') ? '#EF4444' : '#3B82F6'}
                     />
                 </View>
 
                 <Text style={styles.title}>{doc.title}</Text>
-                
+
                 <View style={styles.infoGroup}>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Định dạng:</Text>
-                        <Text style={styles.infoValue}>{doc.file_type.toUpperCase()}</Text>
+                        <Text style={styles.infoLabel}>Cơ quan ban hành:</Text>
+                        <Text style={styles.infoValue}>{doc.issuingAuthority || '—'}</Text>
                     </View>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Ngày ban hành:</Text>
-                        <Text style={styles.infoValue}>{doc.created_at}</Text>
+                        <Text style={styles.infoValue}>{doc.issuedDate ? new Date(doc.issuedDate).toLocaleDateString('vi-VN') : '—'}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Dung lượng:</Text>
-                        <Text style={styles.infoValue}>~ 2.4 MB</Text>
+                        <Text style={styles.infoLabel}>Trạng thái:</Text>
+                        <Text style={styles.infoValue}>{doc.status === 'PUBLISH' ? 'Công khai' : 'Nội bộ'}</Text>
                     </View>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Danh mục:</Text>
                         <View style={styles.catBadge}>
-                            <Text style={styles.catText}>Văn bản Đoàn</Text>
+                            <Text style={styles.catText}>{doc.DocumentCategory?.name || 'Văn bản'}</Text>
                         </View>
                     </View>
                 </View>
@@ -119,14 +113,14 @@ export const DocumentDetailScreen = ({ route, onBack }) => {
                 <View style={styles.descriptionBox}>
                     <Text style={styles.descTitle}>Mô tả chi tiết</Text>
                     <Text style={styles.descText}>
-                        Tài liệu này được phổ biến rộng rãi trong toàn bộ tổ chức Đoàn trường. 
+                        Tài liệu này được phổ biến rộng rãi trong toàn bộ tổ chức Đoàn trường.
                         Yêu cầu các Bí thư chi đoàn nghiên cứu kỹ và thực hiện đúng tinh thần của văn bản.
                     </Text>
                 </View>
 
-                <TouchableOpacity style={styles.mainDownloadBtn} onPress={handleDownload}>
-                    <Icon name="Download" size={20} color="#FFF" />
-                    <Text style={styles.mainDownloadBtnText}>TẢI VỀ MÁY</Text>
+                <TouchableOpacity style={styles.mainDownloadBtn} onPress={handleOpenDocument}>
+                    <Icon name="ExternalLink" size={20} color="#FFF" />
+                    <Text style={styles.mainDownloadBtnText}>XEM TÀI LIỆU</Text>
                 </TouchableOpacity>
             </ScrollView>
         </View>
@@ -136,12 +130,12 @@ export const DocumentDetailScreen = ({ route, onBack }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        paddingHorizontal: 16, 
-        paddingTop: Platform.OS === 'ios' ? 50 : 20, 
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20,
         paddingBottom: 15,
         backgroundColor: '#FFF',
         borderBottomWidth: 1,
@@ -150,12 +144,12 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 16, fontWeight: '700', color: COLORS.gray900, flex: 1, textAlign: 'center' },
     backIcon: { padding: 4 },
     content: { padding: 24, alignItems: 'center' },
-    iconWrapper: { 
-        width: 120, 
-        height: 120, 
-        borderRadius: 20, 
-        backgroundColor: '#FFF', 
-        alignItems: 'center', 
+    iconWrapper: {
+        width: 120,
+        height: 120,
+        borderRadius: 20,
+        backgroundColor: '#FFF',
+        alignItems: 'center',
         justifyContent: 'center',
         elevation: 4,
         shadowColor: '#000',
@@ -174,13 +168,13 @@ const styles = StyleSheet.create({
     descriptionBox: { width: '100%', marginBottom: 30 },
     descTitle: { fontSize: 15, fontWeight: '700', color: COLORS.gray700, marginBottom: 10 },
     descText: { fontSize: 14, color: COLORS.gray500, lineHeight: 22 },
-    mainDownloadBtn: { 
-        width: '100%', 
-        backgroundColor: COLORS.primary, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        paddingVertical: 16, 
+    mainDownloadBtn: {
+        width: '100%',
+        backgroundColor: COLORS.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
         borderRadius: 12,
         gap: 10,
         elevation: 4,

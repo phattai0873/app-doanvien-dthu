@@ -1,5 +1,6 @@
 const { UnionMember, UnionCell, UnionBranch, UnionPosition, UnionMemberPosition, User, UnionMemberHistory, Role } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
+const { safeDate } = require('../utils/dateUtils');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 const { Op } = require('sequelize');
 
@@ -61,13 +62,40 @@ class UnionMemberService {
         return member;
     }
 
+    static async getByUserId(userId) {
+        const member = await UnionMember.findOne({
+            where: { userId },
+            include: [
+                { 
+                    model: UnionCell, 
+                    attributes: ['id', 'name', 'code', 'unionBranchId'],
+                    include: [{ model: UnionBranch, attributes: ['id', 'name', 'code'] }]
+                }
+            ]
+        });
+        return member;
+    }
+
     static async create(data) {
+        // Chuẩn hóa ngày tháng
+        ['dateOfBirth', 'joinedDate', 'officialDate'].forEach(field => {
+            if (data[field]) data[field] = safeDate(data[field]);
+        });
+        
+        // Nếu không có memberCode, sinh code tạm
+        if (!data.memberCode) {
+            data.memberCode = `DV-${Date.now()}`;
+        }
+
         const existing = await UnionMember.findOne({ where: { memberCode: data.memberCode } });
         if (existing) throw new ErrorResponse(`Mã đoàn viên "${data.memberCode}" đã tồn tại`, 400);
         
         if (data.unionBranchId) delete data.unionBranchId;
 
-        const member = await UnionMember.create(data);
+        const member = await UnionMember.create({
+            ...data,
+            status: 'pending' // Luôn là pending khi mới tạo từ app
+        });
         
         await UnionMemberHistory.create({
             unionMemberId: member.id,
@@ -76,10 +104,25 @@ class UnionMemberService {
             note: 'Tạo mới hồ sơ đoàn viên'
         });
 
+        // Gửi thông báo
+        const NotificationService = require('./notificationService');
+        await NotificationService.createSystemNotification({
+            title: 'Hồ sơ đang chờ duyệt',
+            content: 'Hồ sơ đoàn viên của bạn đã được gửi và đang chờ quản trị viên phê duyệt.',
+            category: 'SYSTEM',
+            targetType: 'INDIVIDUAL',
+            targetId: member.id
+        });
+
         return member;
     }
 
     static async update(id, data, performerId) {
+        // Chuẩn hóa ngày tháng
+        ['dateOfBirth', 'joinedDate', 'officialDate'].forEach(field => {
+            if (data[field]) data[field] = safeDate(data[field]);
+        });
+
         const member = await UnionMember.findByPk(id, {
             include: [{ model: UnionCell }]
         });

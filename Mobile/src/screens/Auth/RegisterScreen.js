@@ -13,28 +13,33 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants';
 import Button from '../../components/common/Button';
 import TextInput from '../../components/common/TextInput';
+import StatusModal from '../../components/common/StatusModal';
 import { authService } from '../../services/authService';
 
 const RegisterScreen = ({ onNavigateBack }) => {
-    const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
         username: '',
         password: '',
         confirmPassword: '',
-        fullName: '',
-        studentId: '', // Mã đoàn viên
-        dateOfBirth: '',
-        phoneNumber: '',
     });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    
+    // Status Modal State
+    const [modalConfig, setModalConfig] = useState({
+        visible: false,
+        type: 'success',
+        title: '',
+        message: '',
+        onClose: () => {}
+    });
 
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
     };
 
-    const validateStep1 = () => {
+    const validate = () => {
         const newErrors = {};
         if (!formData.username.trim()) newErrors.username = 'Vui lòng nhập tên đăng nhập';
         if (!formData.password) {
@@ -50,43 +55,42 @@ const RegisterScreen = ({ onNavigateBack }) => {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleNextStep = () => {
-        if (validateStep1()) {
-            setStep(2);
-        }
-    };
-
-    const handleRegister = async (skipOptionalInfo = false) => {
-        // Nếu user nhấn 'Nhập sau', ta có thể bỏ qua validation tên
-        const payload = { ...formData };
-        if (skipOptionalInfo) {
-            payload.fullName = '';
-            payload.studentId = '';
-            payload.dateOfBirth = '';
-            payload.phoneNumber = '';
-        } else {
-            // Nếu gửi bình thường mà chưa có tên thì có thể báo (tuỳ ý)
-            // Ở đây vì có tính năng 'Nhập sau', nên họ và tên cũng ko nhất thiết phải ép buộc
-        }
+    const handleRegister = async () => {
+        if (!validate()) return;
 
         setLoading(true);
         try {
-            const response = await authService.register(payload);
+            const response = await authService.register(formData);
             
             if (response && response.success) {
-                Alert.alert(
-                    'Đăng ký thành công',
-                    'Tài khoản của bạn đã được tạo. Vui lòng chờ admin duyệt trước khi đăng nhập.',
-                    [
-                        { text: 'Quay lại đăng nhập', onPress: () => onNavigateBack && onNavigateBack() }
-                    ]
-                );
+                setModalConfig({
+                    visible: true,
+                    type: 'success',
+                    title: 'Đăng ký thành công',
+                    message: 'Tài khoản của bạn đã được tạo. Quay lại màn hình đăng nhập để tiếp tục hoàn thiện hồ sơ.',
+                    onClose: () => {
+                        setModalConfig(prev => ({ ...prev, visible: false }));
+                        onNavigateBack && onNavigateBack();
+                    }
+                });
             } else {
-                Alert.alert('Lỗi', response?.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại.');
+                setModalConfig({
+                    visible: true,
+                    type: 'error',
+                    title: 'Đăng ký thất bại',
+                    message: response?.message || 'Có lỗi xảy ra trong quá trình đăng ký. Vui lòng thử lại.',
+                    onClose: () => setModalConfig(prev => ({ ...prev, visible: false }))
+                });
             }
         } catch (error) {
             console.log(error);
-            Alert.alert('Lỗi', error.response?.data?.error || error.response?.data?.message || 'Đăng ký thất bại. Tên đăng nhập có thể đã tồn tại.');
+            setModalConfig({
+                visible: true,
+                type: 'error',
+                title: 'Lỗi hệ thống',
+                message: error.response?.data?.message || 'Không thể kết nối đến máy chủ. Tên đăng nhập có thể đã tồn tại.',
+                onClose: () => setModalConfig(prev => ({ ...prev, visible: false }))
+            });
         } finally {
             setLoading(false);
         }
@@ -104,120 +108,74 @@ const RegisterScreen = ({ onNavigateBack }) => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={step === 2 ? () => setStep(1) : onNavigateBack} style={styles.backButton}>
+                    <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.gray700} />
                     </TouchableOpacity>
                     <Text style={styles.title}>Đăng Ký Tài Khoản</Text>
                     <Text style={styles.subtitle}>
-                        {step === 1 ? 'Bước 1: Thông tin đăng nhập hệ thống' : 'Bước 2: Thông tin Đoàn viên cá nhân'}
+                        Nhập thông tin để tạo tài khoản hệ thống
                     </Text>
                 </View>
 
                 {/* Form */}
                 <View style={styles.formContainer}>
-                    {step === 1 ? (
-                        <>
-                            <TextInput
-                                label="Tên đăng nhập *"
-                                placeholder="Nhập tên đăng nhập"
-                                value={formData.username}
-                                onChangeText={(text) => handleChange('username', text)}
-                                iconName="person-outline"
-                                error={errors.username}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
+                    <TextInput
+                        label="Tên đăng nhập *"
+                        placeholder="Nhập tên đăng nhập"
+                        value={formData.username}
+                        onChangeText={(text) => handleChange('username', text)}
+                        iconName="person-outline"
+                        error={errors.username}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                    />
 
-                            <TextInput
-                                label="Mật khẩu *"
-                                placeholder="Nhập mật khẩu"
-                                value={formData.password}
-                                onChangeText={(text) => handleChange('password', text)}
-                                iconName="lock-closed-outline"
-                                secureTextEntry
-                                error={errors.password}
-                            />
-                            
-                            <TextInput
-                                label="Xác nhận mật khẩu *"
-                                placeholder="Nhập lại mật khẩu"
-                                value={formData.confirmPassword}
-                                onChangeText={(text) => handleChange('confirmPassword', text)}
-                                iconName="lock-closed-outline"
-                                secureTextEntry
-                                error={errors.confirmPassword}
-                            />
+                    <TextInput
+                        label="Mật khẩu *"
+                        placeholder="Nhập mật khẩu"
+                        value={formData.password}
+                        onChangeText={(text) => handleChange('password', text)}
+                        iconName="lock-closed-outline"
+                        secureTextEntry
+                        error={errors.password}
+                    />
+                    
+                    <TextInput
+                        label="Xác nhận mật khẩu *"
+                        placeholder="Nhập lại mật khẩu"
+                        value={formData.confirmPassword}
+                        onChangeText={(text) => handleChange('confirmPassword', text)}
+                        iconName="lock-closed-outline"
+                        secureTextEntry
+                        error={errors.confirmPassword}
+                    />
 
-                            <Button
-                                title="Tiếp tục"
-                                onPress={handleNextStep}
-                                style={styles.nextButton}
-                            />
-                            
-                            <TouchableOpacity onPress={onNavigateBack} style={styles.loginLink}>
-                                <Text style={styles.loginText}>Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập ngay</Text></Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <TextInput
-                                label="Họ và tên"
-                                placeholder="Nhập họ và tên đầy đủ"
-                                value={formData.fullName}
-                                onChangeText={(text) => handleChange('fullName', text)}
-                                iconName="text-outline"
-                                error={errors.fullName}
-                            />
-
-                            <TextInput
-                                label="Mã số sinh viên (hoặc mã Đoàn viên)"
-                                placeholder="Nhập mã số"
-                                value={formData.studentId}
-                                onChangeText={(text) => handleChange('studentId', text)}
-                                iconName="card-outline"
-                            />
-
-                            <TextInput
-                                label="Ngày sinh"
-                                placeholder="DD/MM/YYYY"
-                                value={formData.dateOfBirth}
-                                onChangeText={(text) => handleChange('dateOfBirth', text)}
-                                iconName="calendar-outline"
-                            />
-                            
-                            <TextInput
-                                label="Số điện thoại"
-                                placeholder="Nhập số điện thoại thường dùng"
-                                value={formData.phoneNumber}
-                                onChangeText={(text) => handleChange('phoneNumber', text)}
-                                iconName="call-outline"
-                                keyboardType="phone-pad"
-                            />
-
-                            <Button
-                                title="Hoàn tất đăng ký"
-                                onPress={() => handleRegister(false)}
-                                loading={loading}
-                                style={styles.nextButton}
-                            />
-
-                            <TouchableOpacity 
-                                style={styles.skipButton} 
-                                onPress={() => handleRegister(true)}
-                                disabled={loading}
-                            >
-                                <Text style={styles.skipButtonText}>Nhập sau ({'>'})</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
+                    <Button
+                        title="Đăng Ký"
+                        onPress={handleRegister}
+                        loading={loading}
+                        style={styles.nextButton}
+                    />
+                    
+                    <TouchableOpacity onPress={onNavigateBack} style={styles.loginLink}>
+                        <Text style={styles.loginText}>Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập ngay</Text></Text>
+                    </TouchableOpacity>
                 </View>
                 
                 <View style={styles.footerInfo}>
                     <Ionicons name="information-circle-outline" size={16} color={COLORS.warning} />
-                    <Text style={styles.footerText}>Tài khoản sau khi đăng ký cần được xét duyệt trước khi có thể đăng nhập.</Text>
+                    <Text style={styles.footerText}>Bằng việc đăng ký, bạn đồng ý với Điều khoản & Chính sách của ứng dụng.</Text>
                 </View>
 
             </ScrollView>
+
+            <StatusModal 
+                visible={modalConfig.visible}
+                type={modalConfig.type}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                onClose={modalConfig.onClose}
+            />
         </KeyboardAvoidingView>
     );
 };

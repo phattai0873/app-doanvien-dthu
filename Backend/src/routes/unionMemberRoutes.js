@@ -6,6 +6,7 @@ const { protect } = require('../middlewares/authMiddleware');
 router.use(protect);
 
 router.get('/', unionMemberController.getMembers);
+router.get('/me', unionMemberController.getMyProfile);
 router.post('/', unionMemberController.createMember);
 router.get('/:id', unionMemberController.getMember);
 router.put('/:id', unionMemberController.updateMember);

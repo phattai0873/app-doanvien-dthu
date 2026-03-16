@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    ScrollView, 
-    TouchableOpacity, 
-    TextInput,
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Image as RNImage
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
-import { COLORS, SIZES } from '../../constants';
+import { COLORS, SIZES, IMAGES } from '../../constants';
+import TextInput from '../../components/common/TextInput';
+import Button from '../../components/common/Button';
 import { partyService } from '../../services/partyService';
 
 export const EditProfileScreen = ({ onBack }) => {
@@ -22,19 +24,33 @@ export const EditProfileScreen = ({ onBack }) => {
 
     // Form states
     const [name, setName] = useState('');
+    const [studentId, setStudentId] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
-    const [address, setAddress] = useState('');
+    const [dob, setDob] = useState('');
+    const [hometown, setHometown] = useState('');
+    const [residence, setResidence] = useState('');
+    const [joinedDate, setJoinedDate] = useState('');
+    const [joinedPlace, setJoinedPlace] = useState('');
+    const [identityNumber, setIdentityNumber] = useState('');
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 const data = await partyService.getMemberProfile();
                 setUser(data);
+
+                // Map data to fields
                 setName(data.ho_ten || '');
-                setPhone('0987654321'); // Mock
-                setEmail('student@dthu.edu.vn'); // Mock
-                setAddress('Đồng Tháp, Việt Nam'); // Mock
+                setStudentId(data.UnionMember?.studentId || '');
+                setPhone(data.UnionMember?.phoneNumber || '');
+                setEmail(data.UnionMember?.email || '');
+                setDob(data.UnionMember?.dateOfBirth ? formatDate(data.UnionMember.dateOfBirth) : '');
+                setHometown(data.UnionMember?.hometown || '');
+                setResidence(data.UnionMember?.homeAddress || '');
+                setJoinedDate(data.UnionMember?.joinedDate ? formatDate(data.UnionMember.joinedDate) : '');
+                setJoinedPlace(data.UnionMember?.joinedPlace || '');
+                setIdentityNumber(data.UnionMember?.identityNumber || '');
             } catch (error) {
                 console.error(error);
             } finally {
@@ -44,14 +60,59 @@ export const EditProfileScreen = ({ onBack }) => {
         fetchProfile();
     }, []);
 
-    const handleSave = () => {
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
+
+    const handleSave = async () => {
+        console.log('Button Pressed: handleSave started');
+        if (!name.trim()) {
+            Alert.alert("Thông báo", "Vui lòng nhập họ và tên");
+            return;
+        }
+
         setSaving(true);
-        // Mock save logic
-        setTimeout(() => {
+        try {
+            const memberId = user?.UnionMember?.id;
+            if (!memberId) {
+                Alert.alert("Lỗi", "Không tìm thấy mã đoàn viên để cập nhật.");
+                setSaving(false);
+                return;
+            }
+
+            // Chuẩn bị dữ liệu cập nhật
+            const updateData = {
+                fullName: name,
+                phoneNumber: phone,
+                email: email,
+                hometown: hometown,
+                homeAddress: residence,
+                dateOfBirth: dob ? dob.split('/').reverse().join('-') : null,
+                studentId: studentId,
+                identityNumber: identityNumber,
+                joinedDate: joinedDate ? joinedDate.split('/').reverse().join('-') : null,
+                joinedPlace: joinedPlace
+            };
+
+            const response = await partyService.updateMemberProfile(memberId, updateData);
+            
+            if (response && response.success) {
+                Alert.alert("Thành công", "Thông tin cá nhân đã được cập nhật.");
+                onBack();
+            } else {
+                Alert.alert("Lỗi", "Không thể cập nhật thông tin lúc này.");
+            }
+        } catch (error) {
+            console.error('Update profile error:', error);
+            Alert.alert("Lỗi", error.message || "Đã xảy ra lỗi khi lưu thông tin.");
+        } finally {
             setSaving(false);
-            Alert.alert("Thành công", "Thông tin cá nhân đã được cập nhật.");
-            onBack();
-        }, 1500);
+        }
     };
 
     if (loading) {
@@ -62,87 +123,156 @@ export const EditProfileScreen = ({ onBack }) => {
         );
     }
 
-    return (
-        <KeyboardAvoidingView 
-            style={styles.container} 
-            behavior={Platform.OS === 'ios' ? 'padding' : null}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-        >
-            <View style={styles.header}>
-                <TouchableOpacity onPress={onBack} style={styles.backIcon}>
-                    <Icon name="ArrowLeft" size={24} color={COLORS.gray700} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
-                <TouchableOpacity onPress={handleSave} disabled={saving}>
-                    {saving ? (
-                        <ActivityIndicator size="small" color={COLORS.primary} />
-                    ) : (
-                        <Text style={styles.saveBtnText}>Lưu</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
+    const isApproved = user?.UnionMember?.status === 'approved';
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+    return (
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : null}
+        >
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Avatar Section */}
                 <View style={styles.avatarSection}>
                     <View style={styles.avatarWrapper}>
-                        <Icon name="User" size={40} color={COLORS.gray400} />
+                        <RNImage
+                            source={user?.anh_dai_dien ? { uri: user.anh_dai_dien } : IMAGES.user_fallback}
+                            style={styles.imageAvatar}
+                        />
+                        <TouchableOpacity style={styles.editAvatarBtn} activeOpacity={0.8}>
+                            <Icon name="Camera" size={18} color="#FFF" />
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity style={styles.changeAvatarBtn}>
-                        <Icon name="Camera" size={16} color="#FFF" />
-                        <Text style={styles.changeAvatarText}>Đổi ảnh đại diện</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.avatarHint}>Hình ảnh hiển thị trên thẻ Đoàn viên</Text>
                 </View>
 
-                <View style={styles.form}>
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Họ và tên</Text>
-                        <TextInput 
-                            style={styles.input}
+                <View style={styles.formContainer}>
+                    {/* Section 1: Định danh */}
+                    <View style={styles.formSection}>
+                        <Text style={styles.sectionTitle}>Thông tin tuyển sinh / Định danh</Text>
+                        <TextInput
+                            label="Họ và tên *"
+                            placeholder="Nhập đầy đủ họ tên"
                             value={name}
                             onChangeText={setName}
-                            placeholder="Nhập họ tên"
+                            iconName="person-outline"
+                            editable={!isApproved}
                         />
+                        <TextInput
+                            label="Mã số sinh viên"
+                            placeholder="Mã số sinh viên"
+                            value={studentId}
+                            onChangeText={setStudentId}
+                            iconName="card-outline"
+                            editable={!isApproved}
+                        />
+                        <TextInput
+                            label="Số CCCD / CMND"
+                            placeholder="Nhập số CCCD"
+                            value={identityNumber}
+                            onChangeText={setIdentityNumber}
+                            iconName="id-card-outline"
+                            editable={!isApproved}
+                        />
+                        <TextInput
+                            label="Ngày sinh"
+                            placeholder="DD/MM/YYYY"
+                            value={dob}
+                            onChangeText={setDob}
+                            iconName="calendar-outline"
+                            editable={!isApproved}
+                        />
+                        {isApproved && (
+                            <Text style={styles.lockHint}>
+                                * Thông tin định danh đã được xác thực, không thể tự chỉnh sửa.
+                            </Text>
+                        )}
                     </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Số điện thoại</Text>
-                        <TextInput 
-                            style={styles.input}
+                    {/* Section 2: Liên lạc */}
+                    <View style={styles.formSection}>
+                        <Text style={styles.sectionTitle}>Thông tin liên lạc</Text>
+                        <TextInput
+                            label="Số điện thoại *"
+                            placeholder="Nhập số điện thoại"
                             value={phone}
                             onChangeText={setPhone}
-                            placeholder="Nhập số điện thoại"
+                            iconName="call-outline"
                             keyboardType="phone-pad"
                         />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email</Text>
-                        <TextInput 
-                            style={styles.input}
+                        <TextInput
+                            label="Email"
+                            placeholder="Nhập địa chỉ email"
                             value={email}
                             onChangeText={setEmail}
-                            placeholder="Nhập email"
+                            iconName="mail-outline"
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Địa chỉ</Text>
-                        <TextInput 
-                            style={[styles.input, styles.textArea]}
-                            value={address}
-                            onChangeText={setAddress}
-                            placeholder="Nhập địa chỉ"
+                        <TextInput
+                            label="Quê quán"
+                            placeholder="VD: Cao Lãnh, Đồng Tháp"
+                            value={hometown}
+                            onChangeText={setHometown}
+                            iconName="map-outline"
+                        />
+                        <TextInput
+                            label="Thường trú"
+                            placeholder="Nhập địa chỉ thường trú"
+                            value={residence}
+                            onChangeText={setResidence}
+                            iconName="home-outline"
                             multiline
-                            numberOfLines={3}
+                            style={{ minHeight: 80 }}
                         />
                     </View>
 
-                    <View style={styles.staticInfo}>
-                        <Text style={styles.staticLabel}>Đơn vị sinh hoạt (Không thể chỉnh sửa)</Text>
-                        <Text style={styles.staticValue}>{user?.don_vi || 'Đang cập nhật...'}</Text>
+                    {/* Section 3: Đoàn tịch */}
+                    <View style={styles.formSection}>
+                        <Text style={styles.sectionTitle}>Thông tin Đoàn tịch</Text>
+                        <TextInput
+                            label="Ngày vào Đoàn"
+                            placeholder="DD/MM/YYYY"
+                            value={joinedDate}
+                            onChangeText={setJoinedDate}
+                            iconName="calendar-outline"
+                        />
+                        <TextInput
+                            label="Nơi vào Đoàn"
+                            placeholder="Nơi kết nạp Đoàn"
+                            value={joinedPlace}
+                            onChangeText={setJoinedPlace}
+                            iconName="business-outline"
+                        />
+                        
+                        <View style={styles.staticBox}>
+                            <View style={styles.staticHeader}>
+                                <Icon name="Building" size={16} color={COLORS.primary} />
+                                <Text style={styles.staticTitle}>Cơ cấu tổ chức hiện tại</Text>
+                            </View>
+                            <View style={styles.staticRow}>
+                                <Text style={styles.staticLabel}>Đơn vị:</Text>
+                                <Text style={styles.staticValue}>{user?.UnionMember?.UnionCell?.name || '—'}</Text>
+                            </View>
+                            <View style={styles.staticRow}>
+                                <Text style={styles.staticLabel}>Chức vụ:</Text>
+                                <Text style={styles.staticValueBold}>{user?.chuc_vu_doan || 'Đoàn viên'}</Text>
+                            </View>
+                        </View>
                     </View>
+
+                    <Button
+                        title="Lưu thay đổi hồ sơ"
+                        onPress={handleSave}
+                        loading={saving}
+                        style={styles.saveBtn}
+                    />
+
+                    <TouchableOpacity style={styles.cancelBtn} onPress={onBack}>
+                        <Text style={styles.cancelBtnText}>Quay lại</Text>
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
@@ -150,59 +280,119 @@ export const EditProfileScreen = ({ onBack }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FFF' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        paddingHorizontal: 16, 
-        paddingTop: Platform.OS === 'ios' ? 50 : 20, 
-        paddingBottom: 15,
-        backgroundColor: '#FFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6'
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+    
+    scrollContent: { paddingBottom: 60 },
+    
+    avatarSection: {
+        alignItems: 'center',
+        paddingVertical: 40,
+        backgroundColor: COLORS.white,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 5,
     },
-    headerTitle: { fontSize: 16, fontWeight: '700', color: COLORS.gray900 },
-    backIcon: { padding: 4 },
-    saveBtnText: { color: COLORS.primary, fontWeight: '700', fontSize: 16 },
-    scrollContent: { paddingBottom: 40 },
-    avatarSection: { alignItems: 'center', paddingVertical: 30, backgroundColor: '#F9FAFB' },
-    avatarWrapper: { 
-        width: 100, 
-        height: 100, 
-        borderRadius: 50, 
-        backgroundColor: COLORS.gray100, 
-        alignItems: 'center', 
+    avatarWrapper: {
+        position: 'relative',
+        width: 110,
+        height: 110,
+        borderRadius: 55,
+        padding: 4,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+        backgroundColor: COLORS.white,
+    },
+    imageAvatar: { width: '100%', height: '100%', borderRadius: 55 },
+    editAvatarBtn: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: COLORS.primary,
+        alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 3,
+        borderColor: COLORS.white,
+        elevation: 4,
+    },
+    avatarHint: {
+        marginTop: 16,
+        fontSize: 12,
+        color: COLORS.gray400,
+        fontWeight: '500'
+    },
+
+    formContainer: { padding: 20 },
+    formSection: {
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 20,
         borderWidth: 1,
-        borderColor: COLORS.gray200
+        borderColor: COLORS.gray100,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 10,
+        elevation: 1
     },
-    changeAvatarBtn: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: COLORS.gray800, 
-        paddingHorizontal: 15, 
-        paddingVertical: 8, 
-        borderRadius: 20,
-        marginTop: -15
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: COLORS.gray900,
+        marginBottom: 20,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        borderLeftWidth: 3,
+        borderLeftColor: COLORS.primary,
+        paddingLeft: 10
     },
-    changeAvatarText: { color: '#FFF', fontSize: 12, fontWeight: '600', marginLeft: 6 },
-    form: { padding: 20 },
-    inputGroup: { marginBottom: 20 },
-    label: { fontSize: 14, fontWeight: '600', color: COLORS.gray600, marginBottom: 8 },
-    input: { 
-        backgroundColor: '#F9FAFB', 
-        borderWidth: 1, 
-        borderColor: '#E5E7EB', 
-        borderRadius: 12, 
-        paddingHorizontal: 15, 
+    lockHint: {
+        fontSize: 11,
+        color: COLORS.gray400,
+        fontStyle: 'italic',
+        marginTop: 5,
+        textAlign: 'center'
+    },
+
+    staticBox: {
+        backgroundColor: '#F1F5F9',
+        borderRadius: 16,
+        padding: 16,
+        marginTop: 10,
+    },
+    staticHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 8
+    },
+    staticTitle: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+    staticRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8
+    },
+    staticLabel: { fontSize: 13, color: COLORS.gray500 },
+    staticValue: { fontSize: 13, color: COLORS.gray800, fontWeight: '500' },
+    staticValueBold: { fontSize: 13, color: COLORS.gray900, fontWeight: '800' },
+
+    saveBtn: { marginTop: 10, height: 56, borderRadius: 16 },
+    cancelBtn: {
+        marginTop: 20,
         paddingVertical: 12,
-        fontSize: 15,
-        color: COLORS.gray900
+        alignItems: 'center'
     },
-    textArea: { height: 80, textAlignVertical: 'top' },
-    staticInfo: { marginTop: 10, padding: 15, backgroundColor: COLORS.gray50, borderRadius: 12 },
-    staticLabel: { fontSize: 12, color: COLORS.gray400, marginBottom: 4 },
-    staticValue: { fontSize: 14, color: COLORS.gray600, fontWeight: '500' }
+    cancelBtnText: {
+        fontSize: 15,
+        color: COLORS.gray400,
+        fontWeight: '600'
+    },
 });

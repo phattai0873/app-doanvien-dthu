@@ -1,17 +1,37 @@
 const { Document, DocumentCategory } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
+const { safeDate } = require('../utils/dateUtils');
+
 
 class DocumentService {
-    static async getAll({ search, categoryId, status, page, limit } = {}) {
+    static async getAll({ search, categoryId, status, page, limit, unionBranchId } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
         
         const where = {
             ...buildSearchCondition(search, ['title', 'issuingAuthority']),
-            ...(categoryId && { categoryId }),
-            ...(status && { status })
+            ...(categoryId && { categoryId })
         };
+        
+        // Default visibility: only PUBLISH for public
+        if (status) {
+            where.status = status;
+        } else {
+            where.status = 'PUBLISH';
+        }
+
+        const scopingConditions = [];
+
+        // Public documents (no specific branch or cell)
+        scopingConditions.push({ [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] });
+
+        if (unionBranchId) {
+            scopingConditions.push({ unionBranchId: unionBranchId });
+            scopingConditions.push({ level: 'SCHOOL' });
+        }
+
+        where[Op.or] = scopingConditions;
 
         const result = await Document.findAndCountAll({
             where,
@@ -35,6 +55,8 @@ class DocumentService {
     }
 
     static async create(data, file) {
+        if (data.issuedDate) data.issuedDate = safeDate(data.issuedDate);
+
         if (file) {
             data.filePath = `/uploads/documents/${file.filename}`;
         } else if (!data.filePath) {
@@ -51,7 +73,9 @@ class DocumentService {
             data.filePath = `/uploads/documents/${file.filename}`;
         }
         
+        if (data.issuedDate) data.issuedDate = safeDate(data.issuedDate);
         await doc.update(data);
+
         return doc;
     }
 

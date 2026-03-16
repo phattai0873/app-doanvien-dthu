@@ -8,7 +8,7 @@ import {
     Platform,
     TouchableOpacity,
     Alert,
-    Image,
+    Image as RNImage,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, IMAGES } from '../../constants';
@@ -77,7 +77,7 @@ const LoginScreen = ({ onLogin }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.logoContainer}>
-                        <Image
+                        <RNImage
                             source={IMAGES.logo}
                             style={styles.logoImage}
                             resizeMode="contain"

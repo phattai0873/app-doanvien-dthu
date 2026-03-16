@@ -31,6 +31,12 @@ const unionMemberController = {
         res.status(200).json({ success: true, data: member });
     }),
 
+    getMyProfile: asyncHandler(async (req, res) => {
+        const member = await UnionMemberService.getByUserId(req.user.id);
+        // Nếu không có member, vẫn trả về success: true nhưng data: null hoặc lỗi nhẹ
+        res.status(200).json({ success: true, data: member });
+    }),
+
     createMember: asyncHandler(async (req, res) => {
         const data = req.body;
         const roles = req.user?.Roles?.map(r => r.code) || [];
@@ -38,10 +44,14 @@ const unionMemberController = {
         const isBranchAdmin = roles.includes('BRANCH_ADMIN');
         const isCellAdmin = roles.includes('CELL_ADMIN');
 
+        // Nếu là user tự hoàn thiện hồ sơ (không truyền userId hoặc userId khớp)
+        if (!data.userId) {
+            data.userId = req.user.id;
+        }
+
         if (!isSuperAdmin) {
             if (isBranchAdmin) {
-                // For Branch Admin, they must specify a unionCellId within their branch.
-                // Service handles filtering if needed, but here we just ensure they can't set branch directly (it's derived)
+                // For Branch Admin
             } else if (isCellAdmin && req.user.unionCellId) {
                 data.unionCellId = req.user.unionCellId;
             }

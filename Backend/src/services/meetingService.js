@@ -2,6 +2,8 @@ const { Meeting, UnionCell, UnionMember, CellMeetingLocation, UnionBranch, Atten
 const { sequelize } = require('../configs/db');
 const ErrorResponse = require('../utils/errorResponse');
 const { sanitizeUUID } = require('../utils/sanitize');
+const { safeDate } = require('../utils/dateUtils');
+
 const crypto = require('crypto');
 
 function generateCheckinCode() {
@@ -70,6 +72,8 @@ class MeetingService {
 
     static async create(data) {
         const sanitizedData = sanitizeUUID(data);
+        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime);
+
         if (!sanitizedData.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
             const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
@@ -92,6 +96,8 @@ class MeetingService {
         const oldTime = meeting.meetingTime;
 
         const sanitizedData = sanitizeUUID(data);
+        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime);
+
         if (data.status === 'IN_PROGRESS' && !meeting.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
             const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;

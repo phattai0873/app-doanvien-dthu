@@ -6,29 +6,56 @@ import {
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
-    ImageBackground
+    ImageBackground,
+    ScrollView,
+    Alert,
+    Platform
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { examService } from '../../services/examService';
+import { authService } from '../../services/authService';
 
 export const ExamListScreen = ({ onNavigate }) => {
     const [exams, setExams] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('all');
+    const [userStats, setUserStats] = useState({ totalPoints: 0, quizCount: 0, rank: 'C' });
+
+    const TABS = [
+        { id: 'all', name: 'Tất cả' },
+        { id: 'ONGOING', name: 'Đang diễn ra' },
+        { id: 'UPCOMING', name: 'Sắp tới' },
+        { id: 'FINISHED', name: 'Đã kết thúc' },
+    ];
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const currentUser = await authService.getCurrentUser();
+            const member = currentUser?.UnionMember;
+
+            // Set real stats
+            if (currentUser?.statistics) {
+                setUserStats(currentUser.statistics);
+            }
+
+            const fetchParams = {};
+            if (member?.unionBranchId) fetchParams.unionBranchId = member.unionBranchId;
+            if (activeTab !== 'all') fetchParams.status = activeTab;
+
+            const res = await examService.getExams(fetchParams);
+            setExams(res.data || res);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const data = await examService.getExams();
-                setExams(data);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
-    }, []);
+    }, [activeTab]);
 
     const getStatusStyle = (status) => {
         switch (status) {
@@ -40,53 +67,82 @@ export const ExamListScreen = ({ onNavigate }) => {
         }
     };
 
+    const handleExamPress = (item) => {
+        const currentStatus = item.computedStatus || item.status;
+        if (currentStatus === 'ONGOING') {
+            onNavigate && onNavigate('exam_detail', { id: item.id });
+        } else if (currentStatus === 'UPCOMING') {
+            Alert.alert("Thông báo", "Kỳ thi này chưa bắt đầu.");
+        } else {
+            Alert.alert("Thông báo", "Kỳ thi này đã kết thúc.");
+        }
+    };
+
     const renderItem = ({ item }) => {
-        const { bg, text, label } = getStatusStyle(item.computedStatus);
+        const currentStatus = item.computedStatus || item.status;
+        const { bg, text, label } = getStatusStyle(currentStatus);
+        const isOngoing = currentStatus === 'ONGOING';
+        const isUpcoming = currentStatus === 'UPCOMING';
 
         return (
             <TouchableOpacity
                 style={styles.card}
-                onPress={() => item.computedStatus === 'ONGOING' && onNavigate && onNavigate('exam_detail', { id: item.id })}
+                onPress={() => handleExamPress(item)}
+                activeOpacity={0.9}
             >
+                <View style={styles.cardHeader}>
+                    <View style={[styles.statusBadge, { backgroundColor: bg + '20' }]}>
+                        <View style={[styles.statusDot, { backgroundColor: text }]} />
+                        <Text style={[styles.statusText, { color: text }]}>{label}</Text>
+                    </View>
+                    {item.isMandatory && (
+                        <View style={styles.mandatoryBadge}>
+                            <Icon name="AlertCircle" size={12} color="#FFF" />
+                            <Text style={styles.mandatoryText}>Bắt buộc</Text>
+                        </View>
+                    )}
+                </View>
+
                 <View style={styles.cardBody}>
-                    <View style={styles.examIconBox}>
-                        <Icon name="Award" size={32} color={COLORS.primary} />
+                    <View style={styles.imagePlaceholder}>
+                        <Icon name="Trophy" size={32} color={isOngoing ? COLORS.primary : COLORS.gray400} />
                     </View>
 
-                    <View style={styles.examInfo}>
-                        <View style={[styles.statusBadge, { backgroundColor: bg }]}>
-                            <Text style={[styles.statusText, { color: text }]}>{label}</Text>
-                        </View>
-                        <Text style={styles.examTitle}>{item.title}</Text>
-                        <Text style={styles.examDesc} numberOfLines={2}>{item.description}</Text>
-
-                        <View style={styles.examMeta}>
-                            <View style={styles.metaItem}>
-                                <Icon name="Clock" size={14} color="#9CA3AF" />
-                                <Text style={styles.metaText}>{item.timeLimit} phút</Text>
-                            </View>
-                            <View style={styles.metaItem}>
-                                <Icon name="Calendar" size={14} color="#9CA3AF" />
-                                <Text style={styles.metaText}>{item.endDate ? new Date(item.endDate).toLocaleDateString('vi-VN') : '—'}</Text>
-                            </View>
-                        </View>
+                    <View style={styles.cardInfo}>
+                        <Text style={styles.examTitle} numberOfLines={2}>{item.title}</Text>
+                        <Text style={styles.examDesc} numberOfLines={1}>{item.description || 'Chưa có mô tả'}</Text>
                     </View>
                 </View>
 
-                {item.computedStatus === 'ONGOING' && (
-                    <TouchableOpacity
-                        style={styles.startBtn}
-                        onPress={() => onNavigate && onNavigate('exam_detail', { id: item.id })}
-                    >
-                        <Text style={styles.startBtnText}>BẮT ĐẦU THI</Text>
-                        <Icon name="ChevronRight" size={16} color="#FFF" />
-                    </TouchableOpacity>
-                )}
+                <View style={styles.cardFooter}>
+                    <View style={styles.metaGroup}>
+                        <View style={styles.metaItem}>
+                            <Icon name="Layers" size={14} color={COLORS.gray500} />
+                            <Text style={styles.metaValue}>{item.totalQuestions || 0} câu</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                            <Icon name="Clock" size={14} color={COLORS.gray500} />
+                            <Text style={styles.metaValue}>{item.timeLimit || 0} phút</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                            <Icon name="Star" size={14} color="#F59E0B" />
+                            <Text style={styles.metaValue}>{item.satisfactoryScore || 0} điểm</Text>
+                        </View>
+                    </View>
+
+                    <View style={[styles.actionBtn, { backgroundColor: isOngoing ? COLORS.primary : COLORS.gray100 }]}>
+                        <Icon
+                            name={isOngoing ? "ChevronRight" : (isUpcoming ? "Lock" : "CheckCircle")}
+                            size={18}
+                            color={isOngoing ? "#FFF" : COLORS.gray400}
+                        />
+                    </View>
+                </View>
             </TouchableOpacity>
         );
     };
 
-    if (loading) {
+    if (loading && exams.length === 0) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -96,71 +152,218 @@ export const ExamListScreen = ({ onNavigate }) => {
 
     return (
         <View style={styles.container}>
-            <ImageBackground
-                source={{ uri: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80' }}
-                style={styles.headerHero}
-                imageStyle={{ opacity: 0.1 }}
-            >
-                <Text style={styles.heroTitle}>Trắc nghiệm Nhận thức</Text>
-                <Text style={styles.heroText}>Tham gia các kỳ thi định kỳ để nâng cao kiến thức chính trị.</Text>
-            </ImageBackground>
+            {/* Premium Header Section */}
+            <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <View>
+                        <Text style={styles.greeting}>Chào bạn,</Text>
+                        <Text style={styles.headerTitle}>Hệ thống Trắc nghiệm</Text>
+                    </View>
+                    <TouchableOpacity style={styles.scoreBox}>
+                        <Icon name="Award" size={20} color={COLORS.primary} />
+                        <Text style={styles.scoreText}>{userStats.totalPoints} pts</Text>
+                    </TouchableOpacity>
+                </View>
 
-            <FlatList
-                data={exams}
-                renderItem={renderItem}
-                keyExtractor={item => item.id.toString()}
-                contentContainerStyle={styles.listContent}
-                ListHeaderComponent={<Text style={styles.sectionTitle}>KỲ THI ĐANG DIỄN RA</Text>}
-            />
+                <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{exams.filter(e => (e.computedStatus || e.status) === 'ONGOING').length}</Text>
+                        <Text style={styles.statLabel}>Đang mở</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{userStats.quizCount}</Text>
+                        <Text style={styles.statLabel}>Đã tham gia</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                        <Text style={styles.statValue}>{userStats.rank}</Text>
+                        <Text style={styles.statLabel}>Hạng</Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* Content Section */}
+            <View style={styles.contentBody}>
+                <View style={styles.catWrapper}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
+                        {TABS.map(tab => (
+                            <TouchableOpacity
+                                key={tab.id}
+                                style={[styles.catPill, activeTab === tab.id && styles.catPillActive]}
+                                onPress={() => setActiveTab(tab.id)}
+                            >
+                                <Text style={[styles.catText, activeTab === tab.id && styles.catTextActive]}>
+                                    {tab.name}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                <FlatList
+                    data={exams}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id.toString()}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshing={loading}
+                    onRefresh={fetchData}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <View style={styles.emptyIconCircle}>
+                                <Icon name="Inbox" size={40} color={COLORS.gray300} />
+                            </View>
+                            <Text style={styles.emptyText}>Hiện không có cuộc thi nào trong mục này</Text>
+                            <TouchableOpacity style={styles.refreshBtn} onPress={fetchData}>
+                                <Text style={styles.refreshBtnText}>Tải lại dữ liệu</Text>
+                            </TouchableOpacity>
+                        </View>
+                    }
+                />
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerHero: {
-        backgroundColor: '#1E293B',
-        padding: 24,
-        paddingBottom: 40,
-    },
-    heroTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-    heroText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 8, lineHeight: 18 },
-    listContent: { padding: 16, paddingTop: 20, paddingBottom: 100 },
-    sectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#6B7280', marginBottom: 16, letterSpacing: 1 },
-    card: {
+
+    // Header Styles
+    header: {
         backgroundColor: '#FFF',
-        borderRadius: 16,
-        marginBottom: 16,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-        elevation: 2,
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
+        paddingBottom: 25,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        zIndex: 10
     },
-    cardBody: { flexDirection: 'row', padding: 16 },
-    examIconBox: {
-        width: 60,
-        height: 60,
-        borderRadius: 12,
-        backgroundColor: '#FEF2F2',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    examInfo: { flex: 1, marginLeft: 16 },
-    statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 8 },
-    statusText: { fontSize: 10, fontWeight: 'bold' },
-    examTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2937' },
-    examDesc: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-    examMeta: { flexDirection: 'row', marginTop: 12, gap: 16 },
-    metaItem: { flexDirection: 'row', alignItems: 'center' },
-    metaText: { fontSize: 11, color: '#9CA3AF', marginLeft: 4 },
-    startBtn: {
-        backgroundColor: COLORS.primary,
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+    greeting: { fontSize: 14, color: COLORS.gray500, fontWeight: '500' },
+    headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.gray900, marginTop: 2 },
+    scoreBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        gap: 8,
+        backgroundColor: COLORS.primary + '10',
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.primary + '20'
     },
-    startBtnText: { color: '#FFF', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 }
+    scoreText: { marginLeft: 8, fontWeight: 'bold', color: COLORS.primary, fontSize: 14 },
+
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        backgroundColor: '#F1F5F9',
+        borderRadius: 20,
+        paddingVertical: 15
+    },
+    statItem: { alignItems: 'center', flex: 1 },
+    statValue: { fontSize: 18, fontWeight: 'bold', color: COLORS.gray900 },
+    statLabel: { fontSize: 11, color: COLORS.gray500, marginTop: 4, fontWeight: '600' },
+    statDivider: { height: 25, width: 1, backgroundColor: COLORS.gray300 },
+
+    // Content Styles
+    contentBody: { flex: 1, marginTop: -20, paddingTop: 30 },
+    catWrapper: { marginBottom: 15 },
+    catScroll: { paddingHorizontal: 20, gap: 10 },
+    catPill: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 25,
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    catPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, elevation: 4 },
+    catText: { fontSize: 13, color: COLORS.gray600, fontWeight: '600' },
+    catTextActive: { color: '#FFF', fontWeight: 'bold' },
+
+    listContent: { padding: 20, paddingBottom: 100 },
+    card: {
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 16,
+        marginBottom: 20,
+        elevation: 5,
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        borderWidth: 1,
+        borderColor: '#F1F5F9'
+    },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20
+    },
+    statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
+    statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    mandatoryBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EF4444',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 10,
+        gap: 5
+    },
+    mandatoryText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
+
+    cardBody: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    imagePlaceholder: {
+        width: 60,
+        height: 60,
+        borderRadius: 18,
+        backgroundColor: '#F8FAFC',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#F1F5F9'
+    },
+    cardInfo: { flex: 1, marginLeft: 16 },
+    examTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.gray900, lineHeight: 22 },
+    examDesc: { fontSize: 13, color: COLORS.gray500, marginTop: 4 },
+
+    cardFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9'
+    },
+    metaGroup: { flexDirection: 'row', gap: 15 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    metaValue: { fontSize: 12, color: COLORS.gray600, fontWeight: '600' },
+    actionBtn: { width: 40, height: 40, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+
+    // Empty States
+    emptyContainer: { alignItems: 'center', paddingVertical: 50 },
+    emptyIconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#F1F5F9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    emptyText: { fontSize: 14, color: COLORS.gray500, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
+    refreshBtn: { marginTop: 20, paddingHorizontal: 25, paddingVertical: 12, backgroundColor: '#E2E8F0', borderRadius: 15 },
+    refreshBtnText: { color: COLORS.gray700, fontWeight: 'bold', fontSize: 14 }
 });

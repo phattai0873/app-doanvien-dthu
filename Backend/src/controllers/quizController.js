@@ -11,10 +11,15 @@ const quizController = {
         const isCellAdmin = roles.includes('CELL_ADMIN');
 
         if (!isSuperAdmin) {
-            if (isBranchAdmin && req.user.unionBranchId) {
-                unionBranchId = req.user.unionBranchId;
-            } else if (isCellAdmin && req.user.unionCellId) {
-                unionCellId = req.user.unionCellId;
+            const member = req.user?.UnionMember;
+            if (member) {
+                if (member.unionCellId) {
+                    unionCellId = member.unionCellId;
+                }
+                const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                if (branchId) {
+                    unionBranchId = branchId;
+                }
             }
         }
 
@@ -52,12 +57,20 @@ const quizController = {
         const isCellAdmin = roles.includes('CELL_ADMIN');
 
         if (!isSuperAdmin) {
-            if (isCellAdmin && req.user.unionCellId) {
-                examData.unionCellId = req.user.unionCellId;
-                examData.level = 'CELL';
-            } else if (isBranchAdmin && req.user.unionBranchId) {
-                examData.unionBranchId = req.user.unionBranchId;
-                examData.level = 'BRANCH';
+            const member = req.user?.UnionMember;
+            if (member) {
+                if (isCellAdmin && member.unionCellId) {
+                    examData.unionCellId = member.unionCellId;
+                    examData.level = 'CELL';
+                    const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                    if (branchId) examData.unionBranchId = branchId;
+                } else {
+                    const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                    if (branchId) {
+                        examData.unionBranchId = branchId;
+                        examData.level = 'BRANCH';
+                    }
+                }
             }
         }
 
@@ -82,8 +95,9 @@ const quizController = {
         const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin && userUnionMember) {
+            const branchId = userUnionMember.unionBranchId || userUnionMember.UnionCell?.unionBranchId;
+            if (branchId) unionBranchId = branchId;
         }
 
         const result = await QuizService.getAttempts(req.params.id, { search, unionBranchId, page, limit });

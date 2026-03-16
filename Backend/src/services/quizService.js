@@ -24,21 +24,44 @@ class QuizService {
             ];
         }
 
+        const scopingConditions = [];
+        // Public exams (no branch or cell)
+        scopingConditions.push({ [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] });
+        
         if (unionCellId) {
-            where.unionCellId = unionCellId;
-        } else if (unionBranchId) {
-            where[Op.and] = [
-                { unionBranchId },
-                { level: { [Op.ne]: 'CELL' } }
-            ];
+            scopingConditions.push({ unionCellId: unionCellId });
+        }
+        
+        if (unionBranchId) {
+            scopingConditions.push({ unionBranchId: unionBranchId });
+            scopingConditions.push({ level: 'SCHOOL' });
         }
 
-        const result = await QuizExam.findAndCountAll({
+        where[Op.or] = scopingConditions;
+
+        const { sequelize } = require('../configs/db');
+        const rows = await QuizExam.findAll({
             where,
+            attributes: {
+                include: [
+                    [
+                        sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM quiz_questions AS qst
+                            WHERE
+                                qst."examId" = "QuizExam"."id"
+                        )`),
+                        'totalQuestions'
+                    ]
+                ]
+            },
             order: [['createdAt', 'DESC']],
             limit: l,
             offset
         });
+        
+        const count = await QuizExam.count({ where });
+        const result = { rows, count };
 
         return formatPaginatedResponse(result, p, l);
     }

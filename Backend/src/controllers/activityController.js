@@ -27,6 +27,7 @@ const activityController = {
 
     registerParticipant: asyncHandler(async (req, res) => {
         const memberId = req.user.UnionMember?.id;
+        console.log(`[Controller] User: ${req.user.id}, Member: ${memberId}`);
         if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
         
         const participant = await ActivityService.registerParticipant(req.params.id, memberId);

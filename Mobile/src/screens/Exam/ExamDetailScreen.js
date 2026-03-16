@@ -13,6 +13,8 @@ import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { examService } from '../../services/examService';
 
+import { authService } from '../../services/authService';
+
 const { width } = Dimensions.get('window');
 
 export const ExamDetailScreen = ({ route, goBack }) => {
@@ -23,12 +25,17 @@ export const ExamDetailScreen = ({ route, goBack }) => {
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [answers, setAnswers] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [user, setUser] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const data = await examService.getExamDetail(id);
-                setExam(data);
+                const [res, userData] = await Promise.all([
+                    examService.getExamDetail(id),
+                    authService.getCurrentUser()
+                ]);
+                setExam(res.data || res);
+                setUser(userData.data || userData);
             } catch (error) {
                 console.error(error);
             } finally {
@@ -38,7 +45,16 @@ export const ExamDetailScreen = ({ route, goBack }) => {
         if (id) fetchData();
     }, [id]);
 
-    const handleStart = () => setStarted(true);
+    const handleStart = () => {
+        if (user?.UnionMember?.status !== 'approved') {
+            Alert.alert(
+                'Chưa được phép',
+                'Hồ sơ Đoàn viên của bạn đang chờ phê duyệt. Bạn chỉ có thể tham gia thi/kiểm tra sau khi hồ sơ đã chính thức được xác nhận.'
+            );
+            return;
+        }
+        setStarted(true);
+    };
 
     const selectOption = (questionId, optionId) => {
         setAnswers({ ...answers, [questionId]: optionId });

@@ -28,6 +28,18 @@ const Document = sequelize.define('Document', {
     categoryId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    unionBranchId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    unionCellId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    level: {
+        type: DataTypes.ENUM('SCHOOL', 'BRANCH', 'CELL'),
+        defaultValue: 'SCHOOL'
     }
 }, {
     tableName: 'documents',

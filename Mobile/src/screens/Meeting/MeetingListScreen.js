@@ -12,6 +12,7 @@ import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { SIZES } from '../../constants/sizes';
 import { meetingService } from '../../services/meetingService';
+import { authService } from '../../services/authService';
 
 export const MeetingListScreen = ({ onNavigate }) => {
     const [meetings, setMeetings] = useState([]);
@@ -20,9 +21,19 @@ export const MeetingListScreen = ({ onNavigate }) => {
 
     const fetchData = async () => {
         try {
-            const res = await meetingService.getMeetings();
-            // Backend returns { success, rows: [], count: 0 }
-            const rawData = res.data?.rows || res.rows || [];
+            const currentUser = await authService.getCurrentUser();
+            
+            // Define fetch parameters based on user's affiliation
+            const fetchParams = {};
+            if (currentUser && currentUser.UnionMember) {
+                const member = currentUser.UnionMember;
+                if (member.unionCellId) fetchParams.unionCellId = member.unionCellId;
+                
+                const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                if (branchId) fetchParams.unionBranchId = branchId;
+            }
+
+            const rawData = await meetingService.getMeetings(fetchParams);
             
             const mappedData = rawData.map(m => {
                 const date = new Date(m.meetingTime);

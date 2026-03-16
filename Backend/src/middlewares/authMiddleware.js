@@ -9,6 +9,7 @@ const protect = async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+            const { User, Role, UnionMember, UnionCell } = require('../models');
             req.user = await User.findByPk(decoded.id, {
                 attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
                 include: [
@@ -18,7 +19,13 @@ const protect = async (req, res, next) => {
                     },
                     { 
                         model: UnionMember,
-                        attributes: ['id', 'fullName', 'avatar', 'unionCellId']
+                        attributes: ['id', 'fullName', 'avatar', 'unionCellId', 'status'],
+                        include: [
+                            {
+                                model: UnionCell,
+                                attributes: ['id', 'unionBranchId']
+                            }
+                        ]
                     }
                 ]
             });

@@ -3,8 +3,17 @@ const DocumentService = require('../services/documentService');
 
 const documentController = {
     getDocuments: asyncHandler(async (req, res) => {
-        let { search, categoryId, status, page, limit } = req.query;
-        const result = await DocumentService.getAll({ search, categoryId, status, page, limit });
+        let { search, categoryId, status, page, limit, unionBranchId } = req.query;
+        
+        // Scoping for non-admins
+        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
+        if (!isSuperAdmin) {
+            const member = req.user?.UnionMember;
+            const branchId = member?.unionBranchId || member?.UnionCell?.unionBranchId;
+            if (branchId) unionBranchId = branchId;
+        }
+
+        const result = await DocumentService.getAll({ search, categoryId, status, page, limit, unionBranchId });
         res.status(200).json({ success: true, ...result });
     }),
 

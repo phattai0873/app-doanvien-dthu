@@ -2,6 +2,8 @@ const { Activity, Attendance, UnionMember, UnionCell, UnionBranch, ActivityParti
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 const { sanitizeUUID } = require('../utils/sanitize');
+const { safeDate } = require('../utils/dateUtils');
+
 const crypto = require('crypto');
 
 function generateCheckinCode() {
@@ -16,15 +18,21 @@ class ActivityService {
         const where = {
             ...buildSearchCondition(search, ['title', 'description', 'location'])
         };
-        
+
         if (level) where.level = level;
-        if (status) where.status = status;
-        
+
+        // If no status provided, only show visible ones to users
+        if (status) {
+            where.status = status;
+        } else {
+            where.status = { [Op.in]: ['APPROVED', 'IN_PROGRESS', 'COMPLETED'] };
+        }
+
         if (unionBranchId) {
             where[Op.or] = [
                 { unionBranchId: unionBranchId },
-                { level: 'SCHOOL' }
-            ];
+                { organizedByBranchId: unionBranchId },
+                { level: 'SCHOOL' },
         }
 
         if (upcoming === 'true') {
@@ -35,7 +43,8 @@ class ActivityService {
             where,
             include: [
                 { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] }
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
+                { model: ActivityParticipant, attributes: ['id', 'memberId', 'registrationStatus'] }
             ],
             order: [['startDate', 'DESC']],
             limit: l,
@@ -62,6 +71,9 @@ class ActivityService {
 
     static async create(data) {
         const sanitizedData = sanitizeUUID(data);
+        if (sanitizedData.startDate) sanitizedData.startDate = safeDate(sanitizedData.startDate);
+        if (sanitizedData.endDate) sanitizedData.endDate = safeDate(sanitizedData.endDate);
+
         if (!sanitizedData.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
             const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
@@ -73,7 +85,7 @@ class ActivityService {
         else sanitizedData.status = 'APPROVED'; // School activities by super admin are auto-approved
 
         const activity = await Activity.create(sanitizedData);
-        
+
         if (activity.status === 'PENDING_APPROVAL') {
             // Notify approvers (Optional but recommended)
         }
@@ -84,7 +96,7 @@ class ActivityService {
     static async approveActivity(id) {
         const activity = await Activity.findByPk(id);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        
+
         await activity.update({ status: 'APPROVED' });
 
         // Notification Hook: Notify target audience
@@ -103,6 +115,7 @@ class ActivityService {
     }
 
     static async registerParticipant(activityId, memberId) {
+        console.log(`[Registration] Activity: ${activityId}, Member: ${memberId}`);
         const activity = await Activity.findByPk(activityId);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
         if (activity.status !== 'APPROVED' && activity.status !== 'IN_PROGRESS') {
@@ -147,8 +160,11 @@ class ActivityService {
     static async update(id, data) {
         const activity = await Activity.findByPk(id);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        
+
         const sanitizedData = sanitizeUUID(data);
+        if (sanitizedData.startDate) sanitizedData.startDate = safeDate(sanitizedData.startDate);
+        if (sanitizedData.endDate) sanitizedData.endDate = safeDate(sanitizedData.endDate);
+
         if (data.status === 'IN_PROGRESS' && !activity.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
             const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
@@ -169,7 +185,7 @@ class ActivityService {
         const { ActivityParticipant } = require('../models');
         const participant = await ActivityParticipant.findOne({ where: { activityId, memberId } });
         if (!participant) throw new ErrorResponse('Dữ liệu đăng ký không tồn tại', 404);
-        
+
         await participant.update({ attendanceStatus: status, remarks });
         return participant;
     }
@@ -202,16 +218,16 @@ class ActivityService {
     static async refreshCheckinCode(id, customTTL) {
         const activity = await Activity.findByPk(id);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        
+
         const newCode = generateCheckinCode();
         const ttl = customTTL ? parseInt(customTTL) : 15;
         const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
-        
-        await activity.update({ 
-            checkinCode: newCode, 
-            checkinCodeExpiresAt: expiresAt 
+
+        await activity.update({
+            checkinCode: newCode,
+            checkinCodeExpiresAt: expiresAt
         });
-        
+
         return { checkinCode: newCode, checkinCodeExpiresAt: expiresAt };
     }
 
@@ -239,7 +255,7 @@ class ActivityService {
     static async getSummary(user) {
         const { Meeting, UnionFeePayment } = require('../models');
         const { Op } = require('sequelize');
-        
+
         // Lấy cuộc họp sắp tới
         const nextMeeting = await Meeting.findOne({
             where: {
@@ -252,7 +268,7 @@ class ActivityService {
         // Tạm thời mock unpaid_fee vì logic đoàn phí phức tạp
         return {
             next_meeting: nextMeeting ? `${new Date(nextMeeting.meetingTime).toLocaleString('vi-VN')}` : 'Chưa có lịch',
-            unpaid_fee: 'Đã hoàn thành' 
+            unpaid_fee: 'Đã hoàn thành'
         };
     }
 }

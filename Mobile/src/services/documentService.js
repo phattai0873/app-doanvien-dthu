@@ -20,7 +20,7 @@ export const documentService = {
     },
 
     // [GET] /api/documents
-    getDocuments: async (categoryId = 'all') => {
+    getDocuments: async (categoryId = 'all', additionalParams = {}) => {
         if (USE_SUPABASE) {
             const query = supabase.from('documents').select('*');
             if (categoryId !== 'all') query.eq('category_id', categoryId);
@@ -38,11 +38,14 @@ export const documentService = {
         }
 
         // API THỰC
-        const params = { status: 'PUBLISH' };
+        const params = { status: 'PUBLISH', ...additionalParams };
         if (categoryId !== 'all') params.categoryId = categoryId;
         const response = await apiClient.get('/api/documents', { params });
         // Backend returns { success, data, pagination }
-        return response.data || [];
+        return {
+            data: response.data || [],
+            pagination: response.pagination || { page: 1, limit: 10, total: 0 }
+        };
     },
 
     // [GET] /api/documents/{id}

@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import LoginScreen from '../screens/Auth/LoginScreen';
+import RegisterScreen from '../screens/Auth/RegisterScreen';
+import CompleteProfileScreen from '../screens/Auth/CompleteProfileScreen';
 import { MainNavigator } from './MainTabsNavigator';
-import { AdminNavigator } from './AdminNavigator'; // Assuming AdminNavigator exists
+import { AdminNavigator } from './AdminNavigator';
 import { COLORS } from '../constants';
 import { authService } from '../services/authService';
+import { partyService } from '../services/partyService';
 
 export const AppNavigator = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userRole, setUserRole] = useState('user'); // Default to member role
-    const [isLoading, setIsLoading] = useState(true); // Changed to true to show loading on initial check
+    const [hasProfile, setHasProfile] = useState(true); // Mặc định là có để tránh nháy màn hình
+    const [userRole, setUserRole] = useState('user');
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         checkAuth();
@@ -20,50 +24,49 @@ export const AppNavigator = () => {
         try {
             const user = await authService.getCurrentUser();
             if (user) {
-                // Backend /me trả về { id, username, Roles: [{code:'admin'}], ... }
-                // Hoặc có thể bọc thêm một lầy nữa trong data
                 const realUser = user.data || user;
                 
-                // Trích xuất role từ mảng Roles của Sequelize (Many-to-Many)
                 let role = 'user';
                 if (realUser.Roles && Array.isArray(realUser.Roles) && realUser.Roles.length > 0) {
-                    // Role code có thể là 'admin', 'secretary', 'member', 'user' ...
                     role = realUser.Roles[0].code || realUser.Roles[0].name || 'user';
                 } else if (realUser.role) {
                     role = realUser.role;
                 }
                 
+                // Kiểm tra xem đã có hồ sơ đoàn viên chưa (GET /api/members/me)
+                const profile = await partyService.getMyMemberProfile();
+                
                 setUserRole(role);
                 setIsLoggedIn(true);
+                setHasProfile(!!profile);
             } else {
                 setIsLoggedIn(false);
                 setUserRole('user');
+                setHasProfile(false);
             }
         } catch (error) {
             console.log('Auth check error:', error);
             setIsLoggedIn(false);
-            setUserRole('user');
+            setHasProfile(false);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleLogin = async (userData) => {
-        if (userData) {
-            // Dùng dữ liệu trực tiếp từ lún API đăng nhập
-            // userData = { token, user: { id, username }, role }
-            const role = userData.role || 'user';
-            setUserRole(role);
-            setIsLoggedIn(true);
-        } else {
-            await checkAuth();
-        }
+        // Sau khi login, check lại toàn bộ thông tin
+        await checkAuth();
     };
 
     const handleLogout = async () => {
-        await authService.logout(); // This function needs to be implemented in authService
+        await authService.logout();
         setIsLoggedIn(false);
-        setUserRole('user'); // Reset role on logout
+        setUserRole('user');
+        setHasProfile(false);
+    };
+
+    const handleProfileComplete = () => {
+        setHasProfile(true);
     };
 
     if (isLoading) {
@@ -78,7 +81,12 @@ export const AppNavigator = () => {
         return <LoginScreen onLogin={handleLogin} />;
     }
 
-    // Role-based routing (code trong DB: SUPER_ADMIN, BRANCH_ADMIN, CELL_ADMIN, MEMBER)
+    // Nếu đã login nhưng chưa có hồ sơ
+    if (!hasProfile) {
+        return <CompleteProfileScreen onSuccess={handleProfileComplete} onLogout={handleLogout} />;
+    }
+
+    // Role-based routing
     if (userRole && ['SUPER_ADMIN', 'BRANCH_ADMIN', 'CELL_ADMIN'].includes(userRole)) {
         return <AdminNavigator onLogout={handleLogout} />;
     }

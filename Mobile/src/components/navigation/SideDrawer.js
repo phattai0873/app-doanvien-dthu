@@ -8,7 +8,7 @@ import {
     Dimensions,
     TouchableWithoutFeedback,
     SafeAreaView,
-    Image,
+    Image as RNImage,
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES, IMAGES } from '../../constants';
@@ -94,7 +94,7 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.avatar}>
-                            <Image 
+                            <RNImage 
                                 source={IMAGES.logo} 
                                 style={styles.logoInDrawer}
                                 resizeMode="contain"

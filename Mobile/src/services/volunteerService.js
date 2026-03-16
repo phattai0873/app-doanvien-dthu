@@ -2,12 +2,14 @@ import apiClient from './api';
 
 export const volunteerService = {
     // [GET] /api/activities?type=Hoạt động
-    getActivities: async () => {
+    getActivities: async (params = {}) => {
         try {
             const res = await apiClient.get('/api/activities', {
-                params: { level: 'BRANCH' } // Show all activities at Branch level regardless of status for now
+                params: { ...params } 
             });
-            // apiClient returns response.data directly
+            // Handle different data structures { data: [] } or { data: { rows: [] } } or { rows: [] }
+            if (Array.isArray(res.data)) return res.data;
+            if (res.data && Array.isArray(res.data.rows)) return res.data.rows;
             return res.rows || [];
         } catch (error) {
             console.error('Error fetching activities:', error);
@@ -33,6 +35,28 @@ export const volunteerService = {
             return res.data;
         } catch (error) {
             console.error('Error registering for activity:', error);
+            throw error;
+        }
+    },
+
+    // [POST] /api/activities/{id}/check-in
+    checkIn: async (activityId, checkinCode) => {
+        try {
+            const res = await apiClient.post(`/api/activities/${activityId}/check-in`, { checkinCode });
+            return res.data || res;
+        } catch (error) {
+            console.error('Error checking in for activity:', error);
+            throw error;
+        }
+    },
+
+    // [POST] /api/activities/{id}/refresh-code
+    refreshCheckinCode: async (activityId) => {
+        try {
+            const res = await apiClient.post(`/api/activities/${activityId}/refresh-code`);
+            return res.data || res;
+        } catch (error) {
+            console.error('Error refreshing check-in code:', error);
             throw error;
         }
     }

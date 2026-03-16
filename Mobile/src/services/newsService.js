@@ -20,11 +20,16 @@ export const newsService = {
     },
 
     // [GET] /api/news
-    getNews: async (categoryId = 'all', scope = null) => {
+    getNews: async (categoryId = 'all', level = null) => {
         if (USE_SUPABASE) {
             const query = supabase.from('news').select('*').eq('status', 1);
             if (categoryId !== 'all') query.eq('category_id', categoryId);
-            if (scope) query.eq('scope', scope);
+            if (level) {
+                let mappedLevel = level;
+                if (level === 'Trường') mappedLevel = 'SCHOOL';
+                else if (level === 'Tỉnh') mappedLevel = 'BRANCH';
+                query.eq('level', mappedLevel);
+            }
             const { data, error } = await query.order('published_at', { ascending: false });
             if (error) throw error;
             return data;
@@ -33,20 +38,31 @@ export const newsService = {
             return new Promise(r => {
                 setTimeout(() => {
                     let data = categoryId === 'all' ? MOCK_DB.news : MOCK_DB.news.filter(n => n.categoryId === categoryId);
-                    if (scope) data = data.filter(n => n.scope === scope);
-                    r(data);
+                    if (level) {
+                        let mappedLevel = level;
+                        if (level === 'Trường') mappedLevel = 'SCHOOL';
+                        else if (level === 'Tỉnh') mappedLevel = 'BRANCH';
+                        data = data.filter(n => n.level === mappedLevel);
+                    }
+                    r({ data, pagination: { page: 1, limit: 10, total: data.length } });
                 }, SIMULATE_DELAY);
             });
         }
 
         // API THỰC
-        const params = {};
+        const params = { status: 'PUBLISHED' };
         if (categoryId !== 'all') params.categoryId = categoryId;
-        if (scope) params.scope = scope;
+        
+        // Map level names to backend ENUM
+        if (level === 'Trường') params.level = 'SCHOOL';
+        else if (level === 'Tỉnh') params.level = 'BRANCH';
+        else if (level) params.level = level;
         
         const response = await apiClient.get('/api/news', { params });
-        // Backend trả về { success, data: [], pagination }
-        return response.data || [];
+        return {
+            data: response.data || [],
+            pagination: response.pagination || { page: 1, limit: 10, total: 0 }
+        };
     },
 
     // [GET] /api/news/{id}
@@ -60,7 +76,7 @@ export const newsService = {
 
         // API THỰC
         const response = await apiClient.get(`/api/news/${id}`);
-        return response.data;
+        return response; // Interceptor already returns response.data, so this is results.data
     },
 
     deleteNews: async (id) => {

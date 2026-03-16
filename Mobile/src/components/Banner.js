@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Image, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import { View, Image as RNImage, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { COLORS, SIZES } from '../constants';
 
 const { width } = Dimensions.get('window');
@@ -58,7 +58,7 @@ const Banner = ({ images = [] }) => {
                 scrollEventThrottle={16}
             >
                 {images.map((image, index) => (
-                    <Image
+                    <RNImage
                         key={index}
                         source={{ uri: image }}
                         style={styles.image}

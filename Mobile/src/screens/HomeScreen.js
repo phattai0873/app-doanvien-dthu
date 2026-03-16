@@ -5,7 +5,7 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    Image,
+    Image as RNImage,
     StatusBar,
     SafeAreaView,
     Dimensions,
@@ -111,7 +111,7 @@ const HomeScreen = () => {
             // 1. Xử lý Categories
             if (results[0].status === 'fulfilled') {
                 const catsRes = results[0].value;
-                const cats = Array.isArray(catsRes) ? catsRes : (catsRes.data || []);
+                const cats = catsRes.data || (Array.isArray(catsRes) ? catsRes : []);
                 setCategories([{ id: 'all', name: 'Tất cả' }, ...cats]);
             } else {
                 console.error('[Mobile] Lỗi tải Categories:', results[0].reason);
@@ -194,8 +194,8 @@ const HomeScreen = () => {
 
                     // Lấy tên Chi đoàn/Liên chi đoàn
                     try {
-                        const org = await partyService.getOrgInfo();
-                        setOrgInfo(org);
+                        const response = await partyService.getOrgInfo();
+                        setOrgInfo(response.data || response);
                     } catch (e) {
                         console.log('Error fetching org info:', e);
                     }
@@ -225,20 +225,15 @@ const HomeScreen = () => {
 
     // Title Logic
     const getTitle = () => {
-        if (currentScreen === 'member_info') return 'Thông tin Đoàn viên';
-        if (currentScreen === 'org_info') return 'Tổ chức Đoàn';
         if (activeTab === 'news') return 'Bản tin Nội bộ';
         return activeTab === 'profile' ? 'Cá nhân' : (activeTab === 'work' ? 'Công tác' : 'Thông báo');
     };
 
     // Render Logic
     const renderContent = () => {
-        if (currentScreen === 'member_info') return <MemberInfoScreen user={user?.UnionMember} onBack={goBack} />;
-        if (currentScreen === 'org_info') return <OrgInfoScreen cell={orgInfo.cell} committee={orgInfo.committee} onBack={goBack} />;
-
         switch (activeTab) {
             case 'news': return <NewsFeed categories={categories} news={news} banners={banners} loading={loadingNews} refreshing={refreshing} onRefresh={onRefresh} activeScope={activeScope} onScopeChange={setActiveScope} />;
-            case 'work': return <WorkDashboard summary={workSummary} refreshing={refreshing} onRefresh={onRefresh} />;
+            case 'work': return <WorkDashboard user={user} summary={workSummary} refreshing={refreshing} onRefresh={onRefresh} onNavigate={navigateTo} />;
             case 'notif': return <NotificationScreen notifications={notifications} refreshing={refreshing} onRefresh={onRefresh} />;
             case 'profile': 
                 if (!user && !loadingNews) return (
@@ -433,36 +428,69 @@ const NewsFeed = ({ categories, news, banners, loading, refreshing, onRefresh, a
     );
 };
 
-const WorkDashboard = ({ summary, refreshing, onRefresh }) => (
-    <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#da251d']} />}
-    >
-        <View style={styles.summaryRow}>
-            <View style={[styles.summaryCard, styles.bgGradientRed]}>
-                <View style={styles.cardIconAbs}>
-                    <Icon name="Calendar" size={60} color="rgba(255,255,255,0.2)" />
+const WorkDashboard = ({ user, summary, refreshing, onRefresh, onNavigate }) => {
+    const isApproved = user?.UnionMember?.status === 'approved';
+
+    const handleProtectedNavigation = (screen, actionName) => {
+        if (!isApproved) {
+            Alert.alert(
+                'Tính năng bị khóa',
+                `Đồng chí cần được Ban chấp hành phê duyệt hồ sơ để sử dụng tính năng ${actionName}.`
+            );
+            return;
+        }
+        // Hiện tại HomeScreen dùng navigateTo(screen) để chuyển component nội bộ
+        // Hoặc nếu là navigation thật thì dùng navigation.navigate
+        // Giả sử chuyển màn hình nội bộ cho Sinh hoạt/Tài liệu
+        if (onNavigate) onNavigate(screen);
+    };
+
+    return (
+        <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#da251d']} />}
+        >
+            <View style={styles.summaryRow}>
+                <View style={[styles.summaryCard, styles.bgGradientRed]}>
+                    <View style={styles.cardIconAbs}>
+                        <Icon name="Calendar" size={60} color="rgba(255,255,255,0.2)" />
+                    </View>
+                    <Text style={styles.summaryLabelLight}>HỌP CHI ĐOÀN TỚI</Text>
+                    <Text style={styles.summaryValueLight}>{summary.next_meeting}</Text>
                 </View>
-                <Text style={styles.summaryLabelLight}>HỌP CHI ĐOÀN TỚI</Text>
-                <Text style={styles.summaryValueLight}>{summary.next_meeting}</Text>
-                <Text style={styles.summaryTable}>table: cell_meetings</Text>
             </View>
-        </View>
 
-        <Text style={styles.sectionHeader}>NHIỆM VỤ TRỌNG TÂM</Text>
+            <Text style={styles.sectionHeader}>NHIỆM VỤ TRỌNG TÂM</Text>
 
-        <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-                <WorkCard isPng pngIcon={ICON_SET.sinhhoat} bg="#EBF8FF" color="#3182CE" title="Sinh hoạt Chi đoàn" desc="Điểm danh & Tài liệu" table="cell_meetings" />
-                <WorkCard isPng pngIcon={ICON_SET.vanban} bg="#E6FFFA" color="#319795" title="Kho Tài liệu" desc="Văn kiện, Nghị quyết" table="documents" />
+            <View style={styles.gridContainer}>
+                <View style={styles.gridRow}>
+                    <WorkCard 
+                        isPng 
+                        pngIcon={ICON_SET.sinhhoat} 
+                        bg="#EBF8FF" 
+                        color="#3182CE" 
+                        title="Sinh hoạt Chi đoàn" 
+                        desc="Điểm danh & Tài liệu" 
+                        onPress={() => handleProtectedNavigation('meetings', 'Sinh hoạt Chi đoàn')}
+                    />
+                    <WorkCard 
+                        isPng 
+                        pngIcon={ICON_SET.vanban} 
+                        bg="#E6FFFA" 
+                        color="#319795" 
+                        title="Kho Tài liệu" 
+                        desc="Văn kiện, Nghị quyết" 
+                        onPress={() => handleProtectedNavigation('documents', 'Kho Tài liệu')}
+                    />
+                </View>
             </View>
-        </View>
-    </ScrollView>
-);
+        </ScrollView>
+    );
+};
 
-const WorkCard = ({ icon, bg, color, title, desc, table, isPng, pngIcon }) => (
-    <TouchableOpacity style={styles.workCard}>
+const WorkCard = ({ icon, bg, color, title, desc, table, isPng, pngIcon, onPress }) => (
+    <TouchableOpacity style={styles.workCard} onPress={onPress}>
         <View style={[styles.workIconBox, { backgroundColor: isPng ? 'transparent' : bg }]}>
             {isPng ? (
                 <Image source={pngIcon} style={styles.pngIconWork} resizeMode="contain" />
@@ -472,7 +500,6 @@ const WorkCard = ({ icon, bg, color, title, desc, table, isPng, pngIcon }) => (
         </View>
         <Text style={styles.workTitle}>{title}</Text>
         <Text style={styles.workDesc}>{desc}</Text>
-        <Text style={styles.workTable}>{table}</Text>
     </TouchableOpacity>
 );
 
@@ -522,26 +549,47 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
     >
         <View style={styles.profileCard}>
             <View style={styles.avatarWrapper}>
-                <Image 
+                <RNImage 
                     source={user?.avatar ? { uri: `${API_BASE_URL}${user.avatar}` } : { uri: `https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=da251d&color=fff` }} 
                     style={styles.avatar} 
                 />
             </View>
             <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{user?.UnionMember?.fullName || user?.username}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.profileName}>{user?.UnionMember?.fullName || user?.username}</Text>
+                    {user?.UnionMember?.status === 'approved' && (
+                        <Icon name="BadgeCheck" size={18} color="#10B981" style={{ marginLeft: 6 }} />
+                    )}
+                </View>
                 <Text style={styles.profileRole}>{user?.Roles?.[0]?.name || 'Đoàn viên'}</Text>
                 <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>{user?.isActive ? 'Tài khoản đã kích hoạt' : 'Chờ phê duyệt'}</Text>
+                    <Text style={styles.statusText}>
+                        {user?.UnionMember?.status === 'approved' ? 'Đoàn viên chính thức' : 
+                         user?.UnionMember?.status === 'pending' ? 'Đang chờ phê duyệt' : 'Tài khoản hệ thống'}
+                    </Text>
                 </View>
             </View>
         </View>
 
-        <View style={styles.menuGroup}>
-            <MenuRow isPng pngIcon={ICON_SET.canhan} color="#3B82F6" label="Thông tin Đoàn viên" onPress={() => onNavigate('member_info')} />
-            <View style={styles.menuDivider} />
-            <MenuRow isPng pngIcon={ICON_SET.sinhhoat} color="#EF4444" label="Thông tin Tổ chức Đoàn" onPress={() => onNavigate('org_info')} />
-            <View style={styles.menuDivider} />
-            <MenuRow icon="QrCode" color="#374151" label="Thẻ Đoàn viên điện tử" />
+        {/* Thông tin chi tiết hiển thị trực tiếp */}
+        <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+                <Icon name="User" size={18} color="#da251d" />
+                <Text style={styles.sectionTitle}>HỒ SƠ ĐOÀN VIÊN</Text>
+            </View>
+            <InputReadOnly label="MSSV / Mã định danh" value={user?.UnionMember?.studentId || '—'} />
+            <InputReadOnly label="Số điện thoại" value={user?.UnionMember?.phoneNumber || '—'} />
+            <InputReadOnly label="Email" value={user?.UnionMember?.email || '—'} />
+            <InputReadOnly label="Ngày sinh" value={user?.UnionMember?.dateOfBirth ? new Date(user.UnionMember.dateOfBirth).toLocaleDateString('vi-VN') : '—'} />
+        </View>
+
+        <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+                <Icon name="Users" size={18} color="#da251d" />
+                <Text style={styles.sectionTitle}>TỔ CHỨC ĐOÀN</Text>
+            </View>
+            <InputReadOnly label="Chi đoàn" value={user?.UnionMember?.UnionCell?.name || '—'} />
+            <InputReadOnly label="Đoàn khoa / Đoàn cơ sở" value={user?.UnionMember?.UnionCell?.UnionBranch?.name || '—'} />
         </View>
 
         <View style={styles.menuGroup}>
@@ -550,7 +598,13 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
             <MenuRow icon="FileText" color="#6B7280" label="Điều khoản sử dụng" />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={async () => {
+                await authService.logout();
+                onNavigate('login');
+            }}
+        >
             <Icon name="LogOut" size={20} color="#da251d" />
             <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
@@ -559,93 +613,11 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
     </ScrollView>
 );
 
-const MemberInfoScreen = ({ user, onBack }) => {
-    if (!user) return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <Icon name="Info" size={48} color="#D1D5DB" />
-            <Text style={{ marginTop: 10, color: '#6B7280', textAlign: 'center' }}>
-                Không tìm thấy hồ sơ Đoàn viên liên kết với tài khoản này.
-            </Text>
-            <TouchableOpacity onPress={onBack} style={{ marginTop: 20, padding: 10, backgroundColor: '#da251d', borderRadius: 8 }}>
-                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Quay lại</Text>
-            </TouchableOpacity>
-        </View>
-    );
-
-    return (
-        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-            {user.status === 'pending' && (
-                <View style={styles.alertBox}>
-                    <Icon name="AlertTriangle" size={20} color="#F97316" />
-                    <View style={{ marginLeft: 10, flex: 1 }}>
-                        <Text style={styles.alertTitle}>Hồ sơ chờ phê duyệt</Text>
-                        <Text style={styles.alertText}>Vui lòng chờ quản trị viên xác thực hồ sơ của bạn.</Text>
-                    </View>
-                </View>
-            )}
-
-        <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-                <Icon name="User" size={18} color="#da251d" />
-                <Text style={styles.sectionTitle}>THÔNG TIN CÁ NHÂN</Text>
-            </View>
-            <InputReadOnly label="Họ tên" value={user?.fullName} />
-            <InputReadOnly label="Ngày sinh" value={user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('vi-VN') : '—'} />
-            <InputReadOnly label="Mã số Đoàn viên" value={user?.memberCode} />
-        </View>
-
-        <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-                <Icon name="Phone" size={18} color="#da251d" />
-                <Text style={styles.sectionTitle}>THÔNG TIN LIÊN HỆ</Text>
-            </View>
-            <InputReadOnly label="Số điện thoại" value={user?.phoneNumber || '—'} />
-            <InputReadOnly label="Địa chỉ" value={user?.permanentAddress || '—'} />
-        </View>
-        </ScrollView>
-    );
-};
-
-const OrgInfoScreen = ({ cell, committee }) => {
-    if (!cell) return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator color="#da251d" />
-            <Text style={{ marginTop: 10, color: '#6B7280' }}>Đang tải thông tin tổ chức...</Text>
-        </View>
-    );
-
-    return (
-        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-            <View style={styles.orgCard}>
-                <Icon name="Users" size={40} color="#da251d" style={{ alignSelf: 'center', marginBottom: 10 }} />
-                <Text style={styles.orgName}>{cell?.name || 'Chưa tham gia Chi đoàn'}</Text>
-                <Text style={styles.orgCode}>{cell?.code || '—'}</Text>
-                <View style={styles.divider} />
-                <View style={styles.orgRow}>
-                    <View style={{ alignItems: 'center' }}>
-                        <Text style={styles.orgLabel}>THÀNH LẬP</Text>
-                        <Text style={styles.orgValue}>{cell.establishedDate ? new Date(cell.establishedDate).toLocaleDateString('vi-VN') : '—'}</Text>
-                    </View>
-                    <View style={{ alignItems: 'center' }}>
-                        <Text style={styles.orgLabel}>SỐ ĐOÀN VIÊN</Text>
-                        <Text style={styles.orgValue}>{cell.memberCount || 0}</Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={styles.sectionCard}>
-                <InputReadOnly label="Bí thư Chi đoàn" value={cell.SecretaryOfCell?.fullName || 'Chưa cập nhật'} />
-                <InputReadOnly label="Liên chi đoàn" value={committee?.name || 'Chưa cập nhật'} />
-            </View>
-        </ScrollView>
-    );
-};
-
 const MenuRow = ({ icon, color, label, onPress, isPng, pngIcon }) => (
     <TouchableOpacity style={styles.menuRow} onPress={onPress}>
         <View style={[styles.menuIconBox, { backgroundColor: isPng ? 'transparent' : '#F9FAFB' }]}>
             {isPng ? (
-                <Image source={pngIcon} style={styles.pngIconMenu} resizeMode="contain" />
+                <RNImage source={pngIcon} style={styles.pngIconMenu} resizeMode="contain" />
             ) : (
                 <Icon name={icon} size={20} color={color} />
             )}
@@ -835,7 +807,6 @@ const styles = StyleSheet.create({
     pngIconMenu: { width: 24, height: 24 },
     workTitle: { fontSize: 13, fontWeight: 'bold', color: '#1F2937', textAlign: 'center' },
     workDesc: { fontSize: 10, color: '#6B7280', textAlign: 'center', marginTop: 4, marginBottom: 8 },
-    workTable: { fontSize: 8, color: '#D1D5DB', backgroundColor: '#F9FAFB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
 
     // Notifications
     infoBox: { flexDirection: 'row', backgroundColor: '#EFF6FF', padding: 12, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#DBEAFE' },
@@ -873,26 +844,7 @@ const styles = StyleSheet.create({
     logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2', padding: 16, borderRadius: 16 },
     logoutText: { color: '#da251d', fontWeight: 'bold', marginLeft: 8 },
 
-    // Member Info
-    alertBox: { flexDirection: 'row', backgroundColor: '#FFF7ED', padding: 16, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#FFEDD5' },
-    alertTitle: { fontSize: 14, fontWeight: 'bold', color: '#C2410C' },
-    alertBtn: { backgroundColor: '#F97316', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start', marginTop: 8 },
-    alertBtnText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
-    sectionCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6' },
-    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-    sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#1F2937', marginLeft: 8 },
-    inputGroup: { marginBottom: 12 },
-    inputLabel: { fontSize: 12, color: '#9CA3AF', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 6 },
-    inputValueBox: { backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#F3F4F6' },
     inputValue: { fontSize: 14, color: '#374151', fontWeight: '500' },
-
-    // Org Info
-    orgCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6' },
-    orgName: { fontSize: 18, fontWeight: 'bold', color: '#111827', textAlign: 'center' },
-    orgCode: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-    orgRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', marginTop: 16 },
-    orgLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: 'bold' },
-    orgValue: { fontSize: 16, fontWeight: 'bold', color: '#374151', marginTop: 4 },
 });
 
 export default HomeScreen;

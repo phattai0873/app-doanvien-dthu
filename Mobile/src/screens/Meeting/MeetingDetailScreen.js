@@ -10,7 +10,8 @@ import {
     Modal,
     Image,
     Dimensions,
-    Clipboard
+    Clipboard,
+    TextInput
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
@@ -31,6 +32,10 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
     const [refreshing, setRefreshing] = useState(false);
     const timerRef = useRef(null);
 
+    // Checkin modal state
+    const [isCheckinModalVisible, setCheckinModalVisible] = useState(false);
+    const [checkinCode, setCheckinCode] = useState('');
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -48,18 +53,19 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                 setUser(currentUser);
 
                 // Mapping dữ liệu
-                const date = new Date(m.meetingTime);
+                const meetingData = m.data || m;
+                const date = new Date(meetingData.meetingTime);
                 const dateStr = date.toLocaleDateString('vi-VN');
                 const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
                 let statusKey = 'scheduled';
-                if (m.status === 'IN_PROGRESS') statusKey = 'active';
-                else if (m.status === 'COMPLETED') statusKey = 'finished';
-                else if (m.status === 'CANCELLED') statusKey = 'cancelled';
-                else if (m.status === 'SCHEDULED') statusKey = 'scheduled';
+                if (meetingData.status === 'IN_PROGRESS') statusKey = 'active';
+                else if (meetingData.status === 'COMPLETED') statusKey = 'finished';
+                else if (meetingData.status === 'CANCELLED') statusKey = 'cancelled';
+                else if (meetingData.status === 'SCHEDULED') statusKey = 'scheduled';
 
                 setMeeting({
-                    ...m,
+                    ...meetingData,
                     status: statusKey,
                     start_time: `${dateStr} - ${timeStr}`
                 });
@@ -112,15 +118,30 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
     };
 
     const handleAttendance = async () => {
+        // Kiểm tra trạng thái hồ sơ đoàn viên
+        if (user?.UnionMember?.status !== 'approved') {
+            Alert.alert(
+                'Chưa được phép',
+                'Hồ sơ của bạn đang chờ quản trị viên phê duyệt. Đồng chí vui lòng đợi sau khi hồ sơ được xác thực để thực hiện điểm danh.'
+            );
+            return;
+        }
+
+        if (!checkinCode.trim() || checkinCode.length !== 6) {
+            Alert.alert('Lỗi', 'Vui lòng nhập đúng 6 ký tự mã xác nhận.');
+            return;
+        }
+
         setSubmitting(true);
         try {
-            await meetingService.submitAttendance(id);
+            await meetingService.submitAttendance(id, checkinCode);
             Alert.alert('Thành công', 'Đã điểm danh thành công!');
+            setCheckinModalVisible(false);
             // Refresh detail
-            const data = await meetingService.getMeetingDetail(id);
-            setMeeting(data);
+            const res = await meetingService.getMeetingDetail(id);
+            setMeeting(res.data || res);
         } catch (error) {
-            Alert.alert('Lỗi', 'Điểm danh thất bại. Vui lòng thử lại.');
+            Alert.alert('Lỗi điểm danh', error?.response?.data?.message || 'Điểm danh thất bại. Mã không hợp lệ hoặc đã hết hạn.');
         } finally {
             setSubmitting(false);
         }
@@ -181,7 +202,7 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
             </View>
 
             {/* Agenda section */}
-            <View style={styles.section}>
+            {/* <View style={styles.section}>
                 <Text style={styles.sectionTitle}>NỘI DUNG / CHƯƠNG TRÌNH</Text>
                 <View style={styles.agendaBox}>
                     <Text style={styles.description}>{meeting.description}</Text>
@@ -198,25 +219,25 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                         <Text style={styles.agendaText}>Thông qua chương trình sinh hoạt.</Text>
                     </View>
                 </View>
-            </View>
+            </View> */}
 
             {/* Documents section */}
-            <View style={styles.section}>
+            {/* <View style={styles.section}>
                 <Text style={styles.sectionTitle}>TÀI LIỆU ĐÍNH KÈM</Text>
                 <TouchableOpacity style={styles.docItem}>
                     <Icon name="FileText" size={24} color="#EF4444" />
                     <Text style={styles.docName}>Du-thao-nghi-quyet-thang-02.pdf</Text>
                     <Icon name="Download" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
-            </View>
+            </View> */}
 
             {/* Attendance Action */}
             {meeting.status !== 'finished' && (
                 <View style={styles.actionContainer}>
                     <TouchableOpacity
-                        style={[styles.attendanceBtn, submitting && styles.disabledBtn]}
-                        onPress={handleAttendance}
-                        disabled={submitting}
+                        style={[styles.attendanceBtn, meeting.status !== 'active' && styles.disabledBtn]}
+                        onPress={() => meeting.status === 'active' ? setCheckinModalVisible(true) : Alert.alert('Thông báo', 'Cuộc họp chưa diễn ra hoặc đã kết thúc.')}
+                        disabled={meeting.status !== 'active'}
                     >
                         {submitting ? (
                             <ActivityIndicator color="#FFF" />
@@ -229,7 +250,7 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                     </TouchableOpacity>
 
                     {/* Admin QR Action */}
-                    {(user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN') && meeting.checkinCode && (
+                    {(user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN') && meeting.status === 'active' && meeting.checkinCode && (
                         <TouchableOpacity
                             style={[styles.qrBtn, { marginTop: 12 }]}
                             onPress={() => setShowQR(true)}
@@ -239,9 +260,56 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                         </TouchableOpacity>
                     )}
 
-                    <Text style={styles.hintText}>Điểm danh bằng GPS hoặc quét mã QR tại phòng họp.</Text>
+                    <Text style={styles.hintText}>Sử dụng mã do Bí thư cung cấp để điểm danh cuộc họp.</Text>
                 </View>
             )}
+
+            {/* Check-in Input Modal */}
+            <Modal visible={isCheckinModalVisible} transparent={true} animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.inputModalContent}>
+                        <View style={styles.modalIconHeader}>
+                            <Icon name="Scan" size={32} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.inputModalTitle}>Điểm danh Cuộc họp</Text>
+                        <Text style={styles.inputModalSub}>{meeting?.title}</Text>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Nhập mã xác nhận (6 ký tự)</Text>
+                            <TextInput
+                                style={styles.codeInput}
+                                placeholder="Ví dụ: A1B2C3"
+                                placeholderTextColor="#9CA3AF"
+                                value={checkinCode}
+                                onChangeText={(text) => setCheckinCode(text.toUpperCase())}
+                                maxLength={6}
+                                autoCapitalize="characters"
+                                autoCorrect={false}
+                            />
+                        </View>
+
+                        <View style={styles.modalActionRow}>
+                            <TouchableOpacity
+                                style={styles.cancelModalBtn}
+                                onPress={() => setCheckinModalVisible(false)}
+                            >
+                                <Text style={styles.cancelModalBtnText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.submitModalBtn, submitting && { opacity: 0.7 }]}
+                                onPress={handleAttendance}
+                                disabled={submitting}
+                            >
+                                {submitting ? (
+                                    <ActivityIndicator color="#FFF" size="small" />
+                                ) : (
+                                    <Text style={styles.submitModalBtnText}>Xác nhận</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* QR Modal for Admin */}
             <Modal
@@ -356,6 +424,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF'
     },
     qrBtnText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 14 },
+    // Input Modal
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -363,6 +432,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20
     },
+    inputModalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, width: '100%', elevation: 5 },
+    modalIconHeader: { alignItems: 'center', marginBottom: 16 },
+    inputModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', textAlign: 'center' },
+    inputModalSub: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginTop: 8, marginBottom: 24, paddingHorizontal: 10 },
+    inputGroup: { marginBottom: 24 },
+    inputLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 },
+    codeInput: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 12, padding: 16, fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#1F2937', letterSpacing: 4 },
+    modalActionRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+    cancelModalBtn: { flex: 1, backgroundColor: '#F3F4F6', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+    cancelModalBtnText: { color: '#4B5563', fontWeight: 'bold', fontSize: 14 },
+    submitModalBtn: { flex: 1, backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
+    submitModalBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+
     modalContent: {
         backgroundColor: '#FFF',
         borderRadius: 24,

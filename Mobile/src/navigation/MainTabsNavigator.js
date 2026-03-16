@@ -32,6 +32,8 @@ import { CustomHeader } from '../components/navigation/CustomHeader';
 import { SideDrawer } from '../components/navigation/SideDrawer';
 import { HomeFAB } from '../components/common/HomeFAB';
 
+import CompleteProfileScreen from '../screens/Auth/CompleteProfileScreen';
+
 export const MainNavigator = ({ onLogout }) => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [currentScreen, setCurrentScreen] = useState('main');
@@ -65,6 +67,7 @@ export const MainNavigator = ({ onLogout }) => {
     const getTitle = () => {
         if (currentScreen === 'news_detail') return 'Chi tiết tin tức';
         if (currentScreen === 'edit_profile') return 'Chỉnh sửa hồ sơ';
+        if (currentScreen === 'complete_profile') return 'Hoàn thiện hồ sơ';
         if (currentScreen === 'qr_card') return 'Thẻ Đoàn viên điện tử';
         if (currentScreen === 'settings') return 'Cài đặt';
         if (currentScreen === 'member_info') return 'Thông tin Đoàn viên';
@@ -98,8 +101,9 @@ export const MainNavigator = ({ onLogout }) => {
         const route = { params: routeParams };
 
         switch (currentScreen) {
-            case 'news_detail': return <NewsDetailScreen route={route} onBack={goBack} />;
+            case 'news_detail': return <NewsDetailScreen route={route} onBack={goBack} onNavigate={navigateTo} />;
             case 'edit_profile': return <EditProfileScreen onBack={goBack} />;
+            case 'complete_profile': return <CompleteProfileScreen onSuccess={goBack} onLogout={onLogout} />;
             case 'qr_card': return <QRCardScreen onBack={goBack} />;
             case 'settings': return <SettingsScreen onBack={goBack} />;
             case 'member_info': return <MemberInfoScreen />;
@@ -134,15 +138,17 @@ export const MainNavigator = ({ onLogout }) => {
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
-            <CustomHeader
-                title={getTitle()}
-                showBack={currentScreen !== 'main'}
-                onBack={goBack}
-                leftIcon={currentScreen === 'main' ? 'Menu' : null}
-                onLeftPress={toggleDrawer}
-                rightIcon={activeTab === 'profile' ? 'Settings' : null}
-                roundedBottom={true}
-            />
+            {currentScreen !== 'news_detail' && (
+                <CustomHeader
+                    title={getTitle()}
+                    showBack={currentScreen !== 'main'}
+                    onBack={goBack}
+                    leftIcon={currentScreen === 'main' ? 'Menu' : null}
+                    onLeftPress={toggleDrawer}
+                    rightIcon={activeTab === 'profile' ? 'Settings' : null}
+                    roundedBottom={true}
+                />
+            )}
 
             <View style={styles.content}>
                 {renderContent()}
