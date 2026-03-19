@@ -22,7 +22,7 @@ export const volunteerService = {
     getActivityDetail: async (id) => {
         try {
             const res = await apiClient.get(`/api/activities/${id}`);
-            return res.data || res;
+            return res.data || res || {};
         } catch (error) {
             console.error('Error fetching activity detail:', error);
             throw error;
@@ -44,7 +44,7 @@ export const volunteerService = {
     checkIn: async (activityId, checkinCode) => {
         try {
             const res = await apiClient.post(`/api/activities/${activityId}/check-in`, { checkinCode });
-            return res.data || res;
+            return res.data || res || {};
         } catch (error) {
             console.error('Error checking in for activity:', error);
             throw error;
@@ -55,7 +55,7 @@ export const volunteerService = {
     refreshCheckinCode: async (activityId) => {
         try {
             const res = await apiClient.post(`/api/activities/${activityId}/refresh-code`);
-            return res.data || res;
+            return res.data || res || {};
         } catch (error) {
             console.error('Error refreshing check-in code:', error);
             throw error;

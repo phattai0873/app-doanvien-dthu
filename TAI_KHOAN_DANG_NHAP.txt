@@ -1,0 +1,22 @@
+==========================================
+   DANH SÁCH TÀI KHOẢN ĐĂNG NHẬP
+==========================================
+
+Hệ thống cung cấp 3 tài khoản mặc định đại diện cho 3 cấp bậc để kiểm thử:
+
+1. QUẢN TRỊ VIÊN HỆ THỐNG (Super Admin)
+   - Tên đăng nhập: admin
+   - Mật khẩu: Admin@123
+   - (Quyền cao nhất, quản lý toàn bộ hệ thống)
+
+2. BÍ THƯ CHI ĐOÀN (Cell Admin)
+   - Tên đăng nhập: bithu_nguyen
+   - Mật khẩu: Bithu@123
+   - (Quyền quản lý ở cấp Chi đoàn/Lớp)
+
+3. ĐOÀN VIÊN (Member)
+   - Tên đăng nhập: tran_thi_b
+   - Mật khẩu: Member@123
+   - (Tài khoản sinh viên/đoàn viên bình thường)
+
+* Lưu ý: Mật khẩu có chữ viết hoa đầu tiên, ký tự @ và số.

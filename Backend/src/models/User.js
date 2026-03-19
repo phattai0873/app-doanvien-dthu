@@ -24,6 +24,10 @@ const User = sequelize.define('User', {
     tokenDevice: {
         type: DataTypes.STRING
     },
+    pushToken: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     lastLogin: {
         type: DataTypes.DATE
     },

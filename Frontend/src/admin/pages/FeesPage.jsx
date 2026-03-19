@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, AlertCircle, Plus, User, Calendar, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModalPortal from '../../components/ModalPortal';
-import { feeApi, cellApi, memberApi } from '../../services/api';
+import api, { feeApi, cellApi, memberApi } from '../../services/api';
 
 const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
@@ -153,7 +153,21 @@ export default function FeesPage() {
         onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
     });
 
+    const statusMutation = useMutation({
+        mutationFn: ({ id, status, note }) => feeApi.updateStatus(id, { status, note }),
+        onSuccess: () => {
+            qc.invalidateQueries(['fees']);
+            toast.success('Đã cập nhật trạng thái!');
+        },
+        onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
+    });
+
     const handleSave = (form) => createMutation.mutate(form);
+    const handleStatusUpdate = (id, status) => {
+        const note = status === 'rejected' ? prompt('Lý do từ chối:') : '';
+        if (status === 'rejected' && note === null) return;
+        statusMutation.mutate({ id, status, note });
+    };
 
     return (
         <div className="space-y-4">
@@ -199,7 +213,7 @@ export default function FeesPage() {
                         : rows.length === 0 ? <div className="text-center py-12 text-gray-400 text-sm">Không có dữ liệu</div>
                             : tab === 'paid' ? (
                                 <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Đoàn viên</th><th className="px-4 py-3 text-left">Mã ĐV</th><th className="px-4 py-3 text-left">Chi đoàn</th><th className="px-4 py-3 text-left">Kỳ</th><th className="px-4 py-3 text-left">Số tiền</th><th className="px-4 py-3 text-left">Ngày nộp</th><th className="px-4 py-3 text-left">Ghi chú</th></tr></thead>
+                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Đoàn viên</th><th className="px-4 py-3 text-left">Mã ĐV</th><th className="px-4 py-3 text-left">Chi đoàn</th><th className="px-4 py-3 text-left">Kỳ</th><th className="px-4 py-3 text-left">Số tiền</th><th className="px-4 py-3 text-left">Trạng thái</th><th className="px-4 py-3 text-left">Bằng chứng</th><th className="px-4 py-3 text-left">Thao tác</th><th className="px-4 py-3 text-left">Ngày nộp</th></tr></thead>
                                     <tbody>
                                         {rows.map(r => (
                                             <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -208,6 +222,37 @@ export default function FeesPage() {
                                                 <td className="px-4 py-3 text-gray-500 text-xs">{r.UnionCell?.name || '—'}</td>
                                                 <td className="px-4 py-3"><span className="bg-primary-50 text-primary-700 text-xs font-semibold px-2 py-0.5 rounded-full">{r.period}</span></td>
                                                 <td className="px-4 py-3 font-bold text-primary-700">{r.amount?.toLocaleString('vi-VN')}đ</td>
+                                                <td className="px-4 py-3">
+                                                    {r.status === 'paid' ? <span className="text-[10px] font-bold uppercase py-0.5 px-2 rounded bg-green-100 text-green-700">Đã nộp</span>
+                                                        : r.status === 'pending' ? <span className="text-[10px] font-bold uppercase py-0.5 px-2 rounded bg-orange-100 text-orange-700">Chờ duyệt</span>
+                                                            : <span className="text-[10px] font-bold uppercase py-0.5 px-2 rounded bg-red-100 text-red-700">Từ chối</span>
+                                                    }
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {r.evidenceImage ? (
+                                                        <a href={`http://localhost:5000${r.evidenceImage}`} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline text-xs flex items-center gap-1">
+                                                            <CreditCard size={12} /> Xem ảnh
+                                                        </a>
+                                                    ) : <span className="text-gray-300 text-xs italic">Không có</span>}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {r.status === 'pending' && (
+                                                        <div className="flex gap-2">
+                                                            <button 
+                                                                onClick={() => handleStatusUpdate(r.id, 'paid')}
+                                                                className="text-[10px] font-bold text-green-600 hover:underline"
+                                                            >
+                                                                Duyệt
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleStatusUpdate(r.id, 'rejected')}
+                                                                className="text-[10px] font-bold text-red-600 hover:underline"
+                                                            >
+                                                                Từ chối
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-3 text-gray-500 text-xs">{r.paymentDate ? new Date(r.paymentDate).toLocaleDateString('vi-VN') : '—'}</td>
                                                 <td className="px-4 py-3 text-gray-400 text-xs">{r.note || '—'}</td>
                                             </tr>

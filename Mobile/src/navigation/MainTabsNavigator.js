@@ -128,6 +128,8 @@ export const MainNavigator = ({ onLogout }) => {
                     case 'meeting_list': return <MeetingListScreen onNavigate={navigateTo} />;
                     case 'exam_list': return <ExamListScreen onNavigate={navigateTo} />;
                     case 'document_list': return <DocumentListScreen onNavigate={navigateTo} />;
+                    case 'fee_payment': return <PartyFeeScreen />;
+                    case 'theory_study': return <PoliticalTheoryScreen />;
                     case 'volunteer_list': return <VolunteerListScreen />;
                     default: return <DashboardScreen onNavigate={navigateTo} />;
                 }

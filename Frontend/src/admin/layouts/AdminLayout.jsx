@@ -23,6 +23,7 @@ const NAV = [
     { label: 'Tin tức', icon: Newspaper, to: '/admin/news' },
     { label: 'Thi & Khảo sát', icon: BookOpen, to: '/admin/quiz' },
     { label: 'Văn bản', icon: FileText, to: '/admin/documents' },
+    { label: 'Đoàn phí', icon: Wallet, to: '/admin/fees' },
     { label: 'Thông báo', icon: Bell, to: '/admin/notifications' },
     { section: 'Hệ thống' },
     { label: 'Tài khoản', icon: UserCog, to: '/admin/users' },
@@ -44,6 +45,7 @@ const PAGE_TITLES = {
     '/admin/users': 'Quản lý Tài khoản',
     '/admin/banners': 'Quản lý Banner',
     '/admin/landing': 'Quản lý Trang Landing',
+    '/admin/fees': 'Quản lý Đoàn phí',
     '/admin/locations': 'Quản lý Địa điểm',
 };
 

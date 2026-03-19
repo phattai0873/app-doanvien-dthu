@@ -113,7 +113,13 @@ export default function NotificationsPage() {
 
     const { data, isLoading } = useQuery({
         queryKey: ['notifications', search, filterStatus, page],
-        queryFn: () => notificationApi.getAll({ search, status: filterStatus || undefined, page, limit: 10 }),
+        queryFn: () => notificationApi.getAll({ 
+            search, 
+            status: filterStatus || undefined, 
+            page, 
+            limit: 10,
+            isAdminView: 'true' // QUAN TRỌNG: Để xem được bản nháp và lọc theo đơn vị
+        }),
         keepPreviousData: true,
     });
 
@@ -142,7 +148,7 @@ export default function NotificationsPage() {
                     <option value="">Tất cả trạng thái</option>
                     {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo thông báo</button>
+                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo thông báo (Dự thảo)</button>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -159,9 +165,9 @@ export default function NotificationsPage() {
                                 </tr></thead>
                                 <tbody>
                                     {notifs.map(n => {
-                                        const isSent = n.status === 'Đã gửi';
-                                        const st = STATUS_CONFIG[n.status] || { cls: 'bg-gray-100 text-gray-600' };
-                                        const pr = PRIORITY_CONFIG[n.priority] || { cls: 'bg-gray-100 text-gray-600' };
+                                        const isSent = n.status === 'SENT';
+                                        const st = STATUS_CONFIG[n.status] || { label: n.status, cls: 'bg-gray-100 text-gray-600' };
+                                        const pr = PRIORITY_CONFIG[n.priority] || { label: n.priority, cls: 'bg-gray-100 text-gray-600' };
                                         return (
                                             <tr key={n.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                                                 <td className="px-4 py-3">

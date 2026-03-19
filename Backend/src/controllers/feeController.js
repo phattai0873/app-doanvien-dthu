@@ -18,7 +18,17 @@ const feeController = {
     }),
 
     createFee: asyncHandler(async (req, res) => {
-        const fee = await FeeService.create(req.body);
+        const data = { ...req.body };
+        
+        // Tự động gán unionMemberId từ user token nếu thiếu hoặc không hợp lệ (dành cho mobile)
+        if ((!data.unionMemberId || data.unionMemberId === 'undefined' || data.unionMemberId === 'null') && req.user?.UnionMember?.id) {
+            data.unionMemberId = req.user.UnionMember.id;
+        }
+
+        if (req.file) {
+            data.evidenceImage = `/uploads/fees/${req.file.filename}`;
+        }
+        const fee = await FeeService.create(data);
         res.status(201).json({ success: true, data: fee });
     }),
 
@@ -39,6 +49,12 @@ const feeController = {
 
     deleteFee: asyncHandler(async (req, res) => {
         const result = await FeeService.delete(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    updateStatus: asyncHandler(async (req, res) => {
+        const { status, note } = req.body;
+        const result = await FeeService.updateStatus(req.params.id, { status, note });
         res.status(200).json({ success: true, data: result });
     })
 };

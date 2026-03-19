@@ -19,7 +19,7 @@ export const meetingService = {
     getMeetingDetail: async (id) => {
         try {
             const response = await apiClient.get(`/api/meetings/${id}`);
-            return response;
+            return response.data || response || {};
         } catch (error) {
             console.error('Error fetching meeting detail:', error);
             throw error;
@@ -30,7 +30,7 @@ export const meetingService = {
     submitAttendance: async (meetingId, checkinCode) => {
         try {
             const response = await apiClient.post(`/api/meetings/${meetingId}/check-in`, { checkinCode });
-            return response;
+            return response.data || response || {};
         } catch (error) {
             console.error('Error submitting attendance:', error);
             throw error;
@@ -40,7 +40,7 @@ export const meetingService = {
     refreshCheckinCode: async (meetingId) => {
         try {
             const response = await apiClient.post(`/api/meetings/${meetingId}/refresh-code`);
-            return response;
+            return response.data || response || {};
         } catch (error) {
             console.error('Error refreshing check-in code:', error);
             throw error;

@@ -188,8 +188,9 @@ export const quizApi = {
 // ─── Đoàn phí ───────────────────────────────────────────
 export const feeApi = {
     getAll: (params) => api.get('/fees', { params }),
-    create: (data) => api.post('/fees', data),
+    create: (data) => api.post('/fees', data, data instanceof FormData ? multipartConfig : undefined),
     getUnpaid: (params) => api.get('/fees/unpaid', { params }),
+    updateStatus: (id, data) => api.patch(`/fees/${id}/status`, data),
     delete: (id) => api.delete(`/fees/${id}`),
 };
 

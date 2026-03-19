@@ -111,7 +111,60 @@ class NotificationService {
         const notif = await Notification.findByPk(id);
         if (!notif) throw new ErrorResponse('Không tìm thấy thông báo', 404);
         if (notif.status === 'SENT') throw new ErrorResponse('Thông báo này đã được gửi', 400);
+        
         await notif.update({ status: 'SENT' });
+
+        // Gửi PUSH NOTIFICATION sau khi đã đánh dấu SENT
+        try {
+            const pushService = require('./pushService');
+            const { User, UnionMember } = require('../models');
+            
+            // Tìm tất cả User có pushToken dựa trên Target
+            let targetUsers = [];
+
+            if (notif.targetType === 'ALL') {
+                targetUsers = await User.findAll({ 
+                    where: { pushToken: { [require('sequelize').Op.ne]: null } },
+                    attributes: ['pushToken']
+                });
+            } else if (notif.targetType === 'BRANCH') {
+                targetUsers = await User.findAll({
+                    where: { 
+                        pushToken: { [require('sequelize').Op.ne]: null },
+                        unionBranchId: notif.targetId
+                    },
+                    attributes: ['pushToken']
+                });
+            } else if (notif.targetType === 'CELL') {
+                targetUsers = await User.findAll({
+                    where: { 
+                        pushToken: { [require('sequelize').Op.ne]: null },
+                        unionCellId: notif.targetId
+                    },
+                    attributes: ['pushToken']
+                });
+            } else if (notif.targetType === 'INDIVIDUAL') {
+                const member = await UnionMember.findByPk(notif.targetId, { attributes: ['userId'] });
+                if (member && member.userId) {
+                    targetUsers = await User.findAll({
+                        where: { id: member.userId, pushToken: { [require('sequelize').Op.ne]: null } },
+                        attributes: ['pushToken']
+                    });
+                }
+            }
+
+            const tokens = targetUsers.map(u => u.pushToken).filter(t => !!t);
+            if (tokens.length > 0) {
+                await pushService.sendPushNotification(tokens, {
+                    title: notif.title,
+                    body: notif.content,
+                    data: { id: notif.id, category: notif.category }
+                });
+            }
+        } catch (pushErr) {
+            console.error('[NotificationService] Lỗi gửi push:', pushErr);
+        }
+
         return notif;
     }
 

@@ -113,6 +113,19 @@ const documentFileFilter = (req, file, cb) => {
     }
 };
 
+// Storage cho ảnh bằng chứng đóng phí
+const feeEvidenceStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, '../../uploads/fees');
+        ensureUploadDir(uploadPath);
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `fee_${uuidv4()}${ext}`);
+    }
+});
+
 // Middleware upload
 const uploadNewsBanner = multer({
     storage: newsBannerStorage,
@@ -172,5 +185,10 @@ module.exports = {
     uploadBanner: handleUpload(uploadBanner),
     uploadAvatar: handleUpload(uploadAvatar),
     uploadQuizThumbnail: handleUpload(uploadQuizThumbnail),
-    uploadDocument: handleUpload(uploadDocument)
+    uploadDocument: handleUpload(uploadDocument),
+    uploadFeeEvidence: handleUpload(multer({
+        storage: feeEvidenceStorage,
+        limits: { fileSize: 5 * 1024 * 1024 },
+        fileFilter: imageFileFilter
+    }).single('evidence'))
 };

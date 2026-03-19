@@ -15,6 +15,7 @@ router.post('/refresh-token', userController.refreshToken);
 router.get('/me', protect, userController.getMe);
 router.put('/me', protect, uploadAvatar, userController.updateMe);
 router.patch('/me/password', protect, userController.changePassword);
+router.patch('/me/push-token', protect, userController.updatePushToken);
 router.post('/logout', protect, userController.logout);
 router.get('/', protect, userController.getUsers);
 router.get('/:id', protect, userController.getUser);

@@ -33,6 +33,14 @@ const UnionFeePayment = sequelize.define('UnionFeePayment', {
     unionBranchId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    status: {
+        type: DataTypes.ENUM('pending', 'paid', 'rejected'),
+        defaultValue: 'pending'
+    },
+    evidenceImage: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     tableName: 'union_fee_payments',

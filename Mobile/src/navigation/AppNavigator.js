@@ -8,6 +8,7 @@ import { AdminNavigator } from './AdminNavigator';
 import { COLORS } from '../constants';
 import { authService } from '../services/authService';
 import { partyService } from '../services/partyService';
+import { registerForPushNotificationsAsync } from '../utils/pushNotificationHelper';
 
 export const AppNavigator = () => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -39,6 +40,16 @@ export const AppNavigator = () => {
                 setUserRole(role);
                 setIsLoggedIn(true);
                 setHasProfile(!!profile);
+
+                // --- PUSH NOTIFICATION REGISTRATION (TEMPORARILY DISABLED) ---
+                /*
+                registerForPushNotificationsAsync().then(token => {
+                    if (token) {
+                        authService.updatePushToken(token);
+                    }
+                }).catch(err => console.log('[Push] Registration failed:', err));
+                */
+
             } else {
                 setIsLoggedIn(false);
                 setUserRole('user');

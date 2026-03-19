@@ -142,6 +142,16 @@ const userController = {
     }),
 
     /**
+     * @route PATCH /api/users/me/push-token
+     * Lưu Expo Push Token cho user hiện tại
+     */
+    updatePushToken: asyncHandler(async (req, res) => {
+        const { pushToken } = req.body;
+        const user = await UserService.updateUser(req.user.id, { pushToken });
+        res.status(200).json({ success: true, data: { pushToken: user.pushToken } });
+    }),
+
+    /**
      * @route DELETE /api/users/:id
      */
     deleteUser: asyncHandler(async (req, res) => {

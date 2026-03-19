@@ -20,15 +20,19 @@ export const financeService = {
     },
 
     // [POST] /api/fees
-    payFee: async (feeData) => {
+    payFee: async (formData) => {
         if (USE_SUPABASE) {
             // ... existing supabase logic if needed
             return null;
         }
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r({ success: true }), SIMULATE_DELAY));
-
+ 
         // API THỰC
-        const response = await apiClient.post('/api/fees', feeData);
+        const response = await apiClient.post('/api/fees', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
         return response.data;
     }
 };

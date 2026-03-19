@@ -120,5 +120,16 @@ export const authService = {
             console.log('GetCurrentUser error:', error.message);
             return null;
         }
+    },
+
+    updatePushToken: async (pushToken) => {
+        if (USE_SUPABASE || USE_MOCK_API) return true;
+        try {
+            const response = await apiClient.patch('/api/users/me/push-token', { pushToken });
+            return response;
+        } catch (error) {
+            console.log('[AuthService] Update push token error:', error.message);
+            return null;
+        }
     }
 };

@@ -24,6 +24,7 @@ export const NotificationScreen = ({ onNavigate }) => {
         if (!isRef) setLoading(true);
         try {
             const res = await notificationService.getNotifications();
+            console.log('[NotificationScreen] Fetched:', res);
             setNotifications(res.data || res || []);
         } catch (error) {
             console.log('Fetch notifications error:', error);

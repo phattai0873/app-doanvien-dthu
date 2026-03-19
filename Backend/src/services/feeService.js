@@ -100,6 +100,16 @@ class FeeService {
         await fee.destroy();
         return { message: 'Đã xóa bản ghi thành công' };
     }
+
+    static async updateStatus(id, { status, note }) {
+        const fee = await UnionFeePayment.findByPk(id);
+        if (!fee) throw new ErrorResponse('Không tìm thấy bản ghi phí', 404);
+        
+        fee.status = status;
+        if (note) fee.note = note;
+        
+        return await fee.save();
+    }
 }
 
 module.exports = FeeService;

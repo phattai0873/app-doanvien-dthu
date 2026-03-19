@@ -30,6 +30,7 @@ import LandingSettingsPage from './admin/pages/LandingSettingsPage';
 import LocationsPage from './admin/pages/LocationsPage';
 import ActivityParticipantsPage from './admin/pages/ActivityParticipantsPage';
 import MeetingAttendancePage from './admin/pages/MeetingAttendancePage';
+import FeesPage from './admin/pages/FeesPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ function AppRoutes() {
         <Route path="cells" element={<CellsPage />} />
         <Route path="landing" element={<LandingSettingsPage />} />
         <Route path="locations" element={<LocationsPage />} />
+        <Route path="fees" element={<FeesPage />} />
         <Route path="activities/:id/participants" element={<ActivityParticipantsPage />} />
         <Route path="meetings/:id/attendance" element={<MeetingAttendancePage />} />
       </Route>
