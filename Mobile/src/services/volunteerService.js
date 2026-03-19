@@ -9,8 +9,9 @@ export const volunteerService = {
             });
             // Handle different data structures { data: [] } or { data: { rows: [] } } or { rows: [] }
             if (Array.isArray(res.data)) return res.data;
+            if (res.data && Array.isArray(res.data.data)) return res.data.data;
             if (res.data && Array.isArray(res.data.rows)) return res.data.rows;
-            return res.rows || [];
+            return [];
         } catch (error) {
             console.error('Error fetching activities:', error);
             throw error;

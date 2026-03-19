@@ -94,7 +94,11 @@ const UnionMember = sequelize.define('UnionMember', {
     indexes: [
         { unique: true, fields: ['memberCode'] },
         { unique: true, fields: ['identityNumber'] },
-        { unique: true, fields: ['memberCardNumber'] }
+        { unique: true, fields: ['memberCardNumber'] },
+        { fields: ['unionCellId'] },
+        { fields: ['status'] },
+        { fields: ['activityStatus'] },
+        { fields: ['userId'] }
     ]
 });
 

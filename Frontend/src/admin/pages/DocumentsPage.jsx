@@ -43,7 +43,7 @@ function DocumentModal({ doc, onClose, onSave }) {
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Tiêu đề tài liệu *</label>
                         <input className={INPUT} value={form.title} onChange={e => set('title', e.target.value)} placeholder="VD: Nghị quyết Đại hội XIII của Đảng" />
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1">Chuyên mục</label>
@@ -66,7 +66,7 @@ function DocumentModal({ doc, onClose, onSave }) {
                                     <div className="flex flex-col items-center">
                                         <div className="bg-primary-100 p-3 rounded-full text-primary-700 mb-2"><File size={24} /></div>
                                         <p className="text-sm font-medium text-gray-700">{file.name}</p>
-                                        <button onClick={() => setFile(null)} className="mt-1 text-xs text-red-500 flex items-center gap-1"><X size={12}/> Gỡ bỏ</button>
+                                        <button onClick={() => setFile(null)} className="mt-1 text-xs text-red-500 flex items-center gap-1"><X size={12} /> Gỡ bỏ</button>
                                     </div>
                                 ) : doc?.filePath ? (
                                     <div className="flex flex-col items-center">
@@ -74,7 +74,7 @@ function DocumentModal({ doc, onClose, onSave }) {
                                         <p className="text-xs text-gray-500 break-all mb-1">Hiện tại: {doc.filePath.split('/').pop()}</p>
                                         <label className="cursor-pointer text-xs text-primary-600 font-semibold hover:underline">
                                             Thay đổi file khác
-                                            <input type="file" className="hidden" onChange={e => setFile(e.target.files[0])} accept=".pdf,.doc,.docx,.xls,.xlsx,.zip" />
+                                            <input type="file" className="hidden" onChange={e => setFile(e.target.files[0])} accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.jpg,.jpeg,.png,.webp" />
                                         </label>
                                     </div>
                                 ) : (
@@ -83,11 +83,11 @@ function DocumentModal({ doc, onClose, onSave }) {
                                         <div className="flex text-sm text-gray-600">
                                             <label className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none">
                                                 <span>Tải lên tập tin</span>
-                                                <input type="file" className="hidden" onChange={e => setFile(e.target.files[0])} accept=".pdf,.doc,.docx,.xls,.xlsx,.zip" />
+                                                <input type="file" className="hidden" onChange={e => setFile(e.target.files[0])} accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.jpg,.jpeg,.png,.webp" />
                                             </label>
                                             <p className="pl-1">hoặc kéo thả vào đây</p>
                                         </div>
-                                        <p className="text-xs text-gray-500">PDF, Word, Excel, ZIP tối đa 20MB</p>
+                                        <p className="text-xs text-gray-500">PDF, Word, Excel, Ảnh, ZIP tối đa 20MB</p>
                                     </>
                                 )}
                             </div>
@@ -157,7 +157,7 @@ export default function DocumentsPage() {
 
     const { data, isLoading } = useQuery({
         queryKey: ['documents', search, page, statusFilter, categoryFilter],
-        queryFn: () => documentApi.getAll({ 
+        queryFn: () => documentApi.getAll({
             search, page, limit: 10,
             status: statusFilter || undefined,
             categoryId: categoryFilter || undefined
@@ -257,7 +257,7 @@ export default function DocumentsPage() {
                                                     <td className="px-4 py-3 text-gray-500 truncate max-w-[150px]">{d.issuingAuthority || '—'}</td>
                                                     <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{d.issuedDate ? new Date(d.issuedDate).toLocaleDateString('vi-VN') : '—'}</td>
                                                     <td className="px-4 py-3"><div className="flex gap-2">
-                                                        <button 
+                                                        <button
                                                             className={`${BTN_ICON} ${d.status === 'PUBLISH' ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                                                             onClick={() => toggleStatusMutation.mutate(d.id)}
                                                             title={d.status === 'PUBLISH' ? 'Chuyển sang Riêng tư' : 'Chuyển sang Công khai'}

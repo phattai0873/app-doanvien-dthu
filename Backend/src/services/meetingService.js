@@ -25,13 +25,34 @@ class MeetingService {
         
         const searchCondition = buildSearchCondition(search, ['title', 'content', 'academicYear']);
         
-        const organizerWhere = {};
-        if (unionCellId) organizerWhere.organizerCellId = unionCellId;
-        if (unionBranchId) {
-            organizerWhere[Op.or] = [
-                { organizerBranchId: unionBranchId },
-                { organizerCellId: { [Op.in]: sequelize.literal(`(SELECT id FROM union_cells WHERE "unionBranchId" = '${unionBranchId}')`) } }
+        // Core Visibility Filtering (Phân quyền hiển thị theo cấp độ)
+        const visibilityWhere = {};
+        if (unionBranchId || unionCellId) {
+            const orConditions = [
+                { level: 'SCHOOL' } // Mọi người đều thấy cấp Trường
             ];
+            
+            if (unionBranchId) {
+                // Thấy cấp Khoa của chính mình
+                orConditions.push({
+                    [Op.and]: [
+                        { level: 'BRANCH' },
+                        { organizerBranchId: unionBranchId }
+                    ]
+                });
+            }
+            
+            if (unionCellId) {
+                // Thấy cấp Lớp của chính mình
+                orConditions.push({
+                    [Op.and]: [
+                        { level: 'CELL' },
+                        { organizerCellId: unionCellId }
+                    ]
+                });
+            }
+            
+            visibilityWhere[Op.or] = orConditions;
         }
 
         const result = await Meeting.findAndCountAll({
@@ -39,7 +60,7 @@ class MeetingService {
                 [Op.and]: [
                     where,
                     searchCondition,
-                    organizerWhere
+                    visibilityWhere
                 ]
             },
             include: [
@@ -63,7 +84,8 @@ class MeetingService {
                 { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
                 { model: CellMeetingLocation, as: 'Location', attributes: ['id', 'name', 'address', 'capacity'] },
                 { model: UnionMember, as: 'Chairperson', attributes: ['id', 'fullName', 'avatar'] },
-                { model: UnionMember, as: 'Secretary', attributes: ['id', 'fullName', 'avatar'] }
+                { model: UnionMember, as: 'Secretary', attributes: ['id', 'fullName', 'avatar'] },
+                { model: Attendance, attributes: ['id', 'unionMemberId', 'status', 'attendanceTime'] }
             ]
         });
         if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);

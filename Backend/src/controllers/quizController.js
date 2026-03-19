@@ -9,6 +9,9 @@ const quizController = {
         const isSuperAdmin = roles.includes('SUPER_ADMIN');
         const isBranchAdmin = roles.includes('BRANCH_ADMIN');
         const isCellAdmin = roles.includes('CELL_ADMIN');
+        const isAdmin = isSuperAdmin || isBranchAdmin || isCellAdmin;
+        
+        let status = req.query.status;
 
         if (!isSuperAdmin) {
             const member = req.user?.UnionMember;
@@ -21,10 +24,15 @@ const quizController = {
                     unionBranchId = branchId;
                 }
             }
+
+            // Nếu không phải Admin, chỉ được xem kỳ thi đã đăng
+            if (!isAdmin) {
+                status = 'PUBLISHED';
+            }
         }
 
         const result = await QuizService.getAll({ 
-            search, level, status: req.query.status, 
+            search, level, status, 
             unionBranchId, unionCellId, page, limit 
         });
         res.status(200).json({ success: true, ...result });
@@ -83,7 +91,17 @@ const quizController = {
     }),
 
     submitAttempt: asyncHandler(async (req, res) => {
-        const { memberId, answers } = req.body;
+        let { memberId, answers } = req.body;
+        
+        // Nếu không gửi memberId, tự lấy từ user đã đăng nhập
+        if (!memberId) {
+            memberId = req.user?.UnionMember?.id;
+        }
+        
+        if (!memberId) {
+            throw new ErrorResponse('Không xác định được thông tin đoàn viên thực hiện bài thi', 400);
+        }
+
         const result = await QuizService.submitAttempt(req.params.id, memberId, answers);
         res.status(200).json({ success: true, data: result });
     }),

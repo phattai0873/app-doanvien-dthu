@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const newsController = require('../controllers/newsController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, loadUser } = require('../middlewares/authMiddleware');
 const { uploadNewsBanner, uploadEditorImage } = require('../middlewares/uploadMiddleware');
 
 // ==================== CHUYÊN MỤC ====================
@@ -16,7 +16,7 @@ router.delete('/categories/:id', protect, newsController.deleteCategory);
 router.post('/upload-image', protect, uploadEditorImage, newsController.uploadEditorImage);
 
 // ==================== BÀI VIẾT ====================
-router.get('/', newsController.getNews);
+router.get('/', loadUser, newsController.getNews);
 router.post('/', protect, uploadNewsBanner, newsController.createNews);
 router.get('/:id', newsController.getNewsById);
 router.put('/:id', protect, uploadNewsBanner, newsController.updateNews);

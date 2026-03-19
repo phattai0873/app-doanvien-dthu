@@ -18,6 +18,7 @@ import { COLORS } from '../../constants/colors';
 import { SIZES } from '../../constants/sizes';
 import { meetingService } from '../../services/meetingService';
 import { authService } from '../../services/authService';
+import QRScannerModal from '../../components/QRScannerModal';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
     // Checkin modal state
     const [isCheckinModalVisible, setCheckinModalVisible] = useState(false);
     const [checkinCode, setCheckinCode] = useState('');
+    const [qrScannerVisible, setQrScannerVisible] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -147,6 +149,26 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
         }
     };
 
+    const handleQRScan = async (code) => {
+        setQrScannerVisible(false);
+        setCheckinCode(code);
+        
+        // Tự động submit sau khi quét được mã
+        setSubmitting(true);
+        try {
+            await meetingService.submitAttendance(id, code);
+            Alert.alert('Thành công', 'Đã điểm danh thành công!');
+            setCheckinModalVisible(false);
+            // Refresh detail
+            const res = await meetingService.getMeetingDetail(id);
+            setMeeting(res.data || res);
+        } catch (error) {
+            Alert.alert('Lỗi điểm danh', error?.response?.data?.message || 'Điểm danh thất bại. Mã không hợp lệ hoặc đã hết hạn.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) {
         return (
             <View style={styles.center}>
@@ -162,6 +184,9 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
             </View>
         );
     }
+
+    const myAttendance = meeting.Attendances?.find(a => a.unionMemberId === user?.UnionMember?.id);
+    const isCheckedIn = myAttendance?.status === 'PRESENT';
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -235,16 +260,21 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
             {meeting.status !== 'finished' && (
                 <View style={styles.actionContainer}>
                     <TouchableOpacity
-                        style={[styles.attendanceBtn, meeting.status !== 'active' && styles.disabledBtn]}
+                        style={[
+                            styles.attendanceBtn, 
+                            (meeting.status !== 'active' || isCheckedIn) && styles.disabledBtn
+                        ]}
                         onPress={() => meeting.status === 'active' ? setCheckinModalVisible(true) : Alert.alert('Thông báo', 'Cuộc họp chưa diễn ra hoặc đã kết thúc.')}
-                        disabled={meeting.status !== 'active'}
+                        disabled={meeting.status !== 'active' || isCheckedIn}
                     >
                         {submitting ? (
                             <ActivityIndicator color="#FFF" />
                         ) : (
                             <>
-                                <Icon name="Scan" size={20} color="#FFF" />
-                                <Text style={styles.attendanceBtnText}>ĐIỂM DANH NGAY</Text>
+                                <Icon name={isCheckedIn ? 'CheckCircle' : 'Scan'} size={20} color="#FFF" />
+                                <Text style={styles.attendanceBtnText}>
+                                    {isCheckedIn ? 'ĐÃ ĐIỂM DANH' : 'ĐIỂM DANH NGAY'}
+                                </Text>
                             </>
                         )}
                     </TouchableOpacity>
@@ -273,6 +303,20 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                         </View>
                         <Text style={styles.inputModalTitle}>Điểm danh Cuộc họp</Text>
                         <Text style={styles.inputModalSub}>{meeting?.title}</Text>
+
+                        <TouchableOpacity 
+                            style={styles.qrScanBtn} 
+                            onPress={() => setQrScannerVisible(true)}
+                        >
+                            <Icon name="QrCode" size={24} color="#FFF" />
+                            <Text style={styles.qrScanBtnText}>Quét mã QR</Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.dividerRow}>
+                            <View style={styles.line} />
+                            <Text style={styles.dividerText}>Hoặc nhập mã</Text>
+                            <View style={styles.line} />
+                        </View>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Nhập mã xác nhận (6 ký tự)</Text>
@@ -376,6 +420,12 @@ export const MeetingDetailScreen = ({ route, onNavigate }) => {
                     </View>
                 </View>
             </Modal>
+
+            <QRScannerModal
+                visible={qrScannerVisible}
+                onClose={() => setQrScannerVisible(false)}
+                onScan={handleQRScan}
+            />
         </ScrollView>
     );
 };
@@ -433,6 +483,38 @@ const styles = StyleSheet.create({
         padding: 20
     },
     inputModalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, width: '100%', elevation: 5 },
+    qrScanBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.primary || '#da251d',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginBottom: 15,
+        width: '100%',
+        gap: 10,
+    },
+    qrScanBtnText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    dividerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 10,
+        gap: 10,
+    },
+    line: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E5E7EB',
+    },
+    dividerText: {
+        fontSize: 12,
+        color: '#9CA3AF',
+        fontWeight: '500',
+    },
     modalIconHeader: { alignItems: 'center', marginBottom: 16 },
     inputModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', textAlign: 'center' },
     inputModalSub: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginTop: 8, marginBottom: 24, paddingHorizontal: 10 },

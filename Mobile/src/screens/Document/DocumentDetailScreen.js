@@ -8,7 +8,8 @@ import {
     ActivityIndicator,
     Alert,
     Platform,
-    Linking
+    Linking,
+    Image
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
@@ -56,6 +57,11 @@ export const DocumentDetailScreen = ({ route, onBack }) => {
         }
     };
 
+    const isImage = (path) => {
+        if (!path) return false;
+        return /\.(jpg|jpeg|png|webp|gif)$/i.test(path);
+    };
+
     if (loading) {
         return (
             <View style={styles.center}>
@@ -80,11 +86,18 @@ export const DocumentDetailScreen = ({ route, onBack }) => {
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.iconWrapper}>
-                    <Icon
-                        name={doc.filePath?.endsWith('.pdf') ? 'FileText' : 'File'}
-                        size={64}
-                        color={doc.filePath?.endsWith('.pdf') ? '#EF4444' : '#3B82F6'}
-                    />
+                    {isImage(doc.filePath) ? (
+                        <Image 
+                            source={{ uri: `${API_BASE_URL}${doc.filePath}` }} 
+                            style={styles.previewImage} 
+                        />
+                    ) : (
+                        <Icon
+                            name={doc.filePath?.endsWith('.pdf') ? 'FileText' : 'File'}
+                            size={64}
+                            color={doc.filePath?.endsWith('.pdf') ? '#EF4444' : '#3B82F6'}
+                        />
+                    )}
                 </View>
 
                 <Text style={styles.title}>{doc.title}</Text>
@@ -156,7 +169,13 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
-        marginBottom: 24
+        marginBottom: 24,
+        overflow: 'hidden'
+    },
+    previewImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover'
     },
     title: { fontSize: 20, fontWeight: '800', color: COLORS.gray900, textAlign: 'center', lineHeight: 28, marginBottom: 30 },
     infoGroup: { width: '100%', backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 24 },

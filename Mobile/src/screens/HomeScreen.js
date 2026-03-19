@@ -170,7 +170,7 @@ const HomeScreen = () => {
                 const userData = currentUser.data || currentUser;
                 console.log('[Mobile] User Data Loaded:', userData?.username);
                 setUser(userData);
-                
+
                 // Lấy thông báo thật
                 const notifRes = await notificationService.getNotifications({ limit: 5 });
                 const rawNotifs = notifRes.data || notifRes || [];
@@ -235,7 +235,7 @@ const HomeScreen = () => {
             case 'news': return <NewsFeed categories={categories} news={news} banners={banners} loading={loadingNews} refreshing={refreshing} onRefresh={onRefresh} activeScope={activeScope} onScopeChange={setActiveScope} />;
             case 'work': return <WorkDashboard user={user} summary={workSummary} refreshing={refreshing} onRefresh={onRefresh} onNavigate={navigateTo} />;
             case 'notif': return <NotificationScreen notifications={notifications} refreshing={refreshing} onRefresh={onRefresh} />;
-            case 'profile': 
+            case 'profile':
                 if (!user && !loadingNews) return (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         <Text style={{ color: '#6B7280' }}>Vui lòng đăng nhập để xem thông tin</Text>
@@ -445,19 +445,77 @@ const WorkDashboard = ({ user, summary, refreshing, onRefresh, onNavigate }) => 
         if (onNavigate) onNavigate(screen);
     };
 
+    const stats = user?.statistics || {};
+    const totalPoints = stats.totalPoints || 0;
+    const meetingsAttended = stats.meetingsAttended || 0;
+    const rank = stats.rank || 'C';
+
+    const rankConfig = {
+        'A+': { color: '#F59E0B', bg: '#FEF3C7', label: 'Xuất sắc' },
+        'A': { color: '#10B981', bg: '#D1FAE5', label: 'Giỏi' },
+        'B+': { color: '#3B82F6', bg: '#DBEAFE', label: 'Khá' },
+        'B': { color: '#8B5CF6', bg: '#EDE9FE', label: 'Trung bình khá' },
+        'C': { color: '#6B7280', bg: '#F3F4F6', label: 'Trung bình' },
+    };
+    const rc = rankConfig[rank] || rankConfig['C'];
+
     return (
         <ScrollView
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#da251d']} />}
         >
-            <View style={styles.summaryRow}>
-                <View style={[styles.summaryCard, styles.bgGradientRed]}>
-                    <View style={styles.cardIconAbs}>
-                        <Icon name="Calendar" size={60} color="rgba(255,255,255,0.2)" />
+            {/* Thẻ thống kê cá nhân */}
+            <View style={styles.statsCard}>
+                <View style={styles.statsCardHeader}>
+                    <Icon name="Award" size={20} color="#da251d" />
+                    <Text style={styles.statsCardTitle}>THỐNG KÊ HOẠT ĐỘNG CÁ NHÂN</Text>
+                </View>
+
+                <View style={styles.statsRow}>
+                    {/* Điểm rèn luyện */}
+                    <View style={styles.statItem}>
+                        <View style={[styles.statIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                            <Icon name="Landmark" size={22} color="#da251d" />
+                        </View>
+                        <Text style={styles.statValue}>{totalPoints}</Text>
+                        <Text style={styles.statLabel}>Điểm tích lũy</Text>
                     </View>
-                    <Text style={styles.summaryLabelLight}>HỌP CHI ĐOÀN TỚI</Text>
-                    <Text style={styles.summaryValueLight}>{summary.next_meeting}</Text>
+
+                    {/* Divider */}
+                    <View style={styles.statDivider} />
+
+                    {/* Số hoạt động */}
+                    <View style={styles.statItem}>
+                        <View style={[styles.statIconCircle, { backgroundColor: '#DBEAFE' }]}>
+                            <Icon name="Users" size={22} color="#2563EB" />
+                        </View>
+                        <Text style={styles.statValue}>{meetingsAttended}</Text>
+                        <Text style={styles.statLabel}>Buổi tham dự</Text>
+                    </View>
+
+                    {/* Divider */}
+                    <View style={styles.statDivider} />
+
+                    {/* Xếp hạng */}
+                    <View style={styles.statItem}>
+                        <View style={[styles.statIconCircle, { backgroundColor: rc.bg }]}>
+                            <Text style={[styles.rankBadgeText, { color: rc.color }]}>{rank}</Text>
+                        </View>
+                        <Text style={[styles.statValue, { color: rc.color }]}>{rank}</Text>
+                        <Text style={styles.statLabel}>{rc.label}</Text>
+                    </View>
+                </View>
+
+                {/* Thanh tiến độ điểm */}
+                <View style={styles.progressSection}>
+                    <View style={styles.progressBarBg}>
+                        <View style={[styles.progressBarFill, { width: `${Math.min((totalPoints / 500) * 100, 100)}%` }]} />
+                    </View>
+                    <View style={styles.progressLabels}>
+                        <Text style={styles.progressLeft}>{totalPoints} điểm</Text>
+                        <Text style={styles.progressRight}>Mục tiêu A+: 500 điểm</Text>
+                    </View>
                 </View>
             </View>
 
@@ -465,22 +523,22 @@ const WorkDashboard = ({ user, summary, refreshing, onRefresh, onNavigate }) => 
 
             <View style={styles.gridContainer}>
                 <View style={styles.gridRow}>
-                    <WorkCard 
-                        isPng 
-                        pngIcon={ICON_SET.sinhhoat} 
-                        bg="#EBF8FF" 
-                        color="#3182CE" 
-                        title="Sinh hoạt Chi đoàn" 
-                        desc="Điểm danh & Tài liệu" 
+                    <WorkCard
+                        isPng
+                        pngIcon={ICON_SET.sinhhoat}
+                        bg="#EBF8FF"
+                        color="#3182CE"
+                        title="Sinh hoạt Chi đoàn"
+                        desc="Điểm danh & Tài liệu"
                         onPress={() => handleProtectedNavigation('meetings', 'Sinh hoạt Chi đoàn')}
                     />
-                    <WorkCard 
-                        isPng 
-                        pngIcon={ICON_SET.vanban} 
-                        bg="#E6FFFA" 
-                        color="#319795" 
-                        title="Kho Tài liệu" 
-                        desc="Văn kiện, Nghị quyết" 
+                    <WorkCard
+                        isPng
+                        pngIcon={ICON_SET.vanban}
+                        bg="#E6FFFA"
+                        color="#319795"
+                        title="Kho Tài liệu"
+                        desc="Văn kiện, Nghị quyết"
                         onPress={() => handleProtectedNavigation('documents', 'Kho Tài liệu')}
                     />
                 </View>
@@ -549,9 +607,9 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
     >
         <View style={styles.profileCard}>
             <View style={styles.avatarWrapper}>
-                <RNImage 
-                    source={user?.avatar ? { uri: `${API_BASE_URL}${user.avatar}` } : { uri: `https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=da251d&color=fff` }} 
-                    style={styles.avatar} 
+                <RNImage
+                    source={user?.avatar ? { uri: `${API_BASE_URL}${user.avatar}` } : { uri: `https://ui-avatars.com/api/?name=${user?.username || 'U'}&background=da251d&color=fff` }}
+                    style={styles.avatar}
                 />
             </View>
             <View style={styles.profileInfo}>
@@ -564,8 +622,8 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
                 <Text style={styles.profileRole}>{user?.Roles?.[0]?.name || 'Đoàn viên'}</Text>
                 <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>
-                        {user?.UnionMember?.status === 'approved' ? 'Đoàn viên chính thức' : 
-                         user?.UnionMember?.status === 'pending' ? 'Đang chờ phê duyệt' : 'Tài khoản hệ thống'}
+                        {user?.UnionMember?.status === 'approved' ? 'Đoàn viên chính thức' :
+                            user?.UnionMember?.status === 'pending' ? 'Đang chờ phê duyệt' : 'Tài khoản hệ thống'}
                     </Text>
                 </View>
             </View>
@@ -598,7 +656,7 @@ const ProfileScreen = ({ user, onNavigate, refreshing, onRefresh }) => (
             <MenuRow icon="FileText" color="#6B7280" label="Điều khoản sử dụng" />
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
             style={styles.logoutButton}
             onPress={async () => {
                 await authService.logout();
@@ -799,6 +857,102 @@ const styles = StyleSheet.create({
     summaryTableDark: { color: '#E5E7EB', fontSize: 8, marginTop: 4 },
 
     sectionHeader: { fontSize: 16, fontWeight: 'bold', color: '#1F2937', marginBottom: 12, borderLeftWidth: 4, borderLeftColor: '#da251d', paddingLeft: 8 },
+
+    // Stats Card (thay thế summaryRow cũ)
+    statsCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+    },
+    statsCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    statsCardTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#374151',
+        marginLeft: 8,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        marginBottom: 20,
+    },
+    statItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    statIconCircle: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    statValue: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#1F2937',
+    },
+    statLabel: {
+        fontSize: 10,
+        color: '#9CA3AF',
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 2,
+        textTransform: 'uppercase',
+    },
+    statDivider: {
+        width: 1,
+        height: 60,
+        backgroundColor: '#F3F4F6',
+    },
+    rankBadgeText: {
+        fontSize: 20,
+        fontWeight: '900',
+    },
+    progressSection: {
+        marginTop: 4,
+    },
+    progressBarBg: {
+        height: 8,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#da251d',
+        borderRadius: 4,
+    },
+    progressLabels: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 6,
+    },
+    progressLeft: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#da251d',
+    },
+    progressRight: {
+        fontSize: 11,
+        color: '#9CA3AF',
+    },
     gridContainer: { gap: 12 },
     gridRow: { flexDirection: 'row', gap: 12 },
     workCard: { flex: 1, backgroundColor: '#FFF', padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6', elevation: 2 },

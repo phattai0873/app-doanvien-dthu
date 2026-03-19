@@ -11,7 +11,7 @@ function generateCheckinCode() {
 }
 
 class ActivityService {
-    static async getAll({ upcoming, level, status, unionBranchId, search, page, limit } = {}) {
+    static async getAll({ upcoming, level, status, unionBranchId, unionCellId, search, page, limit } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
 
@@ -28,14 +28,33 @@ class ActivityService {
             where.status = { [Op.in]: ['APPROVED', 'IN_PROGRESS', 'COMPLETED'] };
         }
 
+        // Visibility Filtering Scopes (Khoanh vùng hiển thị Tình nguyện)
+        const visibilityConditions = [
+            { level: 'SCHOOL' } // Cấp Trường luôn thấy
+        ];
+
         if (unionBranchId) {
-            where[Op.or] = [
-                { unionBranchId: unionBranchId },
-                { organizedByBranchId: unionBranchId },
-                { level: 'SCHOOL' }
-            ];
+            visibilityConditions.push({
+                [Op.and]: [
+                    { level: 'BRANCH' },
+                    { [Op.or]: [{ unionBranchId: unionBranchId }] } // Adjusting for actual column `unionBranchId`
+                ]
+            });
         }
 
+        if (unionCellId) {
+            visibilityConditions.push({
+                [Op.and]: [
+                    { level: 'CELL' },
+                    { organizedByCellId: unionCellId }
+                ]
+            });
+        }
+
+        // Áp dụng filter nếu có truyền ID (tức là không phải Super Admin)
+        if (unionBranchId || unionCellId) {
+            where[Op.or] = visibilityConditions;
+        }
         if (upcoming === 'true') {
             where.startDate = { [Op.gte]: new Date() };
         }
@@ -45,7 +64,7 @@ class ActivityService {
             include: [
                 { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
                 { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
-                { model: ActivityParticipant, attributes: ['id', 'memberId', 'registrationStatus'] }
+                { model: ActivityParticipant, attributes: ['id', 'memberId', 'registrationStatus', 'attendanceStatus'] }
             ],
             order: [['startDate', 'DESC']],
             limit: l,
@@ -116,20 +135,53 @@ class ActivityService {
     }
 
     static async registerParticipant(activityId, memberId) {
-        console.log(`[Registration] Activity: ${activityId}, Member: ${memberId}`);
-        const activity = await Activity.findByPk(activityId);
+        const member = await UnionMember.findByPk(memberId, {
+            include: [{ model: UnionCell }]
+        });
+        if (!member) throw new ErrorResponse('Không tìm thấy thông tin đoàn viên', 404);
+        
+        console.log(`[Service-Register] Member: ${member.fullName}, Status: ${member.status}, CellID: ${member.unionCellId}, BranchID (from Cell): ${member.UnionCell?.unionBranchId}`);
+        if (member.UnionCell) {
+            console.log(`[Service-Register] Member UnionCell -> id: ${member.UnionCell.id}, unionBranchId: ${member.UnionCell.unionBranchId}`);
+        }
+
+        const activity = await Activity.findByPk(activityId, {
+            include: [{ model: ActivityParticipant, attributes: ['id', 'memberId'] }]
+        });
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
+        console.log(`[Backend-Register] Activity: ${activityId}, Level: ${activity.level}, Status: ${activity.status}`);
+
+        // 1. Kiểm tra trạng thái hoạt động
         if (activity.status !== 'APPROVED' && activity.status !== 'IN_PROGRESS') {
             throw new ErrorResponse('Hoạt động này hiện không nhận đăng ký', 400);
         }
 
-        const { ActivityParticipant } = require('../models');
+        // 2. Kiểm tra giới hạn số lượng (Slots)
+        if (activity.maxParticipants && activity.ActivityParticipants && activity.ActivityParticipants.length >= activity.maxParticipants) {
+            throw new ErrorResponse('Hoạt động này đã đủ số lượng người đăng ký (Hết chỗ)', 400);
+        }
+
+        // 3. Kiểm tra phân quyền theo Cấp (Level rules)
+        if (activity.level === 'BRANCH') {
+            const userBranchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+            const allowedBranchIds = [activity.unionBranchId, activity.organizedByBranchId].filter(id => id);
+            console.log(`[Service-Check] BRANCH level match? User: ${userBranchId}, Activity: ${JSON.stringify(allowedBranchIds)}`);
+            if (!allowedBranchIds.includes(userBranchId)) {
+                throw new ErrorResponse('Hoạt động này chỉ dành cho đoàn viên thuộc khoa tương ứng', 403);
+            }
+        } else if (activity.level === 'CELL') {
+            console.log(`[Service-Check] CELL level match? User: ${member.unionCellId}, Activity: ${activity.organizedByCellId}`);
+            if (activity.organizedByCellId !== member.unionCellId) {
+                throw new ErrorResponse('Hoạt động này chỉ dành cho đoàn viên thuộc chi đoàn tương ứng', 403);
+            }
+        }
+
         const [participant, created] = await ActivityParticipant.findOrCreate({
             where: { activityId, memberId },
             defaults: { registrationStatus: 'REGISTERED' }
         });
 
-        if (!created) throw new ErrorResponse('Bạn đã đăng ký hoạt động này rồi', 400);
+        if (!created) throw new ErrorResponse('Đồng chí đã đăng ký hoạt động này rồi', 400);
         return participant;
     }
 

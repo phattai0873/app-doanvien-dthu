@@ -10,13 +10,14 @@ const meetingController = {
         const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin && userUnionMember) {
+            if (userUnionMember.unionBranchId) unionBranchId = userUnionMember.unionBranchId;
+            if (userUnionMember.unionCellId) unionCellId = userUnionMember.unionCellId;
         }
 
-        const meetings = await MeetingService.getAll({ 
-            unionCellId, unionBranchId, level, status, 
-            search, page, limit, type, semester, academicYear 
+        const meetings = await MeetingService.getAll({
+            unionCellId, unionBranchId, level, status,
+            search, page, limit, type, semester, academicYear
         });
         res.status(200).json({ success: true, ...meetings });
     }),
@@ -50,7 +51,7 @@ const meetingController = {
     checkIn: asyncHandler(async (req, res) => {
         const memberId = req.user.UnionMember?.id;
         if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
-        
+
         const { checkinCode } = req.body;
         const attendance = await MeetingService.checkIn(req.params.id, memberId, checkinCode);
         res.status(200).json({ success: true, data: attendance });

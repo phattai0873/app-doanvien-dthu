@@ -43,7 +43,14 @@ const Document = sequelize.define('Document', {
     }
 }, {
     tableName: 'documents',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['level'] },
+        { fields: ['categoryId'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['unionCellId'] }
+    ]
 });
 
 module.exports = Document;

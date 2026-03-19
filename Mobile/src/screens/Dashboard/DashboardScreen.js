@@ -28,15 +28,15 @@ const ICON_SET = {
 import { newsService } from '../../services/newsService';
 import bannerService from '../../services/bannerService';
 import { authService } from '../../services/authService';
+import { meetingService } from '../../services/meetingService';
+import { notificationService } from '../../services/notificationService';
 import { API_BASE_URL } from '../../services/api';
 import Banner from '../../components/Banner';
 
 const { width } = Dimensions.get('window');
-const GRID_PADDING = 12; // Reduced from 20
-const COLUMN_COUNT = 4;
-const TILE_SIZE = (width - (GRID_PADDING * 2) - (8 * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
-
-// Removed MOCK_BANNERS - now using bannerService
+const GRID_PADDING = 12;
+const COLUMN_COUNT = 3;
+const TILE_SIZE = (width - (GRID_PADDING * 2) - (16 * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 const NavButton = ({ title, icon, color, isPng, onPress }) => (
     <TouchableOpacity
@@ -71,6 +71,8 @@ export const DashboardScreen = ({ onNavigate }) => {
     const [news, setNews] = useState([]);
     const [banners, setBanners] = useState([]);
     const [user, setUser] = useState(null);
+    const [nextMeeting, setNextMeeting] = useState(null);
+    const [hasUnreadNotif, setHasUnreadNotif] = useState(false);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -81,12 +83,15 @@ export const DashboardScreen = ({ onNavigate }) => {
     const loadData = async () => {
         if (!refreshing) setLoading(true);
         try {
-            const [newsData, bannersRes, userData] = await Promise.all([
+            const [newsData, bannersRes, userData, meetingsRes, notifications] = await Promise.all([
                 newsService.getNews(),
                 bannerService.getActiveBanners(),
-                authService.getCurrentUser()
+                authService.getCurrentUser(),
+                meetingService.getMeetings({ limit: 1 }),
+                notificationService.getNotifications({ limit: 10 })
             ]);
 
+            // News
             const rawNews = Array.isArray(newsData) ? newsData : (newsData.data || []);
             const processedNews = rawNews.slice(0, 5).map(item => ({
                 ...item,
@@ -96,16 +101,39 @@ export const DashboardScreen = ({ onNavigate }) => {
             }));
             setNews(processedNews);
 
+            // Banners
             if (bannersRes && bannersRes.success && Array.isArray(bannersRes.data)) {
-                // Chỉ lấy tối đa 3 banner như yêu cầu giao diện
                 const imageUrls = bannersRes.data.slice(0, 3).map(b => `${API_BASE_URL}${b.imageUrl}?t=${Date.now()}`);
                 setBanners(imageUrls);
             }
 
+            // User
             if (userData) {
                 const realUser = userData.data || userData;
                 setUser(realUser);
             }
+
+            // Meeting
+            const meetings = Array.isArray(meetingsRes) ? meetingsRes : (meetingsRes.data || []);
+            if (meetings.length > 0) {
+                const latest = meetings[0];
+                const mDate = new Date(latest.meetingTime);
+                setNextMeeting({
+                    ...latest,
+                    day: mDate.getDate(),
+                    month: `Thg ${mDate.getMonth() + 1}`,
+                    title: latest.title,
+                    location: latest.Location?.name || 'Văn phòng Đoàn'
+                });
+            } else {
+                setNextMeeting(null);
+            }
+
+            // Notifications unread check
+            const rawNotifs = Array.isArray(notifications) ? notifications : (notifications.data || []);
+            const unread = rawNotifs.some(n => !n.ReadStatuses || n.ReadStatuses.length === 0);
+            setHasUnreadNotif(unread);
+
         } catch (error) {
             console.error('Error loading dashboard data:', error);
         } finally {
@@ -134,24 +162,59 @@ export const DashboardScreen = ({ onNavigate }) => {
                 </View>
                 <TouchableOpacity style={styles.notificationBtn} onPress={() => onNavigate('notif')}>
                     <Icon name="Bell" size={24} color={COLORS.gray900} />
-                    <View style={styles.notifBadge} />
+                    {hasUnreadNotif && <View style={styles.notifBadge} />}
                 </TouchableOpacity>
             </View>
 
             {/* Event/Seasonal Banner */}
             <View style={styles.bannerContainer}>
-                {banners.length > 0 && <Banner images={banners} />}
+                {loading ? (
+                    <View style={styles.bannerPlaceholder}>
+                        <ActivityIndicator color={COLORS.primary} />
+                    </View>
+                ) : banners.length > 0 ? (
+                    <Banner images={banners} />
+                ) : null}
             </View>
 
-            {/* Quick Navigation Grid - 4 mục đều hàng */}
+            {/* Quick Navigation Grid - 2 hàng, 8 icons đầy đủ */}
             <View style={styles.navGrid}>
                 <View style={styles.row}>
                     <NavButton title="Tin tức" icon={ICON_SET.tintuc} isPng onPress={() => onNavigate('news')} />
+                    <NavButton title="Sinh hoạt" icon={ICON_SET.sinhhoat} isPng onPress={() => onNavigate('meeting_list')} />
                     <NavButton title="Văn bản" icon={ICON_SET.vanban} isPng onPress={() => onNavigate('document_list')} />
-                    <NavButton title="Tình nguyện" icon={ICON_SET.tinhnguyen} isPng onPress={() => onNavigate('volunteer_list')} />
+                </View>
+                <View style={[styles.row, { marginBottom: 0 }]}>
+                    <NavButton title="Thi đua" icon={ICON_SET.thidua} isPng onPress={() => onNavigate('exam_list')} />
+                    <NavButton title="T.Nguyện" icon={ICON_SET.tinhnguyen} isPng onPress={() => onNavigate('volunteer_list')} />
                     <NavButton title="Cá nhân" icon={ICON_SET.canhan} isPng onPress={() => onNavigate('profile')} />
                 </View>
             </View>
+
+            {/* Next Meeting / Schedule - Hiển thị thật từ database */}
+            {nextMeeting && (
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Lịch làm việc sắp tới</Text>
+                        <TouchableOpacity onPress={() => onNavigate('meeting_list')}>
+                            <Text style={styles.viewMore}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity style={styles.scheduleCard} onPress={() => onNavigate('meeting_detail', { id: nextMeeting.id })}>
+                        <View style={styles.scheduleTime}>
+                            <Text style={styles.timeDay}>{nextMeeting.day}</Text>
+                            <Text style={styles.timeMonth}>{nextMeeting.month}</Text>
+                        </View>
+                        <View style={styles.scheduleContent}>
+                            <Text style={styles.scheduleTitle} numberOfLines={1}>{nextMeeting.title}</Text>
+                            <View style={styles.scheduleMeta}>
+                                <Icon name="MapPin" size={14} color={COLORS.gray400} />
+                                <Text style={styles.metaText}>{nextMeeting.location}</Text>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Featured Section (News) */}
             <View style={styles.section}>
@@ -172,30 +235,20 @@ export const DashboardScreen = ({ onNavigate }) => {
                         decelerationRate="fast"
                         contentContainerStyle={styles.newsScroll}
                     >
-                        {news.map((item, index) => (
-                            <NewsCard key={index} item={item} onPress={() => onNavigate('news_detail', { id: item.id })} />
-                        ))}
+                        {news.length > 0 ? (
+                            news.map((item, index) => (
+                                <NewsCard key={index} item={item} onPress={() => onNavigate('news_detail', { id: item.id })} />
+                            ))
+                        ) : (
+                            <View style={styles.emptyCard}>
+                                <Text style={styles.emptyText}>Chưa có tin tức mới</Text>
+                            </View>
+                        )}
                     </ScrollView>
                 )}
             </View>
 
-            {/* Calendar / Schedule Summary (Optional UI addition) */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Lịch làm việc</Text>
-                <View style={styles.scheduleCard}>
-                    <View style={styles.scheduleTime}>
-                        <Text style={styles.timeDay}>24</Text>
-                        <Text style={styles.timeMonth}>Thg 2</Text>
-                    </View>
-                    <View style={styles.scheduleContent}>
-                        <Text style={styles.scheduleTitle}>Họp Ban chỉ đạo Chiến dịch TN tình nguyện</Text>
-                        <View style={styles.scheduleMeta}>
-                            <Icon name="MapPin" size={14} color={COLORS.gray400} />
-                            <Text style={styles.metaText}>Phòng họp G2</Text>
-                        </View>
-                    </View>
-                </View>
-            </View>
+            <View style={{ height: 20 }} />
         </ScrollView>
     );
 };
@@ -204,8 +257,15 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
     scrollContent: { paddingBottom: 40 },
     bannerContainer: {
-        marginBottom: 24,
-        paddingHorizontal: 0, // Banner component might already have width logic
+        marginBottom: 20,
+    },
+    bannerPlaceholder: {
+        height: 180,
+        marginHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: COLORS.gray100,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerHero: {
         flexDirection: 'row',
@@ -215,8 +275,8 @@ const styles = StyleSheet.create({
         paddingTop: Platform.OS === 'ios' ? 20 : 20,
         marginBottom: 24
     },
-    greeting: { fontSize: 14, color: COLORS.gray500, fontWeight: '500' },
-    userName: { fontSize: 24, color: COLORS.gray900, fontWeight: '800', marginTop: 2 },
+    greeting: { fontSize: 13, color: COLORS.gray500, fontWeight: '500' },
+    userName: { fontSize: 24, color: COLORS.gray900, fontWeight: '900', marginTop: 2 },
     notificationBtn: {
         width: 44,
         height: 44,
@@ -240,40 +300,43 @@ const styles = StyleSheet.create({
     },
     navGrid: {
         backgroundColor: COLORS.white,
-        marginHorizontal: 12, // Reduced from 20
-        borderRadius: 20,
-        padding: 12, // Reduced from 16
-        paddingTop: 16, // Reduced from 24
+        marginHorizontal: 12,
+        borderRadius: 24,
+        padding: 16,
+        paddingTop: 20,
         shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
         shadowRadius: 12,
-        elevation: 4,
-        marginBottom: 24 // Reduced from 32
+        elevation: 3,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#F1F5F9'
     },
     row: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 12 // Reduced from 20
+        justifyContent: 'center',
+        gap: 16,
+        marginBottom: 20
     },
     navButton: {
-        width: TILE_SIZE,
+        width: TILE_SIZE - 4,
         alignItems: 'center',
     },
     iconCircle: {
-        width: 70,
-        height: 70,
+        width: 64,
+        height: 64,
         borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 6,
     },
     pngIcon: {
-        width: 64,
-        height: 64,
+        width: 60,
+        height: 60,
     },
     navLabel: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '700',
         color: COLORS.gray700,
         textAlign: 'center'
@@ -287,7 +350,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '800',
+        fontWeight: '900',
         color: COLORS.gray900,
         letterSpacing: -0.5
     },
@@ -295,8 +358,8 @@ const styles = StyleSheet.create({
     newsScroll: { paddingRight: 24 },
     newsCard: {
         width: width * 0.8,
-        height: 200,
-        borderRadius: 24,
+        height: 180,
+        borderRadius: 20,
         overflow: 'hidden',
         marginRight: 16,
         backgroundColor: COLORS.gray200
@@ -307,19 +370,19 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        padding: 20,
+        padding: 16,
         backgroundColor: 'rgba(0,0,0,0.4)',
     },
     categoryBadge: {
         backgroundColor: COLORS.primary,
         paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
         alignSelf: 'flex-start',
-        marginBottom: 8
+        marginBottom: 6
     },
     categoryText: { color: COLORS.white, fontSize: 10, fontWeight: '800' },
-    newsTitle: { color: COLORS.white, fontSize: 16, fontWeight: '700', lineHeight: 22 },
+    newsTitle: { color: COLORS.white, fontSize: 15, fontWeight: '700', lineHeight: 20 },
     scheduleCard: {
         flexDirection: 'row',
         backgroundColor: COLORS.white,
@@ -327,7 +390,12 @@ const styles = StyleSheet.create({
         padding: 16,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: COLORS.gray100
+        borderColor: COLORS.gray100,
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 2
     },
     scheduleTime: {
         alignItems: 'center',
@@ -337,10 +405,12 @@ const styles = StyleSheet.create({
         borderRightColor: COLORS.gray100,
         width: 60
     },
-    timeDay: { fontSize: 20, fontWeight: '800', color: COLORS.primary },
-    timeMonth: { fontSize: 10, fontWeight: '700', color: COLORS.gray500, textTransform: 'uppercase' },
+    timeDay: { fontSize: 22, fontWeight: '900', color: COLORS.primary },
+    timeMonth: { fontSize: 11, fontWeight: '700', color: COLORS.gray500, textTransform: 'uppercase' },
     scheduleContent: { flex: 1, paddingLeft: 16 },
-    scheduleTitle: { fontSize: 14, fontWeight: '700', color: COLORS.gray800, marginBottom: 4 },
+    scheduleTitle: { fontSize: 15, fontWeight: '800', color: COLORS.gray900, marginBottom: 4 },
     scheduleMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    metaText: { fontSize: 12, color: COLORS.gray500 }
+    metaText: { fontSize: 12, color: COLORS.gray500 },
+    emptyCard: { width: width - 48, height: 100, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.gray50, borderRadius: 16, borderStyle: 'dashed', borderWidth: 1, borderColor: COLORS.gray200 },
+    emptyText: { color: COLORS.gray400, fontSize: 13 }
 });

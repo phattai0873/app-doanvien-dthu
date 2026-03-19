@@ -194,17 +194,31 @@ class QuizService {
 
     static async getAttempts(examId, { search, unionBranchId, page, limit } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
+        const { UnionCell } = require('../models');
+
+        const memberWhere = {};
+        if (search) {
+            const { buildSearchCondition } = require('../utils/paginate');
+            Object.assign(memberWhere, buildSearchCondition(search, ['fullName', 'memberCode']));
+        }
+
+        const cellInclude = {
+            model: UnionCell,
+            attributes: ['id', 'name', 'unionBranchId'],
+            required: !!unionBranchId
+        };
+        if (unionBranchId) {
+            cellInclude.where = { unionBranchId };
+        }
 
         const result = await QuizAttempt.findAndCountAll({
             where: { examId },
             include: [{
                 model: UnionMember,
-                attributes: ['id', 'fullName', 'memberCode', 'unionBranchId'],
-                where: {
-                    ...(search && buildSearchCondition(search, ['fullName', 'memberCode'])),
-                    ...(unionBranchId && { unionBranchId })
-                },
-                required: true // Bắt buộc phải khớp filter member
+                attributes: ['id', 'fullName', 'memberCode'],
+                where: memberWhere,
+                required: true,
+                include: [cellInclude]
             }],
             order: [['score', 'DESC']],
             limit: l,

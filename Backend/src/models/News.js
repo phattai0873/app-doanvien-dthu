@@ -54,7 +54,14 @@ const News = sequelize.define('News', {
     }
 }, {
     tableName: 'news',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['categoryId'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['unionCellId'] },
+        { fields: ['createdAt'] }
+    ]
 });
 
 module.exports = News;

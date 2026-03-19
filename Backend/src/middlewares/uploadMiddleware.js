@@ -103,13 +103,13 @@ const imageFileFilter = (req, file, cb) => {
 
 // Bộ lọc file - cho phép văn bản
 const documentFileFilter = (req, file, cb) => {
-    const allowedExtensions = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt/;
+    const allowedExtensions = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt|jpg|jpeg|png|webp/;
     const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
     
     if (extname) {
         cb(null, true);
     } else {
-        cb(new Error('Chỉ chấp nhận file văn bản (pdf, doc, docx, xls, xlsx, ppt, pptx, zip, rar, txt)'));
+        cb(new Error('Chỉ chấp nhận file văn bản và hình ảnh (pdf, doc, docx, xls, xlsx, ppt, pptx, zip, rar, txt, jpg, jpeg, png, webp)'));
     }
 };
 

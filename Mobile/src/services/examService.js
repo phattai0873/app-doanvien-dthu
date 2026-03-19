@@ -31,9 +31,9 @@ export const examService = {
         return res;
     },
 
-    // [POST] /api/quiz-attempts
+    // [POST] /api/quiz/:id/submit
     submitAttempt: async (id, attemptData) => {
-        const res = await apiClient.post(`/quiz/exams/${id}/submit`, attemptData);
+        const res = await apiClient.post(`/api/quiz/${id}/submit`, attemptData);
         return res;
     },
 

@@ -75,7 +75,14 @@ const Meeting = sequelize.define('Meeting', {
     }
 }, {
     tableName: 'meetings',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['meetingTime'] },
+        { fields: ['level'] },
+        { fields: ['organizerBranchId'] },
+        { fields: ['organizerCellId'] }
+    ]
 });
 
 module.exports = Meeting;

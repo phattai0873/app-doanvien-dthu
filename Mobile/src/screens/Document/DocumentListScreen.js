@@ -66,6 +66,11 @@ export const DocumentListScreen = ({ onNavigate }) => {
     // Filter documents by selected category
     const filteredDocs = allDocuments.filter(doc => doc.categoryId === selectedCategory?.id);
 
+    const isImage = (path) => {
+        if (!path) return false;
+        return /\.(jpg|jpeg|png|webp|gif)$/i.test(path);
+    };
+
     const renderCategoryItem = ({ item }) => (
         <TouchableOpacity
             style={styles.categoryCard}
@@ -92,11 +97,14 @@ export const DocumentListScreen = ({ onNavigate }) => {
             onLongPress={() => onNavigate && onNavigate('document_detail', { id: item.id })}
             activeOpacity={0.7}
         >
-            <View style={[styles.fileIconBox, { backgroundColor: item.filePath?.endsWith('.pdf') ? '#FEF2F2' : '#EFF6FF' }]}>
+            <View style={[
+                styles.fileIconBox, 
+                { backgroundColor: isImage(item.filePath) ? '#F0FDF4' : (item.filePath?.endsWith('.pdf') ? '#FEF2F2' : '#EFF6FF') }
+            ]}>
                 <Icon
-                    name={item.filePath?.endsWith('.pdf') ? 'FileText' : 'File'}
+                    name={isImage(item.filePath) ? 'Image' : (item.filePath?.endsWith('.pdf') ? 'FileText' : 'File')}
                     size={24}
-                    color={item.filePath?.endsWith('.pdf') ? '#EF4444' : '#3B82F6'}
+                    color={isImage(item.filePath) ? '#10B981' : (item.filePath?.endsWith('.pdf') ? '#EF4444' : '#3B82F6')}
                 />
             </View>
             <View style={styles.docInfo}>

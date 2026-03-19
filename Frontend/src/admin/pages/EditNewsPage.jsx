@@ -148,7 +148,6 @@ export default function EditNewsPage() {
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nội dung chi tiết <span className="text-red-500">*</span></label>
                             <NewsEditor
-                                key={`editor-${id}-${form.content ? form.content.length : 0}`}
                                 initialContent={form.content}
                                 onChange={(html) => setForm(f => ({ ...f, content: html }))}
                             />

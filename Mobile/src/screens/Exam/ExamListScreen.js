@@ -9,12 +9,14 @@ import {
     ImageBackground,
     ScrollView,
     Alert,
-    Platform
+    Platform,
+    Image
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { examService } from '../../services/examService';
 import { authService } from '../../services/authService';
+import { API_BASE_URL } from '../../services/api';
 
 export const ExamListScreen = ({ onNavigate }) => {
     const [exams, setExams] = useState([]);
@@ -83,6 +85,10 @@ export const ExamListScreen = ({ onNavigate }) => {
         const { bg, text, label } = getStatusStyle(currentStatus);
         const isOngoing = currentStatus === 'ONGOING';
         const isUpcoming = currentStatus === 'UPCOMING';
+        
+        if (item.thumbnail) {
+            console.log(`[ExamList] Title: ${item.title}, Thumbnail: ${API_BASE_URL}${item.thumbnail}`);
+        }
 
         return (
             <TouchableOpacity
@@ -105,7 +111,16 @@ export const ExamListScreen = ({ onNavigate }) => {
 
                 <View style={styles.cardBody}>
                     <View style={styles.imagePlaceholder}>
-                        <Icon name="Trophy" size={32} color={isOngoing ? COLORS.primary : COLORS.gray400} />
+                        {item.thumbnail ? (
+                            <Image 
+                                source={{ uri: `${API_BASE_URL.replace(/\/$/, '')}${item.thumbnail}` }} 
+                                style={styles.quizThumbnail}
+                                resizeMode="cover"
+                                onError={(e) => console.log(`[ExamList] Image Load Error: ${e.nativeEvent.error} for ${item.title}`)}
+                            />
+                        ) : (
+                            <Icon name="Trophy" size={32} color={isOngoing ? COLORS.primary : COLORS.gray400} />
+                        )}
                     </View>
 
                     <View style={styles.cardInfo}>
@@ -152,36 +167,7 @@ export const ExamListScreen = ({ onNavigate }) => {
 
     return (
         <View style={styles.container}>
-            {/* Premium Header Section */}
-            <View style={styles.header}>
-                <View style={styles.headerTop}>
-                    <View>
-                        <Text style={styles.greeting}>Chào bạn,</Text>
-                        <Text style={styles.headerTitle}>Hệ thống Trắc nghiệm</Text>
-                    </View>
-                    <TouchableOpacity style={styles.scoreBox}>
-                        <Icon name="Award" size={20} color={COLORS.primary} />
-                        <Text style={styles.scoreText}>{userStats.totalPoints} pts</Text>
-                    </TouchableOpacity>
-                </View>
 
-                <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{exams.filter(e => (e.computedStatus || e.status) === 'ONGOING').length}</Text>
-                        <Text style={styles.statLabel}>Đang mở</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{userStats.quizCount}</Text>
-                        <Text style={styles.statLabel}>Đã tham gia</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{userStats.rank}</Text>
-                        <Text style={styles.statLabel}>Hạng</Text>
-                    </View>
-                </View>
-            </View>
 
             {/* Content Section */}
             <View style={styles.contentBody}>
@@ -333,7 +319,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#F1F5F9'
+        borderColor: '#F1F5F9',
+        overflow: 'hidden'
+    },
+    quizThumbnail: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 18
     },
     cardInfo: { flex: 1, marginLeft: 16 },
     examTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.gray900, lineHeight: 22 },

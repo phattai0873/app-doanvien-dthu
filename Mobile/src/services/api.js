@@ -14,7 +14,7 @@ const REFRESH_TOKEN_KEY = 'refresh_token';
 // Android Emulator dùng 10.0.2.2 để gọi localhost máy tính
 // iOS Emulator hoặc thiết bị thực dùng localhost/IP
 // Dùng IP máy tính của bạn để thiết bị thực (Expo Go) có thể kết nối được
-const DEV_HOST = '172.16.231.2'; // Đổi lại 10.0.2.2 khi dùng Android Emulator
+const DEV_HOST = '172.20.212.183'; // Đổi lại 10.0.2.2 khi dùng Android Emulator
 export const API_BASE_URL = `http://${DEV_HOST}:5000`;
 
 const apiClient = axios.create({
@@ -24,6 +24,17 @@ const apiClient = axios.create({
         'Content-Type': 'application/json',
     },
 });
+
+// Request interceptor để log request
+apiClient.interceptors.request.use(
+    async (config) => {
+        console.log(`[API-Request] ${config.method?.toUpperCase()} ${config.url}`);
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 // Lưu token bền vững vào AsyncStorage
 export const setAuthTokens = async (accessToken, refreshToken) => {

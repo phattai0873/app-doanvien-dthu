@@ -11,12 +11,14 @@ import {
     TextInput,
     Image,
     Dimensions,
-    Clipboard
+    Clipboard,
+    Platform
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { volunteerService } from '../../services/volunteerService';
 import { authService } from '../../services/authService';
+import QRScannerModal from '../../components/QRScannerModal';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +32,7 @@ export const VolunteerListScreen = () => {
     const [selectedActivity, setSelectedActivity] = useState(null);
     const [checkinCode, setCheckinCode] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [qrScannerVisible, setQrScannerVisible] = useState(false);
 
     // Admin QR Modal States
     const [isAdminQRVisible, setAdminQRVisible] = useState(false);
@@ -53,6 +56,7 @@ export const VolunteerListScreen = () => {
                 // Fetch activities for the branch (Faculty) plus School-wide ones
                 const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
                 if (branchId) fetchParams.unionBranchId = branchId;
+                if (member.unionCellId) fetchParams.unionCellId = member.unionCellId;
             }
 
             const acts = await volunteerService.getActivities(fetchParams);
@@ -89,25 +93,41 @@ export const VolunteerListScreen = () => {
     }, [isAdminQRVisible, adminActivity?.checkinCodeExpiresAt]);
 
     const handleRegister = (activity) => {
-        Alert.alert(
-            'Đăng ký tham gia',
-            `Đồng chí muốn đăng ký tham gia hoạt động "${activity.title}"?`,
-            [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Đăng ký',
-                    onPress: async () => {
-                        try {
-                            await volunteerService.register(activity.id);
-                            Alert.alert('Thành công', 'Đã gửi yêu cầu đăng ký tham gia hoặc hệ thống đã tự duyệt hồ sơ.');
-                            fetchData();
-                        } catch (e) {
-                            Alert.alert('Lỗi', e?.response?.data?.message || 'Đăng ký thất bại. Bạn đã đăng ký hoạt động này rồi.');
-                        }
-                    }
+        console.log('[Mobile] Registering for activity:', activity.id, activity.title);
+        
+        const doRegister = async () => {
+            console.log('[Mobile] User confirmed registration, calling API...');
+            try {
+                const response = await volunteerService.register(activity.id);
+                console.log('[Mobile] Registration API Success:', response);
+                if (Platform.OS === 'web') {
+                    alert('Thành công: Đã gửi yêu cầu đăng ký tham gia hoặc hệ thống đã tự duyệt hồ sơ.');
+                } else {
+                    Alert.alert('Thành công', 'Đã gửi yêu cầu đăng ký tham gia hoặc hệ thống đã tự duyệt hồ sơ.');
                 }
-            ]
-        );
+                fetchData();
+            } catch (e) {
+                console.error('[Mobile] Registration API Error:', e);
+                const msg = e?.message || e?.response?.data?.message || 'Đăng ký thất bại.';
+                if (Platform.OS === 'web') alert('Lỗi: ' + msg);
+                else Alert.alert('Lỗi', msg);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`Đồng chí muốn đăng ký tham gia hoạt động "${activity.title}"?`)) {
+                doRegister();
+            }
+        } else {
+            Alert.alert(
+                'Đăng ký tham gia',
+                `Đồng chí muốn đăng ký tham gia hoạt động "${activity.title}"?`,
+                [
+                    { text: 'Hủy', style: 'cancel' },
+                    { text: 'Đăng ký', onPress: doRegister }
+                ]
+            );
+        }
     };
 
     const openCheckinModal = (activity) => {
@@ -139,7 +159,28 @@ export const VolunteerListScreen = () => {
         } catch (error) {
             Alert.alert(
                 'Lỗi điểm danh',
-                error?.response?.data?.message || 'Mã điểm danh không đúng hoặc đã hết hạn.'
+                error?.message || 'Mã điểm danh không đúng hoặc đã hết hạn.'
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleQRScan = async (code) => {
+        setQrScannerVisible(false);
+        setCheckinCode(code);
+        
+        // Tự động submmit sau khi quét được mã
+        setIsSubmitting(true);
+        try {
+            await volunteerService.checkIn(selectedActivity.id, code);
+            Alert.alert('Thành công', 'Đã lưu điểm danh cho hoạt động này.');
+            setCheckinModalVisible(false);
+            fetchData();
+        } catch (error) {
+            Alert.alert(
+                'Lỗi điểm danh',
+                error?.message || 'Mã điểm danh không đúng hoặc đã hết hạn.'
             );
         } finally {
             setIsSubmitting(false);
@@ -178,12 +219,17 @@ export const VolunteerListScreen = () => {
         const registeredCount = item.participantCount || (item.ActivityParticipants ? item.ActivityParticipants.length : 0);
         const progress = Math.min((registeredCount / maxParticipants) * 100, 100);
         
-        const isApproved = item.status === 'APPROVED';
-        const isInProgress = item.status === 'IN_PROGRESS';
+        const isApproved = item.status === 'APPROVED' || item.status === 'approved';
+        const isInProgress = item.status === 'IN_PROGRESS' || item.status === 'in_progress';
         const isOpen = isApproved || isInProgress;
 
         const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN';
-        const isRegistered = item.ActivityParticipants?.some(p => p.memberId === user?.UnionMember?.id);
+        const memberIdToCheck = user?.UnionMember?.id || user?.id;
+        const myParticipant = item.ActivityParticipants?.find(p => p.memberId === memberIdToCheck);
+        const isRegistered = !!myParticipant;
+        const isCheckedIn = myParticipant?.attendanceStatus === 'PRESENT';
+
+        console.log(`[Mobile-UI] Activity: ${item.title}, Status: ${item.status}, isOpen: ${isOpen}, isRegistered: ${isRegistered}, isCheckedIn: ${isCheckedIn}`);
 
         return (
             <View style={styles.card}>
@@ -237,18 +283,18 @@ export const VolunteerListScreen = () => {
                 <TouchableOpacity
                     style={[
                         styles.actionBtn, 
-                        (!isOpen || (isApproved && isRegistered)) && styles.disabledBtn,
-                        isInProgress && styles.checkinBtn
+                        (!isOpen || (isApproved && isRegistered) || isCheckedIn) && styles.disabledBtn,
+                        (isInProgress && !isCheckedIn) && styles.checkinBtn
                     ]}
-                    disabled={!isOpen || (isApproved && isRegistered)}
+                    disabled={!isOpen || (isApproved && isRegistered) || isCheckedIn}
                     onPress={() => {
                         if (isInProgress) openCheckinModal(item);
                         else handleRegister(item);
                     }}
                 >
-                    <Icon name={isInProgress ? 'Scan' : (isRegistered && !isInProgress ? 'Check' : 'UserPlus')} size={18} color="#FFF" style={{ marginRight: 8 }} />
+                    <Icon name={isCheckedIn ? 'CheckCircle' : (isInProgress ? 'Scan' : (isRegistered && !isInProgress ? 'Check' : 'UserPlus'))} size={18} color="#FFF" style={{ marginRight: 8 }} />
                     <Text style={styles.actionBtnText}>
-                        {isInProgress ? 'ĐIỂM DANH THAM GIA' : (isApproved ? (isRegistered ? 'ĐÃ ĐĂNG KÝ' : 'ĐĂNG KÝ NGAY') : 'HẾT HẠN / ĐÃ ĐÓNG')}
+                        {isCheckedIn ? 'ĐÃ ĐIỂM DANH' : (isInProgress ? 'ĐIỂM DANH THAM GIA' : (isApproved ? (isRegistered ? 'ĐÃ ĐĂNG KÝ' : 'ĐĂNG KÝ NGAY') : 'HẾT HẠN / ĐÃ ĐÓNG'))}
                     </Text>
                 </TouchableOpacity>
 
@@ -304,6 +350,20 @@ export const VolunteerListScreen = () => {
                         </View>
                         <Text style={styles.inputModalTitle}>Điểm danh Hoạt động</Text>
                         <Text style={styles.inputModalSub}>{selectedActivity?.title}</Text>
+                        
+                        <TouchableOpacity 
+                            style={styles.qrScanBtn} 
+                            onPress={() => setQrScannerVisible(true)}
+                        >
+                            <Icon name="QrCode" size={24} color="#FFF" />
+                            <Text style={styles.qrScanBtnText}>Quét mã QR</Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.dividerRow}>
+                            <View style={styles.line} />
+                            <Text style={styles.dividerText}>Hoặc nhập mã</Text>
+                            <View style={styles.line} />
+                        </View>
                         
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Nhập mã xác nhận (6 ký tự)</Text>
@@ -398,6 +458,12 @@ export const VolunteerListScreen = () => {
                     </View>
                 </View>
             </Modal>
+
+            <QRScannerModal
+                visible={qrScannerVisible}
+                onClose={() => setQrScannerVisible(false)}
+                onScan={handleQRScan}
+            />
         </View>
     );
 };
@@ -405,6 +471,38 @@ export const VolunteerListScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    qrScanBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: COLORS.primary || '#da251d',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginVertical: 15,
+        width: '100%',
+        gap: 10,
+    },
+    qrScanBtnText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    dividerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 10,
+        gap: 10,
+    },
+    line: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E5E7EB',
+    },
+    dividerText: {
+        fontSize: 12,
+        color: '#9CA3AF',
+        fontWeight: '500',
+    },
     listContent: { padding: 16, paddingBottom: 100 },
     listHeader: { marginBottom: 20 },
     headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1F2937' },

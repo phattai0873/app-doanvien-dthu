@@ -11,6 +11,7 @@ const newsController = {
         const isSuperAdmin = roles.includes('SUPER_ADMIN');
         const isBranchAdmin = roles.includes('BRANCH_ADMIN');
         const isCellAdmin = roles.includes('CELL_ADMIN');
+        const isAdmin = isSuperAdmin || isBranchAdmin || isCellAdmin;
 
         if (!isSuperAdmin) {
             if (isBranchAdmin && req.user.unionBranchId) {
@@ -18,6 +19,11 @@ const newsController = {
             } else if (isCellAdmin && req.user.unionCellId) {
                 unionCellId = req.user.unionCellId;
             }
+        }
+
+        // Nếu không phải Admin, chỉ được xem bài đã xuất bản
+        if (!isAdmin) {
+            status = 'PUBLISHED';
         }
 
         const result = await NewsService.getAll({ status, categoryId, level, unionBranchId, unionCellId, search, page, limit });

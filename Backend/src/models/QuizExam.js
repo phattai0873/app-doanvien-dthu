@@ -61,7 +61,15 @@ const QuizExam = sequelize.define('QuizExam', {
     }
 }, {
     tableName: 'quiz_exams',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['level'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['unionCellId'] },
+        { fields: ['startDate'] },
+        { fields: ['endDate'] }
+    ]
 });
 
 module.exports = QuizExam;

@@ -36,6 +36,7 @@
     min-height: 280px;
     outline: none;
     padding: 0 1rem;
+    caret-color: #000;
   }
 
   .ProseMirror p {

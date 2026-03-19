@@ -4,17 +4,27 @@ const ErrorResponse = require('../utils/errorResponse');
 
 const activityController = {
     getActivities: asyncHandler(async (req, res) => {
-        let { upcoming, unionBranchId, search, page, limit, level, status } = req.query;
-        
+        let { upcoming, unionBranchId, unionCellId, search, page, limit, level, status } = req.query;
+
         // Phân quyền scoping
         const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin && userUnionMember) {
+            // Lấy ID chi đoàn và khoa từ hồ sơ đoàn viên gắn kèm User
+            const memberUnionCellId = userUnionMember.unionCellId;
+            const memberUnionBranchId = userUnionMember.unionBranchId || userUnionMember.UnionCell?.unionBranchId;
+            
+            if (memberUnionBranchId) unionBranchId = memberUnionBranchId;
+            if (memberUnionCellId) unionCellId = memberUnionCellId;
         }
 
-        const result = await ActivityService.getAll({ upcoming, unionBranchId, search, page, limit, level, status });
+        console.log(`[Controller-getActivities] Filter -> Branch: ${unionBranchId}, Cell: ${unionCellId}, Level: ${level}`);
+
+        const result = await ActivityService.getAll({
+            upcoming, unionBranchId, unionCellId,
+            search, page, limit, level, status
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -29,7 +39,7 @@ const activityController = {
         const memberId = req.user.UnionMember?.id;
         console.log(`[Controller] User: ${req.user.id}, Member: ${memberId}`);
         if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
-        
+
         const participant = await ActivityService.registerParticipant(req.params.id, memberId);
         res.status(201).json({ success: true, data: participant });
     }),
@@ -47,7 +57,7 @@ const activityController = {
 
     createActivity: asyncHandler(async (req, res) => {
         const data = req.body;
-        
+
         // Tự động gán khoa nếu là Admin khoa
         const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
@@ -85,7 +95,7 @@ const activityController = {
     checkIn: asyncHandler(async (req, res) => {
         const memberId = req.user.UnionMember?.id;
         if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
-        
+
         const { checkinCode } = req.body;
         const result = await ActivityService.checkIn(req.params.id, memberId, checkinCode);
         res.status(200).json({ success: true, data: result });

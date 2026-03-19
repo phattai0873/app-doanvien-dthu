@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -15,17 +15,9 @@ import {
     Link2, ImageIcon, Undo2, Redo2, RemoveFormatting
 } from 'lucide-react';
 
-// ===================================================================
-// Khai báo extensions ở cấp MODULE (ngoài component) - chỉ tạo 1 lần.
-// Đây là nguyên nhân gốc của lỗi "Duplicate extension names":
-// Nếu định nghĩa trong component, mỗi render tạo instance mới → Tiptap báo trùng.
-// ===================================================================
 const EDITOR_EXTENSIONS = [
     StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        // StarterKit v3 đã tích hợp sẵn Link và Underline.
-        // Phải TẮT chúng ở đây trước khi dùng bản cấu hình riêng bên dưới,
-        // nếu không Tiptap sẽ báo "Duplicate extension names".
         link: false,
         underline: false,
     }),
@@ -51,20 +43,32 @@ const ToolBtn = ({ onClick, active, title, children, disabled }) => (
 
 const Divider = () => <div className="w-px h-5 bg-gray-200 mx-0.5" />;
 
-/**
- * NewsEditor
- * - initialContent: HTML string truyền vào lúc mount (không đồng bộ sau này)
- * - onChange: callback khi nội dung thay đổi
- * - Dùng key từ component cha để force remount khi cần load content mới
- */
 export default function NewsEditor({ initialContent, onChange }) {
+    // Dùng ref để chỉ nạp dữ liệu ban đầu 1 lần duy nhất, tránh re-render gây mất trỏ chuột
+    const isLoadedRef = useRef(false);
+
     const editor = useEditor({
         extensions: EDITOR_EXTENSIONS,
         content: initialContent || '',
+        immediatelyRender: false,
         onUpdate: ({ editor }) => {
-            onChange(editor.getHTML());
+            const html = editor.getHTML();
+            onChange(html);
+        },
+        editorProps: {
+            attributes: {
+                class: 'ProseMirror p-4 outline-none focus:outline-none min-h-[300px]',
+            },
         },
     });
+
+    // Chỉ nạp nội dung khi editor vừa khởi tạo xong
+    useEffect(() => {
+        if (editor && initialContent && !isLoadedRef.current) {
+            editor.commands.setContent(initialContent);
+            isLoadedRef.current = true;
+        }
+    }, [editor, initialContent]);
 
     const handleInsertImage = useCallback(async () => {
         if (!editor) return;
@@ -131,8 +135,8 @@ export default function NewsEditor({ initialContent, onChange }) {
             </div>
 
             {/* Vùng soạn thảo */}
-            <div className="min-h-[300px] cursor-text">
-                <EditorContent editor={editor} className="outline-none" />
+            <div className="min-h-[300px] cursor-text" onClick={() => editor?.commands.focus()}>
+                <EditorContent editor={editor} />
             </div>
         </div>
     );

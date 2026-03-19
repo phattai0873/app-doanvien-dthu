@@ -4,13 +4,22 @@ const DocumentService = require('../services/documentService');
 const documentController = {
     getDocuments: asyncHandler(async (req, res) => {
         let { search, categoryId, status, page, limit, unionBranchId } = req.query;
-        
-        // Scoping for non-admins
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
+
+        const roles = req.user?.Roles?.map(r => r.code) || [];
+        const isSuperAdmin = roles.includes('SUPER_ADMIN');
+        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
+        const isCellAdmin = roles.includes('CELL_ADMIN');
+        const isAdmin = isSuperAdmin || isBranchAdmin || isCellAdmin;
+
         if (!isSuperAdmin) {
             const member = req.user?.UnionMember;
             const branchId = member?.unionBranchId || member?.UnionCell?.unionBranchId;
             if (branchId) unionBranchId = branchId;
+
+            // Nếu không phải Admin, chỉ được xem văn bản đã công khai
+            if (!isAdmin) {
+                status = 'PUBLISH';
+            }
         }
 
         const result = await DocumentService.getAll({ search, categoryId, status, page, limit, unionBranchId });
@@ -47,7 +56,7 @@ const documentController = {
         const categories = await DocumentService.getCategories();
         res.status(200).json({ success: true, data: categories });
     }),
-    
+
     createCategory: asyncHandler(async (req, res) => {
         const category = await DocumentService.createCategory(req.body);
         res.status(201).json({ success: true, data: category });

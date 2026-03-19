@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const documentController = require('../controllers/documentController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, loadUser } = require('../middlewares/authMiddleware');
 const { uploadDocument } = require('../middlewares/uploadMiddleware');
 
 router.get('/categories', documentController.getCategories);
-router.get('/', documentController.getDocuments);
+router.get('/', loadUser, documentController.getDocuments);
 router.get('/:id', documentController.getDocumentById);
 
 // Protected routes

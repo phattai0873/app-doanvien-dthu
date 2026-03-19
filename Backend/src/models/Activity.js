@@ -78,7 +78,14 @@ const Activity = sequelize.define('Activity', {
     }
 }, {
     tableName: 'activities',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['startDate'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['category'] },
+        { fields: ['type'] }
+    ]
 });
 
 module.exports = Activity;

@@ -30,6 +30,10 @@ const protect = async (req, res, next) => {
                 ]
             });
 
+            if (req.user) {
+                console.log(`[Auth-Debug] User: ${req.user.username}, MemberID: ${req.user.UnionMember?.id}, Method: ${req.method}, Path: ${req.originalUrl}`);
+            }
+
             if (!req.user) {
                 return res.status(401).json({ success: false, message: 'Người dùng không tồn tại' });
             }
@@ -66,4 +70,30 @@ const authorize = (...roles) => {
     };
 };
 
-module.exports = { protect, authorize };
+const loadUser = async (req, res, next) => {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const { User, Role, UnionMember, UnionCell } = require('../models');
+            req.user = await User.findByPk(decoded.id, {
+                attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
+                include: [
+                    { model: Role, attributes: ['id', 'code', 'name'] },
+                    { 
+                        model: UnionMember, 
+                        attributes: ['id', 'fullName', 'avatar', 'unionCellId', 'status'],
+                        include: [{ model: UnionCell, attributes: ['id', 'unionBranchId'] }]
+                    }
+                ]
+            });
+        } catch (error) {
+            // Không chặn request, chỉ log lỗi nhẹ nếu cần
+            console.log('LoadUser Info:', error.message);
+        }
+    }
+    next();
+};
+
+module.exports = { protect, authorize, loadUser };

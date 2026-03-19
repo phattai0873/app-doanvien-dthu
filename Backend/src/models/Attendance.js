@@ -20,7 +20,10 @@ const Attendance = sequelize.define('Attendance', {
     }
 }, {
     tableName: 'attendance',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] }
+    ]
 });
 
 module.exports = Attendance;

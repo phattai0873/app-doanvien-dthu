@@ -32,6 +32,14 @@ const ICON_SET = {
 
 const MODULES = [
     { 
+        id: 'meeting_list', 
+        label: 'Sinh hoạt Chi đoàn', 
+        desc: 'Số tay sinh hoạt & Danh sách',
+        pngIcon: ICON_SET.sinhhoat, 
+        color: '#da251d', 
+        bg: '#FEE2E2' 
+    },
+    { 
         id: 'volunteer_list', 
         label: 'Hoạt động tình nguyện', 
         desc: 'Hoạt động xã hội & cộng đồng',

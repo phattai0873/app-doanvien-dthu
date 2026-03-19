@@ -133,7 +133,7 @@ export default function UsersPage() {
         mutationFn: userMgmtApi.toggleLock,
         onSuccess: (res) => {
             qc.invalidateQueries(['users']);
-            toast.success(res.data.data.isLocked ? '🔒 Đã khóa tài khoản' : '🔓 Đã mở khóa tài khoản');
+            toast.success(res.data.data.isLocked ? '✅ Đã mở khóa tài khoản' : '🔒 Đã khóa tài khoản');
         },
         onError: e => toast.error(e.response?.data?.message || 'Lỗi!')
     });
