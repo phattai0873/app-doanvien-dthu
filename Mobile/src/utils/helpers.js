@@ -95,6 +95,20 @@ export const decodeHtml = (html) => {
         '&ndash;': '–',
         '&mdash;': '—'
     };
-
     return text.replace(/&[a-z0-9#]+;/gi, (match) => entities[match] || match).trim();
+};
+
+/**
+ * Format số lượt xem (Rút gọn)
+ * @param {number} views - Lượt xem
+ * @returns {string} - Lượt xem đã được format (k, tr)
+ */
+export const formatViews = (views) => {
+    if (!views || views < 1000) return String(views || 0);
+    if (views < 1000000) {
+        const kValue = views / 1000;
+        return (kValue % 1 === 0 ? kValue.toFixed(0) : kValue.toFixed(1)).replace('.0', '') + 'k';
+    }
+    const trValue = views / 1000000;
+    return (trValue % 1 === 0 ? trValue.toFixed(0) : trValue.toFixed(1)).replace('.0', '') + ' tr';
 };

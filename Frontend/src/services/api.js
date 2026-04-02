@@ -103,6 +103,8 @@ export const userMgmtApi = {
     toggleActive: (id) => api.patch(`/users/${id}/toggle-active`),
     resetPassword: (id, newPassword) => api.patch(`/users/${id}/reset-password`, { newPassword }),
     delete: (id) => api.delete(`/users/${id}`),
+    restore: (id) => api.patch(`/users/${id}/restore`),
+    forceDelete: (id) => api.delete(`/users/${id}/force`),
 };
 
 // ─── Đoàn viên ──────────────────────────────────────────
@@ -112,6 +114,8 @@ export const memberApi = {
     create: (data) => api.post('/members', data),
     update: (id, data) => api.put(`/members/${id}`, data),
     delete: (id) => api.delete(`/members/${id}`),
+    restore: (id) => api.patch(`/members/${id}/restore`),
+    forceDelete: (id) => api.delete(`/members/${id}/force`),
     approve: (id) => api.patch(`/members/${id}/approve`),
     reject: (id) => api.patch(`/members/${id}/reject`),
     assignPosition: (id, data) => api.post(`/members/${id}/positions`, data),
@@ -129,6 +133,8 @@ export const branchApi = {
     create: (data) => api.post('/branches', data),
     update: (id, data) => api.put(`/branches/${id}`, data),
     delete: (id) => api.delete(`/branches/${id}`),
+    restore: (id) => api.patch(`/branches/${id}/restore`),
+    forceDelete: (id) => api.delete(`/branches/${id}/force`),
 };
 
 export const cellApi = {
@@ -136,6 +142,8 @@ export const cellApi = {
     create: (data) => api.post('/cells', data),
     update: (id, data) => api.put(`/cells/${id}`, data),
     delete: (id) => api.delete(`/cells/${id}`),
+    restore: (id) => api.patch(`/cells/${id}/restore`),
+    forceDelete: (id) => api.delete(`/cells/${id}/force`),
 };
 
 // ─── Hoạt động ──────────────────────────────────────────
@@ -145,6 +153,8 @@ export const activityApi = {
     create: (data) => api.post('/activities', data),
     update: (id, data) => api.put(`/activities/${id}`, data),
     delete: (id) => api.delete(`/activities/${id}`),
+    restore: (id) => api.patch(`/activities/${id}/restore`),
+    forceDelete: (id) => api.delete(`/activities/${id}/force`),
     approve: (id) => api.patch(`/activities/${id}/approve`),
     register: (id) => api.post(`/activities/${id}/register`),
     updateParticipant: (id, memberId, data) => api.patch(`/activities/${id}/participants/${memberId}`, data),
@@ -166,6 +176,8 @@ export const newsApi = {
     publish: (id) => api.patch(`/news/${id}/publish`),
     unpublish: (id) => api.patch(`/news/${id}/unpublish`),
     delete: (id) => api.delete(`/news/${id}`),
+    restore: (id) => api.patch(`/news/${id}/restore`),
+    forceDelete: (id) => api.delete(`/news/${id}/force`),
     uploadEditorImage: (formData) => api.post('/news/upload-image', formData, multipartConfig),
     // Chuyên mục
     getCategories: (params) => api.get('/news/categories', { params }),
@@ -173,6 +185,8 @@ export const newsApi = {
     createCategory: (data) => api.post('/news/categories', data),
     updateCategory: (id, data) => api.put(`/news/categories/${id}`, data),
     deleteCategory: (id) => api.delete(`/news/categories/${id}`),
+    restoreCategory: (id) => api.patch(`/news/categories/${id}/restore`),
+    forceDeleteCategory: (id) => api.delete(`/news/categories/${id}/force`),
 };
 
 // ─── Thi & Khảo sát ─────────────────────────────────────
@@ -182,6 +196,8 @@ export const quizApi = {
     create: (formData) => api.post('/quiz', formData, multipartConfig),
     update: (id, formData) => api.put(`/quiz/${id}`, formData, multipartConfig),
     delete: (id) => api.delete(`/quiz/${id}`),
+    restore: (id) => api.patch(`/quiz/${id}/restore`),
+    forceDelete: (id) => api.delete(`/quiz/${id}/force`),
     getAttempts: (id, params) => api.get(`/quiz/${id}/attempts`, { params }),
 };
 
@@ -190,7 +206,23 @@ export const feeApi = {
     getAll: (params) => api.get('/fees', { params }),
     create: (data) => api.post('/fees', data),
     getUnpaid: (params) => api.get('/fees/unpaid', { params }),
+    update: (id, data) => api.put(`/fees/${id}`, data),
     delete: (id) => api.delete(`/fees/${id}`),
+    // Phê duyệt & Giao dịch
+    getPending: (params) => api.get('/fees/pending', { params }),
+    approve: (id) => api.post(`/fees/approve/${id}`),
+    reject: (id, reason) => api.post(`/fees/reject/${id}`, { reason }),
+    // Ngân hàng
+    getBankSetting: () => api.get('/fees/bank-setting'),
+    updateBankSetting: (data) => api.put('/fees/bank-setting', data),
+};
+
+export const feeTypeApi = {
+    getAll: (params) => api.get('/fee-types', { params }),
+    getById: (id) => api.get(`/fee-types/${id}`),
+    create: (data) => api.post('/fee-types', data),
+    update: (id, data) => api.put(`/fee-types/${id}`, data),
+    delete: (id) => api.delete(`/fee-types/${id}`),
 };
 
 // ─── Cuộc họp ───────────────────────────────────────────
@@ -200,6 +232,8 @@ export const meetingApi = {
     create: (data) => api.post('/meetings', data),
     update: (id, data) => api.put(`/meetings/${id}`, data),
     delete: (id) => api.delete(`/meetings/${id}`),
+    restore: (id) => api.patch(`/meetings/${id}/restore`),
+    forceDelete: (id) => api.delete(`/meetings/${id}/force`),
     updateStatus: (id, status) => api.patch(`/meetings/${id}/status`, { status }),
     getAttendance: (id) => api.get(`/meetings/${id}/attendance`),
     checkIn: (id, data) => api.post(`/meetings/${id}/check-in`, data),
@@ -213,12 +247,16 @@ export const documentApi = {
     create: (data) => api.post('/documents', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     update: (id, data) => api.put(`/documents/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     delete: (id) => api.delete(`/documents/${id}`),
+    restore: (id) => api.patch(`/documents/${id}/restore`),
+    forceDelete: (id) => api.delete(`/documents/${id}/force`),
     toggleStatus: (id) => api.patch(`/documents/${id}/toggle-status`),
     // Chuyên mục
     getCategories: () => api.get('/documents/categories'),
     createCategory: (data) => api.post('/documents/categories', data),
     updateCategory: (id, data) => api.put(`/documents/categories/${id}`, data),
     deleteCategory: (id) => api.delete(`/documents/categories/${id}`),
+    restoreCategory: (id) => api.patch(`/documents/categories/${id}/restore`),
+    forceDeleteCategory: (id) => api.delete(`/documents/categories/${id}/force`),
 };
 
 // ─── Thông báo ───────────────────────────────────────────
@@ -240,6 +278,8 @@ export const bannerApi = {
     create: (formData) => api.post('/banners', formData, multipartConfig),
     toggle: (id) => api.patch(`/banners/${id}/toggle`),
     delete: (id) => api.delete(`/banners/${id}`),
+    restore: (id) => api.patch(`/banners/${id}/restore`),
+    forceDelete: (id) => api.delete(`/banners/${id}/force`),
 };
 
 export const landingApi = {

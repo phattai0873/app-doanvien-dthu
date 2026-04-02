@@ -10,10 +10,44 @@ import {
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
+import { authService } from '../../services/authService';
+import { Alert } from 'react-native';
 
-export const SettingsScreen = ({ onBack }) => {
+export const SettingsScreen = ({ onBack, onLogout }) => {
     const [notifEnabled, setNotifEnabled] = React.useState(true);
     const [biometricEnabled, setBiometricEnabled] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            "Xác nhận xóa tài khoản",
+            "Hành động này không thể hoàn tác. Tất cả dữ liệu của bạn sẽ bị xóa vĩnh viễn khỏi hệ thống.",
+            [
+                { text: "Hủy", style: "cancel" },
+                { 
+                    text: "Xác nhận xóa", 
+                    style: "destructive",
+                    onPress: async () => {
+                        setDeleting(true);
+                        try {
+                            const response = await authService.deleteAccount();
+                            if (response && response.success) {
+                                Alert.alert("Thành công", "Tài khoản của bạn đã được xóa.");
+                                onLogout && onLogout();
+                            } else {
+                                Alert.alert("Lỗi", "Không thể xóa tài khoản lúc này.");
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            Alert.alert("Lỗi", error.response?.data?.message || "Đã có lỗi xảy ra khi xóa tài khoản.");
+                        } finally {
+                            setDeleting(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const SettingItem = ({ icon, label, rightElement, onPress }) => (
         <TouchableOpacity 
@@ -89,6 +123,24 @@ export const SettingsScreen = ({ onBack }) => {
                         <SettingItem icon="FileText" label="Chính sách bảo mật" />
                         <View style={styles.divider} />
                         <SettingItem icon="AlertTriangle" label="Báo cáo lỗi" />
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Tài khoản</Text>
+                    <View style={styles.group}>
+                        <TouchableOpacity 
+                            style={styles.item} 
+                            onPress={handleDeleteAccount}
+                            disabled={deleting}
+                        >
+                            <View style={styles.itemLeft}>
+                                <View style={[styles.iconBox, { backgroundColor: '#FEF2F2' }]}>
+                                    <Icon name="Trash2" size={20} color={COLORS.error} />
+                                </View>
+                                <Text style={[styles.itemLabel, { color: COLORS.error }]}>Xóa tài khoản</Text>
+                            </View>
+                        </TouchableOpacity>
                     </View>
                 </View>
 

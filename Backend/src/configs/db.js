@@ -11,7 +11,7 @@ const sequelize = new Sequelize(
         port: process.env.DB_PORT || 5432,
         logging: false,
         pool: {
-            max: 30,        // ← Tăng từ 5 lên 30 (quan trọng nhất!)
+            max: 30,
             min: 5,
             acquire: 30000,
             idle: 10000
@@ -19,6 +19,12 @@ const sequelize = new Sequelize(
         dialectOptions: {
             keepAlive: true,
             connectTimeout: 10000
+        },
+        timezone: '+07:00',
+        define: {
+            timestamps: true,
+            paranoid: true,
+            deletedAt: 'deletedAt'
         }
     }
 );
@@ -28,8 +34,17 @@ const connectDB = async () => {
         await sequelize.authenticate();
         console.log('✅ PostgreSQL Connected successfully.');
 
-        // Use sync() only in development. In production, use migrations!
-        await sequelize.sync();
+        // Load models and associations
+        const models = require('../models');
+
+        // Sync models sequentially in development to handle complex dependencies
+        // Sync PaymentTransaction before UnionFeePayment to satisfy foreign key constraint
+        if (models.PaymentTransaction) {
+            await models.PaymentTransaction.sync({ alter: true });
+        }
+        
+        // Use sync({ alter: true }) only in development. 
+        await sequelize.sync({ alter: true });
         console.log('✅ Database tables synced.');
 
     } catch (error) {

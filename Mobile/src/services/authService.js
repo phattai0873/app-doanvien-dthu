@@ -120,5 +120,20 @@ export const authService = {
             console.log('GetCurrentUser error:', error.message);
             return null;
         }
+    },
+
+    deleteAccount: async () => {
+        if (USE_SUPABASE || USE_MOCK_API) {
+            await setAuthTokens(null, null);
+            return { success: true };
+        }
+
+        try {
+            const response = await apiClient.delete('/api/users/me');
+            await setAuthTokens(null, null);
+            return response;
+        } catch (error) {
+            throw error;
+        }
     }
 };

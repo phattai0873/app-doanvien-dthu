@@ -26,6 +26,7 @@ import { DocumentListScreen } from '../screens/Document/DocumentListScreen';
 import { DocumentDetailScreen } from '../screens/Document/DocumentDetailScreen';
 import { PoliticalTheoryScreen } from '../screens/Theory/PoliticalTheoryScreen';
 import { VolunteerListScreen } from '../screens/Volunteer/VolunteerListScreen';
+import { ActivityHistoryScreen } from '../screens/Volunteer/ActivityHistoryScreen';
 
 // Navigation Components
 import { CustomHeader } from '../components/navigation/CustomHeader';
@@ -81,6 +82,7 @@ export const MainNavigator = ({ onLogout }) => {
         if (currentScreen === 'document_list') return 'Kho Văn bản';
         if (currentScreen === 'theory_study') return 'Học tập Lý luận';
         if (currentScreen === 'volunteer_list') return 'Hoạt động Tình nguyện';
+        if (currentScreen === 'activity_history') return 'Lịch sử hoạt động';
 
         if (activeTab === 'dashboard') return 'Bảng điều khiển';
         if (activeTab === 'news') return 'Bản tin Thanh niên';
@@ -105,7 +107,7 @@ export const MainNavigator = ({ onLogout }) => {
             case 'edit_profile': return <EditProfileScreen onBack={goBack} />;
             case 'complete_profile': return <CompleteProfileScreen onSuccess={goBack} onLogout={onLogout} />;
             case 'qr_card': return <QRCardScreen onBack={goBack} />;
-            case 'settings': return <SettingsScreen onBack={goBack} />;
+            case 'settings': return <SettingsScreen onBack={goBack} onLogout={onLogout} />;
             case 'member_info': return <MemberInfoScreen />;
             case 'org_info': return <OrgInfoScreen />;
             case 'meeting_list': return <MeetingListScreen onNavigate={navigateTo} />;
@@ -117,6 +119,7 @@ export const MainNavigator = ({ onLogout }) => {
             case 'document_detail': return <DocumentDetailScreen route={route} onBack={goBack} />;
             case 'theory_study': return <PoliticalTheoryScreen />;
             case 'volunteer_list': return <VolunteerListScreen />;
+            case 'activity_history': return <ActivityHistoryScreen onBack={goBack} />;
             case 'main':
             default:
                 switch (activeTab) {
@@ -128,7 +131,10 @@ export const MainNavigator = ({ onLogout }) => {
                     case 'meeting_list': return <MeetingListScreen onNavigate={navigateTo} />;
                     case 'exam_list': return <ExamListScreen onNavigate={navigateTo} />;
                     case 'document_list': return <DocumentListScreen onNavigate={navigateTo} />;
+                    case 'theory_study': return <PoliticalTheoryScreen />;
+                    case 'fee_payment': return <PartyFeeScreen />;
                     case 'volunteer_list': return <VolunteerListScreen />;
+                    case 'activity_history': return <ActivityHistoryScreen onBack={goBack} />;
                     default: return <DashboardScreen onNavigate={navigateTo} />;
                 }
         }

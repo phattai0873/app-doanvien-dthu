@@ -16,7 +16,10 @@ const unionCellController = {
             }
         }
 
-        const result = await UnionCellService.getAll({ unionBranchId, courseYear, status, search, page, limit });
+        const result = await UnionCellService.getAll({ 
+            unionBranchId, courseYear, status, search, page, limit,
+            onlyDeleted: req.query.onlyDeleted === 'true'
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -53,6 +56,16 @@ const unionCellController = {
 
     deleteCell: asyncHandler(async (req, res) => {
         const result = await UnionCellService.delete(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreCell: asyncHandler(async (req, res) => {
+        const result = await UnionCellService.restoreCell(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteCell: asyncHandler(async (req, res) => {
+        const result = await UnionCellService.forceDeleteCell(req.params.id);
         res.status(200).json({ success: true, data: result });
     })
 };

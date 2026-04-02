@@ -7,6 +7,21 @@ const UnionFeePayment = sequelize.define('UnionFeePayment', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
+    unionMemberId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        field: 'union_member_id'
+    },
+    unionFeeTypeId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        field: 'union_fee_type_id'
+    },
+    paymentTransactionId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'payment_transaction_id'
+    },
     period: {
         type: DataTypes.STRING,
         allowNull: false
@@ -15,28 +30,36 @@ const UnionFeePayment = sequelize.define('UnionFeePayment', {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: false
     },
-    paymentDate: {
+    paidAt: {
         type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW
+        defaultValue: DataTypes.NOW,
+        field: 'paid_at'
     },
     note: {
         type: DataTypes.TEXT
     },
-    unionMemberId: {
-        type: DataTypes.UUID,
-        allowNull: false
-    },
+    // Trình độ phân quyền có thể cần lưu lại đơn vị tại thời điểm đóng
     unionCellId: {
         type: DataTypes.UUID,
-        allowNull: true
+        allowNull: true,
+        field: 'union_cell_id'
     },
     unionBranchId: {
         type: DataTypes.UUID,
-        allowNull: true
+        allowNull: true,
+        field: 'union_branch_id'
     }
 }, {
     tableName: 'union_fee_payments',
-    timestamps: true
+    timestamps: true,
+    underscored: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['union_member_id', 'period', 'union_fee_type_id'],
+            name: 'unique_member_period_type'
+        }
+    ]
 });
 
 module.exports = UnionFeePayment;

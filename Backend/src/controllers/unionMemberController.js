@@ -21,7 +21,8 @@ const unionMemberController = {
 
         const result = await UnionMemberService.getAll({ 
             unionCellId, unionBranchId, search, page, limit,
-            roleInUnion, activityStatus, status, gender
+            roleInUnion, activityStatus, status, gender,
+            onlyDeleted: req.query.onlyDeleted === 'true'
         });
         res.status(200).json({ success: true, ...result });
     }),
@@ -68,6 +69,16 @@ const unionMemberController = {
 
     deleteMember: asyncHandler(async (req, res) => {
         const result = await UnionMemberService.delete(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreMember: asyncHandler(async (req, res) => {
+        const result = await UnionMemberService.restore(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteMember: asyncHandler(async (req, res) => {
+        const result = await UnionMemberService.forceDelete(req.params.id);
         res.status(200).json({ success: true, data: result });
     }),
 

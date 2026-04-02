@@ -1,4 +1,4 @@
-const { Meeting, UnionCell, UnionMember, CellMeetingLocation, UnionBranch, Attendance } = require('../models');
+const { Meeting, UnionCell, UnionMember, CellMeetingLocation, UnionBranch, Attendance, User } = require('../models');
 const { sequelize } = require('../configs/db');
 const ErrorResponse = require('../utils/errorResponse');
 const { sanitizeUUID } = require('../utils/sanitize');
@@ -11,7 +11,7 @@ function generateCheckinCode() {
 }
 
 class MeetingService {
-    static async getAll({ unionCellId, unionBranchId, level, status, search, page = 1, limit = 10, type, semester, academicYear } = {}) {
+    static async getAll({ unionCellId, unionBranchId, level, status, search, page = 1, limit = 10, type, semester, academicYear, onlyDeleted } = {}) {
         const { Op } = require('sequelize');
         const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
         const { offset, limit: l } = getPagination({ page, limit });
@@ -22,16 +22,16 @@ class MeetingService {
         if (type) where.type = type;
         if (semester) where.semester = semester;
         if (academicYear) where.academicYear = academicYear;
-        
+
         const searchCondition = buildSearchCondition(search, ['title', 'content', 'academicYear']);
-        
+
         // Core Visibility Filtering (Phân quyền hiển thị theo cấp độ)
         const visibilityWhere = {};
         if (unionBranchId || unionCellId) {
             const orConditions = [
                 { level: 'SCHOOL' } // Mọi người đều thấy cấp Trường
             ];
-            
+
             if (unionBranchId) {
                 // Thấy cấp Khoa của chính mình
                 orConditions.push({
@@ -41,7 +41,7 @@ class MeetingService {
                     ]
                 });
             }
-            
+
             if (unionCellId) {
                 // Thấy cấp Lớp của chính mình
                 orConditions.push({
@@ -51,11 +51,11 @@ class MeetingService {
                     ]
                 });
             }
-            
+
             visibilityWhere[Op.or] = orConditions;
         }
 
-        const result = await Meeting.findAndCountAll({
+        const queryOptions = {
             where: {
                 [Op.and]: [
                     where,
@@ -64,28 +64,36 @@ class MeetingService {
                 ]
             },
             include: [
-                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
-                { model: CellMeetingLocation, as: 'Location', attributes: ['id', 'name', 'address'] },
-                { model: UnionMember, as: 'Chairperson', attributes: ['id', 'fullName'] }
+                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'], paranoid: false },
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'], paranoid: false },
+                { model: CellMeetingLocation, as: 'Location', attributes: ['id', 'name', 'address'], paranoid: false },
+                { model: UnionMember, as: 'Chairperson', attributes: ['id', 'fullName'], paranoid: false }
             ],
-            order: [['meetingTime', 'DESC']],
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['meetingTime', 'DESC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            queryOptions.where[Op.and].push({ deletedAt: { [Op.ne]: null } });
+        }
+
+        const result = await Meeting.findAndCountAll(queryOptions);
 
         return formatPaginatedResponse(result, page, l);
     }
 
     static async getById(id) {
         const meeting = await Meeting.findByPk(id, {
+            paranoid: false,
             include: [
-                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
-                { model: CellMeetingLocation, as: 'Location', attributes: ['id', 'name', 'address', 'capacity'] },
-                { model: UnionMember, as: 'Chairperson', attributes: ['id', 'fullName', 'avatar'] },
-                { model: UnionMember, as: 'Secretary', attributes: ['id', 'fullName', 'avatar'] },
-                { model: Attendance, attributes: ['id', 'unionMemberId', 'status', 'attendanceTime'] }
+                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'], paranoid: false },
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'], paranoid: false },
+                { model: CellMeetingLocation, as: 'Location', attributes: ['id', 'name', 'address', 'capacity'], paranoid: false },
+                { model: UnionMember, as: 'Chairperson', attributes: ['id', 'fullName', 'avatar'], paranoid: false },
+                { model: UnionMember, as: 'Secretary', attributes: ['id', 'fullName', 'avatar'], paranoid: false },
+                { model: Attendance, as: 'Attendances', attributes: ['id', 'unionMemberId', 'status', 'attendanceTime'], paranoid: false }
             ]
         });
         if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);
@@ -102,7 +110,7 @@ class MeetingService {
             sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
         }
         const meeting = await Meeting.create(sanitizedData);
-        
+
         if (meeting.status === 'SCHEDULED') {
             await this.notifyMeetingScheduled(meeting);
         }
@@ -113,7 +121,7 @@ class MeetingService {
     static async update(id, data) {
         const meeting = await Meeting.findByPk(id);
         if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);
-        
+
         const oldStatus = meeting.status;
         const oldTime = meeting.meetingTime;
 
@@ -146,7 +154,7 @@ class MeetingService {
             memberIds = members.map(m => m.id);
         } else if (meeting.level === 'BRANCH' && meeting.organizerBranchId) {
             // Usually branch meetings are for key members, but if it's "all branch" members:
-            const members = await UnionMember.findAll({ 
+            const members = await UnionMember.findAll({
                 include: [{ model: UnionCell, where: { unionBranchId: meeting.organizerBranchId } }],
                 where: { status: 'approved' }
             });
@@ -154,7 +162,7 @@ class MeetingService {
         }
 
         if (memberIds.length > 0) {
-            await Promise.all(memberIds.map(mid => 
+            await Promise.all(memberIds.map(mid =>
                 Attendance.findOrCreate({
                     where: { meetingId: meeting.id, unionMemberId: mid },
                     defaults: { status: 'ABSENT_NO_REASON' }
@@ -169,7 +177,7 @@ class MeetingService {
         if (meeting.status !== 'IN_PROGRESS') {
             throw new ErrorResponse('Cuộc họp chưa bắt đầu hoặc đã kết thúc', 400);
         }
-        
+
         if (checkinCode && meeting.checkinCode !== checkinCode) {
             throw new ErrorResponse('Mã điểm danh không chính xác', 400);
         }
@@ -181,9 +189,9 @@ class MeetingService {
         const attendance = await Attendance.findOne({ where: { meetingId, unionMemberId: memberId } });
         if (!attendance) {
             // Trường hợp hy hữu: thành viên không thuộc danh sách ban đầu nhưng vẫn check-in
-            return await Attendance.create({ 
-                meetingId, 
-                unionMemberId: memberId, 
+            return await Attendance.create({
+                meetingId,
+                unionMemberId: memberId,
                 status: 'PRESENT',
                 attendanceTime: new Date()
             });
@@ -196,26 +204,29 @@ class MeetingService {
     static async refreshCheckinCode(meetingId, customTTL) {
         const meeting = await Meeting.findByPk(meetingId);
         if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);
-        
+
         const newCode = generateCheckinCode();
         const ttl = customTTL ? parseInt(customTTL) : 15;
         const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
-        
-        await meeting.update({ 
-            checkinCode: newCode, 
-            checkinCodeExpiresAt: expiresAt 
+
+        await meeting.update({
+            checkinCode: newCode,
+            checkinCodeExpiresAt: expiresAt
         });
-        
+
         return { checkinCode: newCode, checkinCodeExpiresAt: expiresAt };
     }
 
     static async getAttendance(meetingId) {
         return await Attendance.findAll({
             where: { meetingId },
-            include: [{ 
-                model: UnionMember, 
-                attributes: ['id', 'fullName', 'avatar', 'memberCode', 'phoneNumber'],
-                include: [{ model: UnionCell, attributes: ['id', 'name'] }]
+            include: [{
+                model: UnionMember,
+                attributes: ['id', 'fullName', 'avatar', 'memberCode'],
+                include: [
+                    { model: User, attributes: ['phoneNumber', 'email'] },
+                    { model: UnionCell, attributes: ['id', 'name'] }
+                ]
             }]
         });
     }
@@ -263,7 +274,35 @@ class MeetingService {
         const meeting = await Meeting.findByPk(id);
         if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);
         await meeting.destroy();
-        return { message: 'Đã xóa cuộc họp thành công' };
+        return { message: 'Đã chuyển cuộc họp vào thùng rác' };
+    }
+
+    static async restoreMeeting(id) {
+        const meeting = await Meeting.findByPk(id, { paranoid: false });
+        if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp trong thùng rác', 404);
+        if (!meeting.deletedAt) throw new ErrorResponse('Cuộc họp này chưa bị xóa', 400);
+
+        // Kiểm tra xem đơn vị tổ chức có bị xóa không
+        if (meeting.level === 'CELL' && meeting.organizerCellId) {
+            const cell = await UnionCell.findByPk(meeting.organizerCellId, { paranoid: false });
+            if (cell && cell.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Chi đoàn tổ chức đang bị xóa.', 400);
+        } else if (meeting.level === 'BRANCH' && meeting.organizerBranchId) {
+            const branch = await UnionBranch.findByPk(meeting.organizerBranchId, { paranoid: false });
+            if (branch && branch.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Đoàn khoa tổ chức đang bị xóa.', 400);
+        }
+
+        await meeting.restore();
+        return meeting;
+    }
+
+    static async forceDeleteMeeting(id) {
+        const meeting = await Meeting.findByPk(id, { paranoid: false });
+        if (!meeting) throw new ErrorResponse('Không tìm thấy cuộc họp', 404);
+
+        // Xóa các dữ liệu liên quan nếu cần
+        
+        await meeting.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn cuộc họp' };
     }
 }
 

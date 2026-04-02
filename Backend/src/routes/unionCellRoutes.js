@@ -11,5 +11,7 @@ router.post('/', unionCellController.createCell);
 router.get('/:id', unionCellController.getCell);
 router.put('/:id', unionCellController.updateCell);
 router.delete('/:id', unionCellController.deleteCell);
+router.patch('/:id/restore', unionCellController.restoreCell);
+router.delete('/:id/force', unionCellController.forceDeleteCell);
 
 module.exports = router;

@@ -33,6 +33,10 @@ export const EditProfileScreen = ({ onBack }) => {
     const [joinedDate, setJoinedDate] = useState('');
     const [joinedPlace, setJoinedPlace] = useState('');
     const [identityNumber, setIdentityNumber] = useState('');
+    const [gender, setGender] = useState('male');
+    const [ethnicity, setEthnicity] = useState('');
+    const [religion, setReligion] = useState('');
+    const [occupation, setOccupation] = useState('');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -43,14 +47,18 @@ export const EditProfileScreen = ({ onBack }) => {
                 // Map data to fields
                 setName(data.ho_ten || '');
                 setStudentId(data.UnionMember?.studentId || '');
-                setPhone(data.UnionMember?.phoneNumber || '');
-                setEmail(data.UnionMember?.email || '');
+                setPhone(data.sdt || '');
+                setEmail(data.email || '');
                 setDob(data.UnionMember?.dateOfBirth ? formatDate(data.UnionMember.dateOfBirth) : '');
                 setHometown(data.UnionMember?.hometown || '');
                 setResidence(data.UnionMember?.homeAddress || '');
                 setJoinedDate(data.UnionMember?.joinedDate ? formatDate(data.UnionMember.joinedDate) : '');
                 setJoinedPlace(data.UnionMember?.joinedPlace || '');
                 setIdentityNumber(data.UnionMember?.identityNumber || '');
+                setGender(data.UnionMember?.gender || 'male');
+                setEthnicity(data.UnionMember?.ethnicity || 'Kinh');
+                setReligion(data.UnionMember?.religion || 'Không');
+                setOccupation(data.UnionMember?.occupation || '');
             } catch (error) {
                 console.error(error);
             } finally {
@@ -96,7 +104,11 @@ export const EditProfileScreen = ({ onBack }) => {
                 studentId: studentId,
                 identityNumber: identityNumber,
                 joinedDate: joinedDate ? joinedDate.split('/').reverse().join('-') : null,
-                joinedPlace: joinedPlace
+                joinedPlace: joinedPlace,
+                gender: gender,
+                ethnicity: ethnicity,
+                religion: religion,
+                occupation: occupation
             };
 
             const response = await partyService.updateMemberProfile(memberId, updateData);
@@ -177,18 +189,71 @@ export const EditProfileScreen = ({ onBack }) => {
                             editable={!isApproved}
                         />
                         <TextInput
-                            label="Ngày sinh"
+                            label="Ngày sinh *"
                             placeholder="DD/MM/YYYY"
                             value={dob}
                             onChangeText={setDob}
                             iconName="calendar-outline"
                             editable={!isApproved}
                         />
+
+                        <Text style={styles.inputLabel}>Giới tính *</Text>
+                        <View style={styles.genderRow}>
+                            <TouchableOpacity 
+                                style={[styles.genderBtn, gender === 'male' && styles.genderBtnActive]}
+                                onPress={() => !isApproved && setGender('male')}
+                                disabled={isApproved}
+                            >
+                                <Icon name="Male" size={16} color={gender === 'male' ? '#FFF' : COLORS.gray500} />
+                                <Text style={[styles.genderText, gender === 'male' && styles.genderBtnTextActive]}>Nam</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.genderBtn, gender === 'female' && styles.genderBtnActive]}
+                                onPress={() => !isApproved && setGender('female')}
+                                disabled={isApproved}
+                            >
+                                <Icon name="Female" size={16} color={gender === 'female' ? '#FFF' : COLORS.gray500} />
+                                <Text style={[styles.genderText, gender === 'female' && styles.genderBtnTextActive]}>Nữ</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         {isApproved && (
                             <Text style={styles.lockHint}>
                                 * Thông tin định danh đã được xác thực, không thể tự chỉnh sửa.
                             </Text>
                         )}
+                    </View>
+
+                    {/* Section: Thông tin cá nhân khác */}
+                    <View style={styles.formSection}>
+                        <Text style={styles.sectionTitle}>Thông tin cá nhân khác</Text>
+                        <View style={styles.row}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                                <TextInput
+                                    label="Dân tộc"
+                                    placeholder="Dân tộc"
+                                    value={ethnicity}
+                                    onChangeText={setEthnicity}
+                                    iconName="earth-outline"
+                                />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <TextInput
+                                    label="Tôn giáo"
+                                    placeholder="Tôn giáo"
+                                    value={religion}
+                                    onChangeText={setReligion}
+                                    iconName="heart-outline"
+                                />
+                            </View>
+                        </View>
+                        <TextInput
+                            label="Nghề nghiệp / Chuyên ngành"
+                            placeholder="VD: Sinh viên ngành CNTT"
+                            value={occupation}
+                            onChangeText={setOccupation}
+                            iconName="briefcase-outline"
+                        />
                     </View>
 
                     {/* Section 2: Liên lạc */}
@@ -395,4 +460,46 @@ const styles = StyleSheet.create({
         color: COLORS.gray400,
         fontWeight: '600'
     },
+
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.gray700,
+        marginBottom: 8,
+        marginTop: 15,
+        marginLeft: 4
+    },
+    genderRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 5
+    },
+    genderBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        backgroundColor: COLORS.gray50,
+        borderWidth: 1.5,
+        borderColor: COLORS.gray100,
+        gap: 8
+    },
+    genderBtnActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    genderText: {
+        fontSize: 14,
+        color: COLORS.gray600,
+        fontWeight: '600'
+    },
+    genderBtnTextActive: {
+        color: '#FFF'
+    },
+    row: {
+        flexDirection: 'row',
+        width: '100%'
+    }
 });

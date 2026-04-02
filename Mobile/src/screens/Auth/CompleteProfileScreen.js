@@ -22,8 +22,6 @@ const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
     const [formData, setFormData] = useState({
         fullName: '',
         studentId: '', // Mã số sinh viên
-        email: '',
-        phoneNumber: '',
         dateOfBirth: '',
         hometown: '',
         homeAddress: '',
@@ -75,7 +73,6 @@ const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
     const validate = () => {
         const newErrors = {};
         if (!formData.fullName.trim()) newErrors.fullName = 'Vui lòng nhập họ và tên';
-        if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Vui lòng nhập số điện thoại';
         if (!formData.unionCellId) newErrors.unionCellId = 'Vui lòng chọn chi đoàn sinh hoạt';
         
         setErrors(newErrors);
@@ -161,25 +158,7 @@ const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
                         error={errors.fullName}
                     />
 
-                    <TextInput
-                        label="SĐT liên lạc *"
-                        placeholder="Nhập số điện thoại"
-                        value={formData.phoneNumber}
-                        onChangeText={(text) => handleChange('phoneNumber', text)}
-                        iconName="call-outline"
-                        keyboardType="phone-pad"
-                        error={errors.phoneNumber}
-                    />
 
-                    <TextInput
-                        label="Email"
-                        placeholder="Nhập địa chỉ email"
-                        value={formData.email}
-                        onChangeText={(text) => handleChange('email', text)}
-                        iconName="mail-outline"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
 
                     <TextInput
                         label="Ngày sinh"

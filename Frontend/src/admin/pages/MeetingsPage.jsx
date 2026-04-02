@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Users, QrCode, RotateCw, Download, Copy, MapPin } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Users, QrCode, RotateCw, Download, Copy, MapPin, History, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { meetingApi, cellApi, locationApi } from '../../services/api';
-import { confirmDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 const BTN_ICON = "p-2 rounded-lg text-base transition";
@@ -244,14 +244,16 @@ export default function MeetingsPage() {
     const [levelFilter, setLevelFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
     const [semesterFilter, setSemesterFilter] = useState('');
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['meetings', search, page, levelFilter, typeFilter, semesterFilter],
+        queryKey: ['meetings', search, page, levelFilter, typeFilter, semesterFilter, showTrash],
         queryFn: () => meetingApi.getAll({ 
             search, page, limit: 10, 
             level: levelFilter || undefined, 
             type: typeFilter || undefined,
-            semester: semesterFilter || undefined
+            semester: semesterFilter || undefined,
+            onlyDeleted: showTrash
         }),
         keepPreviousData: true,
     });
@@ -265,7 +267,9 @@ export default function MeetingsPage() {
 
     const createMutation = useMutation({ mutationFn: meetingApi.create, onSuccess: () => { qc.invalidateQueries(['meetings']); setModal(null); toast.success('Đã tạo lịch họp thành công!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => meetingApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['meetings']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteMutation = useMutation({ mutationFn: meetingApi.delete, onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã xóa!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteMutation = useMutation({ mutationFn: meetingApi.delete, onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã chuyển lịch họp vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreMutation = useMutation({ mutationFn: meetingApi.restore, onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã khôi phục lịch họp!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteMutation = useMutation({ mutationFn: meetingApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const statusMutation = useMutation({ mutationFn: ({ id, status }) => meetingApi.updateStatus(id, status), onSuccess: () => { qc.invalidateQueries(['meetings']); toast.success('Đã cập nhật trạng thái!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const refreshCodeMutation = useMutation({ 
         mutationFn: (id) => meetingApi.refreshCode(id, { checkinTTL: 15 }), 
@@ -313,12 +317,23 @@ export default function MeetingsPage() {
                     <MapPin size={16} />
                     Quản lý địa điểm
                 </Link>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Lên lịch họp mới</button>
+                <button 
+                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                        ${showTrash 
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                >
+                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                </button>
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Lên lịch họp mới</button>
+                )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Danh sách họp & Sinh hoạt</h2>
+                    <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">{showTrash ? 'Thùng rác Cuộc họp' : 'Danh sách họp & Sinh hoạt'}</h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest">{pagination.total || 0} bản ghi</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -378,37 +393,64 @@ export default function MeetingsPage() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2 justify-center">
-                                                        <button 
-                                                            className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
-                                                            title="Danh sách điểm danh"
-                                                            onClick={() => navigate(`${m.id}/attendance`)}
-                                                        >
-                                                            <Users size={15} />
-                                                        </button>
-                                                        {m.checkinCode && (
-                                                            <button 
-                                                                className={`${BTN_ICON} bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 shadow-sm`}
-                                                                title="Hiển thị QR Check-in"
-                                                                onClick={() => setShowQR({ id: m.id, title: m.title, code: m.checkinCode, expiresAt: m.checkinCodeExpiresAt })}
-                                                            >
-                                                                <QrCode size={15} />
-                                                            </button>
+                                                        {!showTrash ? (
+                                                            <>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
+                                                                    title="Danh sách điểm danh"
+                                                                    onClick={() => navigate(`${m.id}/attendance`)}
+                                                                >
+                                                                    <Users size={15} />
+                                                                </button>
+                                                                {m.checkinCode && (
+                                                                    <button 
+                                                                        className={`${BTN_ICON} bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 shadow-sm`}
+                                                                        title="Hiển thị QR Check-in"
+                                                                        onClick={() => setShowQR({ id: m.id, title: m.title, code: m.checkinCode, expiresAt: m.checkinCodeExpiresAt })}
+                                                                    >
+                                                                        <QrCode size={15} />
+                                                                    </button>
+                                                                )}
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`}
+                                                                    onClick={() => setModal(m)}
+                                                                >
+                                                                    <Pencil size={15} />
+                                                                </button>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmDelete(m.title);
+                                                                        if (result.isConfirmed) deleteMutation.mutate(m.id);
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={15} />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmRestore(m.title);
+                                                                        if (result.isConfirmed) restoreMutation.mutate(m.id);
+                                                                    }}
+                                                                    title="Khôi phục"
+                                                                >
+                                                                    <RotateCcw size={15} />
+                                                                </button>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmForceDelete(m.title);
+                                                                        if (result.isConfirmed) forceDeleteMutation.mutate(m.id);
+                                                                    }}
+                                                                    title="Xóa vĩnh viễn"
+                                                                >
+                                                                    <Trash2 size={15} />
+                                                                </button>
+                                                            </>
                                                         )}
-                                                        <button 
-                                                            className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`}
-                                                            onClick={() => setModal(m)}
-                                                        >
-                                                            <Pencil size={15} />
-                                                        </button>
-                                                        <button 
-                                                            className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
-                                                            onClick={async () => {
-                                                                const result = await confirmDelete(m.title);
-                                                                if (result.isConfirmed) deleteMutation.mutate(m.id);
-                                                            }}
-                                                        >
-                                                            <Trash2 size={15} />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

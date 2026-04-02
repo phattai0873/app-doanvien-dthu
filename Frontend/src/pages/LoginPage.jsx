@@ -41,7 +41,7 @@ export default function LoginPage() {
                     <div>
                         <label className="block text-sm font-semibold text-gray-600 mb-1.5">Tên đăng nhập</label>
                         <input
-                            className="w-full px-4 py-2.5 border-2 border-gray-100 rounded-xl text-sm outline-none transition focus:border-primary-700 focus:ring-4 focus:ring-primary-50"
+                            className="w-full px-4 py-2.5 bg-white border-2 border-gray-100 rounded-xl text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-4 focus:ring-primary-50 transition"
                             placeholder="Nhập tên đăng nhập..."
                             value={form.username}
                             onChange={e => setForm({ ...form, username: e.target.value })}
@@ -52,7 +52,7 @@ export default function LoginPage() {
                         <label className="block text-sm font-semibold text-gray-600 mb-1.5">Mật khẩu</label>
                         <input
                             type="password"
-                            className="w-full px-4 py-2.5 border-2 border-gray-100 rounded-xl text-sm outline-none transition focus:border-primary-700 focus:ring-4 focus:ring-primary-50"
+                            className="w-full px-4 py-2.5 bg-white border-2 border-gray-100 rounded-xl text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-4 focus:ring-primary-50 transition"
                             placeholder="••••••••"
                             value={form.password}
                             onChange={e => setForm({ ...form, password: e.target.value })}

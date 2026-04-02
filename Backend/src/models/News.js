@@ -33,6 +33,11 @@ const News = sequelize.define('News', {
         defaultValue: 'SCHOOL',
         allowNull: false
     },
+    scope: {
+        type: DataTypes.ENUM('Trường', 'Tỉnh'),
+        defaultValue: 'Trường',
+        allowNull: false
+    },
     publishedAt: {
         type: DataTypes.DATE
     },
@@ -51,6 +56,18 @@ const News = sequelize.define('News', {
     authorId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    likesCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    sharesCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    viewsCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     }
 }, {
     tableName: 'news',

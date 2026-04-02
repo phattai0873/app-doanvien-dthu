@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, FileText, Download, Upload, File, X, Tag, BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, FileText, Download, Upload, File, X, Tag, BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff, RotateCcw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { documentApi } from '../../services/api';
-import { confirmDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 const BTN_ICON = "p-2 rounded-lg text-base transition";
@@ -154,18 +154,23 @@ export default function DocumentsPage() {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [modal, setModal] = useState(null);
     const [catModal, setCatModal] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['documents', search, page, statusFilter, categoryFilter],
+        queryKey: ['documents', search, page, statusFilter, categoryFilter, showTrash],
         queryFn: () => documentApi.getAll({
             search, page, limit: 10,
             status: statusFilter || undefined,
-            categoryId: categoryFilter || undefined
+            categoryId: categoryFilter || undefined,
+            onlyDeleted: showTrash
         }),
         keepPreviousData: true,
     });
 
-    const { data: catRes, isLoading: catLoading } = useQuery({ queryKey: ['doc-categories'], queryFn: documentApi.getCategories });
+    const { data: catRes, isLoading: catLoading } = useQuery({ 
+        queryKey: ['doc-categories', showTrash], 
+        queryFn: () => documentApi.getCategories({ onlyDeleted: showTrash }) 
+    });
     const categories = catRes?.data?.data || [];
 
     const docs = data?.data?.data || [];
@@ -173,12 +178,16 @@ export default function DocumentsPage() {
 
     const createMutation = useMutation({ mutationFn: documentApi.create, onSuccess: () => { qc.invalidateQueries(['documents']); setModal(null); toast.success('Đã thêm tài liệu!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => documentApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['documents']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteMutation = useMutation({ mutationFn: documentApi.delete, onSuccess: () => { qc.invalidateQueries(['documents']); toast.success('Đã xóa tài liệu!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteMutation = useMutation({ mutationFn: documentApi.delete, onSuccess: () => { qc.invalidateQueries(['documents']); toast.success('Đã chuyển tài liệu vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreMutation = useMutation({ mutationFn: documentApi.restore, onSuccess: () => { qc.invalidateQueries(['documents']); toast.success('Đã khôi phục tài liệu!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteMutation = useMutation({ mutationFn: documentApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['documents']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const toggleStatusMutation = useMutation({ mutationFn: documentApi.toggleStatus, onSuccess: () => { qc.invalidateQueries(['documents']); toast.success('Đã cập nhật trạng thái!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
 
     const createCatMutation = useMutation({ mutationFn: documentApi.createCategory, onSuccess: () => { qc.invalidateQueries(['doc-categories']); setCatModal(null); toast.success('Đã thêm chuyên mục!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateCatMutation = useMutation({ mutationFn: ({ id, data }) => documentApi.updateCategory(id, data), onSuccess: () => { qc.invalidateQueries(['doc-categories']); setCatModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteCatMutation = useMutation({ mutationFn: documentApi.deleteCategory, onSuccess: () => { qc.invalidateQueries(['doc-categories']); toast.success('Đã xóa chuyên mục!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteCatMutation = useMutation({ mutationFn: documentApi.deleteCategory, onSuccess: () => { qc.invalidateQueries(['doc-categories']); toast.success('Đã chuyển chuyên mục vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreCatMutation = useMutation({ mutationFn: documentApi.restoreCategory, onSuccess: () => { qc.invalidateQueries(['doc-categories']); toast.success('Đã khôi phục chuyên mục!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteCatMutation = useMutation({ mutationFn: documentApi.forceDeleteCategory, onSuccess: () => { qc.invalidateQueries(['doc-categories']); toast.success('Đã xóa vĩnh viễn chuyên mục!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
 
     const handleSave = (formData) => modal?.id ? updateMutation.mutate({ id: modal.id, data: formData }) : createMutation.mutate(formData);
     const handleSaveCategory = (formData) => catModal?.id ? updateCatMutation.mutate({ id: catModal.id, data: formData }) : createCatMutation.mutate(formData);
@@ -218,12 +227,23 @@ export default function DocumentsPage() {
                             <option value="">Tất cả chuyên mục</option>
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm tài liệu</button>
+                        <button 
+                            onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                ${showTrash 
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                        >
+                            <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                        </button>
+                        {!showTrash && (
+                            <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm tài liệu</button>
+                        )}
                     </div>
 
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                            <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">Kho Tài liệu</h2>
+                            <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">{showTrash ? 'Thùng rác Tài liệu' : 'Kho Tài liệu'}</h2>
                             <span className="text-xs bg-primary-50 text-primary-700 font-semibold px-3 py-1 rounded-full">{pagination.total || 0} tài liệu</span>
                         </div>
                         <div className="overflow-x-auto">
@@ -257,19 +277,42 @@ export default function DocumentsPage() {
                                                     <td className="px-4 py-3 text-gray-500 truncate max-w-[150px]">{d.issuingAuthority || '—'}</td>
                                                     <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{d.issuedDate ? new Date(d.issuedDate).toLocaleDateString('vi-VN') : '—'}</td>
                                                     <td className="px-4 py-3"><div className="flex gap-2">
-                                                        <button
-                                                            className={`${BTN_ICON} ${d.status === 'PUBLISH' ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                                                            onClick={() => toggleStatusMutation.mutate(d.id)}
-                                                            title={d.status === 'PUBLISH' ? 'Chuyển sang Riêng tư' : 'Chuyển sang Công khai'}
-                                                        >
-                                                            {d.status === 'PUBLISH' ? <Eye size={16} /> : <EyeOff size={16} />}
-                                                        </button>
-                                                        {d.filePath && <a href={d.filePath.startsWith('http') ? d.filePath : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${d.filePath}`} target="_blank" rel="noreferrer" download className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600`}><Download size={16} /></a>}
-                                                        <button className={`${BTN_ICON} bg-amber-50 hover:bg-amber-100 text-amber-600`} onClick={() => setModal(d)}><Pencil size={16} /></button>
-                                                        <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600`} onClick={async () => {
-                                                            const result = await confirmDelete(d.title);
-                                                            if (result.isConfirmed) deleteMutation.mutate(d.id);
-                                                        }}><Trash2 size={16} /></button>
+                                                        {!showTrash ? (
+                                                            <>
+                                                                <button
+                                                                    className={`${BTN_ICON} ${d.status === 'PUBLISH' ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                                                    onClick={() => toggleStatusMutation.mutate(d.id)}
+                                                                    title={d.status === 'PUBLISH' ? 'Chuyển sang Riêng tư' : 'Chuyển sang Công khai'}
+                                                                >
+                                                                    {d.status === 'PUBLISH' ? <Eye size={16} /> : <EyeOff size={16} />}
+                                                                </button>
+                                                                {d.filePath && <a href={d.filePath.startsWith('http') ? d.filePath : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${d.filePath}`} target="_blank" rel="noreferrer" download className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600`}><Download size={16} /></a>}
+                                                                <button className={`${BTN_ICON} bg-amber-50 hover:bg-amber-100 text-amber-600`} onClick={() => setModal(d)}><Pencil size={16} /></button>
+                                                                <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600`} onClick={async () => {
+                                                                    const result = await confirmDelete(d.title);
+                                                                    if (result.isConfirmed) deleteMutation.mutate(d.id);
+                                                                }}><Trash2 size={16} /></button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmRestore(d.title);
+                                                                        if (result.isConfirmed) restoreMutation.mutate(d.id);
+                                                                    }}
+                                                                    title="Khôi phục tài liệu"
+                                                                ><RotateCcw size={16} /></button>
+                                                                <button
+                                                                    className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmForceDelete(d.title);
+                                                                        if (result.isConfirmed) forceDeleteMutation.mutate(d.id);
+                                                                    }}
+                                                                    title="Xóa vĩnh viễn"
+                                                                ><Trash2 size={16} /></button>
+                                                            </>
+                                                        )}
                                                     </div></td>
                                                 </tr>
                                             ))}
@@ -290,8 +333,19 @@ export default function DocumentsPage() {
             ) : (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">Quản lý Chuyên mục</h2>
-                        <button className={BTN_PRIMARY} onClick={() => setCatModal('add')}><Plus size={16} /> Thêm chuyên mục</button>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">{showTrash ? 'Thùng rác Chuyên mục' : 'Quản lý Chuyên mục'}</h2>
+                            <button 
+                                onClick={() => setShowTrash(!showTrash)}
+                                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition border-2 
+                                    ${showTrash 
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                            >
+                                <History size={14} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                            </button>
+                        </div>
+                        {!showTrash && <button className={BTN_PRIMARY} onClick={() => setCatModal('add')}><Plus size={16} /> Thêm chuyên mục</button>}
                     </div>
                     <div className="overflow-x-auto">
                         {catLoading ? <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
@@ -309,11 +363,34 @@ export default function DocumentsPage() {
                                                 <td className="px-6 py-4 text-gray-500 text-xs">{c.description || '—'}</td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex gap-2 justify-end">
-                                                        <button className={`${BTN_ICON} bg-amber-50 hover:bg-amber-100 text-amber-600`} onClick={() => setCatModal(c)}><Pencil size={16} /></button>
-                                                        <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600`} onClick={async () => {
-                                                            const result = await confirmDelete(c.name);
-                                                            if (result.isConfirmed) deleteCatMutation.mutate(c.id);
-                                                        }}><Trash2 size={16} /></button>
+                                                        {!showTrash ? (
+                                                            <>
+                                                                <button className={`${BTN_ICON} bg-amber-50 hover:bg-amber-100 text-amber-600`} onClick={() => setCatModal(c)}><Pencil size={16} /></button>
+                                                                <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600`} onClick={async () => {
+                                                                    const result = await confirmDelete(c.name);
+                                                                    if (result.isConfirmed) deleteCatMutation.mutate(c.id);
+                                                                }}><Trash2 size={16} /></button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmRestore(c.name);
+                                                                        if (result.isConfirmed) restoreCatMutation.mutate(c.id);
+                                                                    }}
+                                                                    title="Khôi phục chuyên mục"
+                                                                ><RotateCcw size={16} /></button>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 shadow-sm`}
+                                                                    onClick={async () => {
+                                                                        const result = await confirmForceDelete(c.name);
+                                                                        if (result.isConfirmed) forceDeleteCatMutation.mutate(c.id);
+                                                                    }}
+                                                                    title="Xóa vĩnh viễn"
+                                                                ><Trash2 size={16} /></button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

@@ -71,6 +71,14 @@ const MODULES = [
         color: '#8B5CF6', 
         bg: '#F5F3FF' 
     },
+    { 
+        id: 'fee_payment', 
+        label: 'Đóng Đoàn phí', 
+        desc: 'Theo dõi & Hoàn thành nghĩa vụ',
+        pngIcon: ICON_SET.doanphi, 
+        color: '#F59E0B', 
+        bg: '#FFFBEB' 
+    },
 ];
 
 const SummaryCard = ({ title, value, sub, icon, color, isBlue }) => (

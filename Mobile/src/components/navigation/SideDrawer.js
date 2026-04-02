@@ -114,6 +114,7 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
                         <DrawerItem icon="List" label="Sinh hoạt" id="meeting_list" />
                         <DrawerItem icon="Award" label="Cuộc thi" id="exam_list" />
                         <DrawerItem icon="FileText" label="Văn bản" id="document_list" />
+                        <DrawerItem icon="Wallet" label="Đoàn phí" id="fee_payment" />
                         <DrawerItem icon="Bell" label="Thông báo" id="notif" />
                         <DrawerItem icon="User" label="Cá nhân" id="profile" />
                     </View>

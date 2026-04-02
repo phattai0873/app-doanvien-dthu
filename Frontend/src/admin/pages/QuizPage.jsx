@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
-import { Pencil, Trash2, Search, BookOpen, Users, Plus, Eye } from 'lucide-react';
+import { Pencil, Trash2, Search, BookOpen, Users, Plus, Eye, RotateCcw, History } from 'lucide-react';
 import { quizApi } from '../../services/api';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 
 const BTN_PRIMARY = "flex items-center justify-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-50";
 const BTN_ICON = "p-2 rounded-lg transition shadow-sm border";
@@ -26,13 +27,15 @@ export default function QuizPage() {
     const [levelFilter, setLevelFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [selectedExam, setSelectedExam] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const examsQ = useQuery({ 
-        queryKey: ['quiz', search, page, levelFilter, statusFilter], 
+        queryKey: ['quiz', search, page, levelFilter, statusFilter, showTrash], 
         queryFn: () => quizApi.getAll({ 
             search, page, limit: 10, 
             level: levelFilter || undefined,
-            status: statusFilter || undefined
+            status: statusFilter || undefined,
+            onlyDeleted: showTrash
         }), 
         keepPreviousData: true 
     });
@@ -48,26 +51,42 @@ export default function QuizPage() {
         mutationFn: quizApi.delete,
         onSuccess: () => {
             qc.invalidateQueries(['quiz']);
-            toast.success('Đã xóa kỳ thi thành công');
+            toast.success('Đã chuyển kỳ thi vào thùng rác!');
         },
-        onError: (err) => toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi xóa!')
+        onError: (err) => toast.error(err.response?.data?.message || 'Có lỗi xảy ra!')
     });
 
-    const handleDelete = (id, title) => {
-        Swal.fire({
-            title: 'Xóa kỳ thi?',
-            text: `Đồng chí có chắc chắn muốn xóa kỳ thi "${title}"? Dữ liệu kết quả làm bài của đoàn viên cũng sẽ bị mất.`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Đồng ý xóa',
-            cancelButtonText: 'Hủy'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                deleteMutation.mutate(id);
-            }
-        });
+    const restoreMutation = useMutation({
+        mutationFn: quizApi.restore,
+        onSuccess: () => {
+            qc.invalidateQueries(['quiz']);
+            toast.success('Đã khôi phục kỳ thi!');
+        },
+        onError: (err) => toast.error(err.response?.data?.message || 'Có lỗi xảy ra!')
+    });
+
+    const forceDeleteMutation = useMutation({
+        mutationFn: quizApi.forceDelete,
+        onSuccess: () => {
+            qc.invalidateQueries(['quiz']);
+            toast.success('Đã xóa vĩnh viễn!');
+        },
+        onError: (err) => toast.error(err.response?.data?.message || 'Có lỗi xảy ra!')
+    });
+
+    const handleDelete = async (id, title) => {
+        const result = await confirmDelete(title);
+        if (result.isConfirmed) deleteMutation.mutate(id);
+    };
+
+    const handleRestore = async (id, title) => {
+        const result = await confirmRestore(title);
+        if (result.isConfirmed) restoreMutation.mutate(id);
+    };
+
+    const handleForceDelete = async (id, title) => {
+        const result = await confirmForceDelete(title);
+        if (result.isConfirmed) forceDeleteMutation.mutate(id);
     };
 
     return (
@@ -78,28 +97,41 @@ export default function QuizPage() {
                     <div className="flex gap-2">
                         <div className="relative">
                             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition" placeholder="Tìm kỳ thi..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                            <input className="pl-9 pr-4 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm w-64 outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition" placeholder="Tìm kỳ thi..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                         </div>
-                        <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium text-primary-700 bg-primary-50 border-primary-100" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
+                        <select className="px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition font-medium text-gray-700" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
                             <option value="">Tất cả cấp độ</option>
                             <option value="SCHOOL">Cấp Trường</option>
                             <option value="BRANCH">Cấp Khoa</option>
                             <option value="CELL">Cấp Lớp</option>
                         </select>
-                        <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium text-primary-700 bg-primary-50 border-primary-100" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+                        <select className="px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition font-medium text-gray-700" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
                             <option value="">Tất cả trạng thái</option>
                             <option value="ONGOING">Đang diễn ra</option>
                             <option value="UPCOMING">Sắp diễn ra</option>
                             <option value="FINISHED">Đã kết thúc</option>
                         </select>
                     </div>
-                    <button className={BTN_PRIMARY} onClick={() => navigate('/admin/quiz/create')}>
-                        <Plus size={16} /> Tạo kỳ thi
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                ${showTrash 
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                        >
+                            <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                        </button>
+                        {!showTrash && (
+                            <button className={BTN_PRIMARY} onClick={() => navigate('/admin/quiz/create')}>
+                                <Plus size={16} /> Tạo kỳ thi
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-800">Danh sách Kỳ thi / Khảo sát</h2>
+                        <h2 className="text-sm font-semibold text-gray-800">{showTrash ? 'Thùng rác Kỳ thi / Khảo sát' : 'Danh sách Kỳ thi / Khảo sát'}</h2>
                         <span className="text-xs bg-primary-50 text-primary-700 font-semibold px-3 py-1 rounded-full">{pagination.total || 0} kỳ thi</span>
                     </div>
                     <div className="overflow-x-auto">
@@ -151,15 +183,28 @@ export default function QuizPage() {
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex items-center gap-2 justify-end">
-                                                        <button title="Xem kết quả" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-100`} onClick={() => setSelectedExam(selectedExam?.id === e.id ? null : e)}>
-                                                            <Eye size={16} />
-                                                        </button>
-                                                        <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border-gray-100`} onClick={() => navigate(`/admin/quiz/edit/${e.id}`)}>
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border-red-100`} onClick={() => handleDelete(e.id, e.title)}>
-                                                            <Trash2 size={16} />
-                                                        </button>
+                                                        {!showTrash ? (
+                                                            <>
+                                                                <button title="Xem kết quả" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-100`} onClick={() => setSelectedExam(selectedExam?.id === e.id ? null : e)}>
+                                                                    <Eye size={16} />
+                                                                </button>
+                                                                <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border-gray-100`} onClick={() => navigate(`/admin/quiz/edit/${e.id}`)}>
+                                                                    <Pencil size={16} />
+                                                                </button>
+                                                                <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border-red-100`} onClick={() => handleDelete(e.id, e.title)}>
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button title="Khôi phục" className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border-green-100 shadow-sm`} onClick={() => handleRestore(e.id, e.title)}>
+                                                                    <RotateCcw size={16} />
+                                                                </button>
+                                                                <button title="Xóa vĩnh viễn" className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border-rose-100 shadow-sm`} onClick={() => handleForceDelete(e.id, e.title)}>
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

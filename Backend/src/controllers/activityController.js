@@ -14,7 +14,7 @@ const activityController = {
             // Lấy ID chi đoàn và khoa từ hồ sơ đoàn viên gắn kèm User
             const memberUnionCellId = userUnionMember.unionCellId;
             const memberUnionBranchId = userUnionMember.unionBranchId || userUnionMember.UnionCell?.unionBranchId;
-            
+
             if (memberUnionBranchId) unionBranchId = memberUnionBranchId;
             if (memberUnionCellId) unionCellId = memberUnionCellId;
         }
@@ -23,7 +23,8 @@ const activityController = {
 
         const result = await ActivityService.getAll({
             upcoming, unionBranchId, unionCellId,
-            search, page, limit, level, status
+            search, page, limit, level, status,
+            onlyDeleted: req.query.onlyDeleted === 'true'
         });
         res.status(200).json({ success: true, ...result });
     }),
@@ -42,6 +43,14 @@ const activityController = {
 
         const participant = await ActivityService.registerParticipant(req.params.id, memberId);
         res.status(201).json({ success: true, data: participant });
+    }),
+
+    unregisterParticipant: asyncHandler(async (req, res) => {
+        const memberId = req.user.UnionMember?.id;
+        if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
+
+        const result = await ActivityService.unregisterParticipant(req.params.id, memberId);
+        res.status(200).json({ success: true, ...result });
     }),
 
     updateParticipant: asyncHandler(async (req, res) => {
@@ -80,6 +89,16 @@ const activityController = {
         res.status(200).json({ success: true, data: result });
     }),
 
+    restoreActivity: asyncHandler(async (req, res) => {
+        const result = await ActivityService.restoreActivity(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteActivity: asyncHandler(async (req, res) => {
+        const result = await ActivityService.forceDeleteActivity(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
     markAttendance: asyncHandler(async (req, res) => {
         const { memberId, status, remarks } = req.body;
         const result = await ActivityService.markAttendance(req.params.id, memberId, status, remarks);
@@ -103,6 +122,14 @@ const activityController = {
 
     getMemberAttendance: asyncHandler(async (req, res) => {
         const result = await ActivityService.getMemberAttendance(req.params.memberId);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    getHistory: asyncHandler(async (req, res) => {
+        const memberId = req.user.UnionMember?.id;
+        if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
+
+        const result = await ActivityService.getMemberAttendance(memberId);
         res.status(200).json({ success: true, data: result });
     }),
 

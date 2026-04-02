@@ -9,7 +9,9 @@ import {
     TouchableOpacity,
     Alert,
     Image as RNImage,
+    Switch,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, IMAGES } from '../../constants';
 import Button from '../../components/common/Button';
@@ -20,9 +22,30 @@ import { USE_MOCK_API } from '../../services/api';
 const LoginScreen = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [showRegister, setShowRegister] = useState(false);
+
+    // Load saved credentials
+    React.useEffect(() => {
+        const loadCredentials = async () => {
+            try {
+                const savedUsername = await AsyncStorage.getItem('saved_username');
+                const savedPassword = await AsyncStorage.getItem('saved_password');
+                const remember = await AsyncStorage.getItem('remember_me');
+
+                if (remember === 'true') {
+                    if (savedUsername) setUsername(savedUsername);
+                    if (savedPassword) setPassword(savedPassword);
+                    setRememberMe(true);
+                }
+            } catch (error) {
+                console.log('Error loading credentials:', error);
+            }
+        };
+        loadCredentials();
+    }, []);
 
     const validateForm = () => {
         const newErrors = {};
@@ -42,7 +65,18 @@ const LoginScreen = ({ onLogin }) => {
         setLoading(true);
         try {
             const response = await authService.login(username, password);
-            if (response && (response.token || response.success)) { // Flexible check for mock vs real
+            if (response && (response.token || response.success)) {
+                // Save or clear credentials
+                if (rememberMe) {
+                    await AsyncStorage.setItem('saved_username', username);
+                    await AsyncStorage.setItem('saved_password', password);
+                    await AsyncStorage.setItem('remember_me', 'true');
+                } else {
+                    await AsyncStorage.removeItem('saved_username');
+                    await AsyncStorage.removeItem('saved_password');
+                    await AsyncStorage.setItem('remember_me', 'false');
+                }
+
                 if (onLogin) onLogin(response);
             } else {
                 Alert.alert('Lỗi', 'Đăng nhập thất bại');
@@ -118,9 +152,21 @@ const LoginScreen = ({ onLogin }) => {
                         error={errors.password}
                     />
 
-                    <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
-                        <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-                    </TouchableOpacity>
+                    <View style={styles.rememberRow}>
+                        <View style={styles.rememberLeft}>
+                            <Switch
+                                value={rememberMe}
+                                onValueChange={setRememberMe}
+                                trackColor={{ false: '#E5E7EB', true: COLORS.primary + '80' }}
+                                thumbColor={rememberMe ? COLORS.primary : '#FFF'}
+                                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                            />
+                            <Text style={styles.rememberText}>Nhớ mật khẩu</Text>
+                        </View>
+                        <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
+                            <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <Button
                         title="Đăng nhập"
@@ -138,7 +184,7 @@ const LoginScreen = ({ onLogin }) => {
                             <Text style={styles.devLoginText}>🔧 Đăng nhập nhanh (Dev)</Text>
                         </TouchableOpacity>
                     )}
-                    
+
                     <TouchableOpacity onPress={() => setShowRegister(true)} style={styles.registerLink}>
                         <Text style={styles.registerText}>
                             Chưa có tài khoản? <Text style={styles.registerTextBold}>Đăng ký ngay</Text>
@@ -214,8 +260,25 @@ const styles = StyleSheet.create({
         elevation: 5,
         marginBottom: 24,
     },
-    forgotPasswordButton: { alignSelf: 'flex-end', marginBottom: 24 },
-    forgotPasswordText: { fontSize: 14, color: COLORS.primary, fontWeight: '700' },
+    forgotPasswordButton: { alignSelf: 'center' },
+    forgotPasswordText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
+    rememberRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 24,
+        marginTop: -8,
+    },
+    rememberLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    rememberText: {
+        fontSize: 14,
+        color: COLORS.gray600,
+        marginLeft: 4,
+        fontWeight: '500'
+    },
     loginButton: { marginTop: 8 },
     devLoginButton: {
         marginTop: 12,

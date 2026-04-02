@@ -66,7 +66,6 @@ export const MemberInfoScreen = () => {
                 <InputReadOnly label="Ngày vào Đoàn" value={user?.ngay_vao_doan || 'Chờ cập nhật'} />
                 <InputReadOnly label="Nơi vào Đoàn" value={user?.noi_vao_doan || 'Chờ cập nhật'} />
                 <InputReadOnly label="Chức vụ" value={user?.chuc_vu_doan} />
-                <InputReadOnly label="Trình độ văn hóa" value={user?.trinh_do || 'Chưa cập nhật'} />
                 <InputReadOnly label="Chuyên ngành/Nghề nghiệp" value={user?.nghe_nghiep || 'Chưa cập nhật'} />
             </View>
 

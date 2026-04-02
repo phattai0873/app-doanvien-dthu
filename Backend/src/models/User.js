@@ -19,7 +19,13 @@ const User = sequelize.define('User', {
     email: {
         type: DataTypes.STRING,
         allowNull: true,
+        unique: true,
         validate: { isEmail: true }
+    },
+    phoneNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
     },
     tokenDevice: {
         type: DataTypes.STRING

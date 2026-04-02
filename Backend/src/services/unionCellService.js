@@ -2,7 +2,7 @@ const { UnionCell, UnionBranch, UnionMember } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 
 class UnionCellService {
-    static async getAll({ unionBranchId, courseYear, status, search, page = 1, limit = 10 } = {}) {
+    static async getAll({ unionBranchId, courseYear, status, search, page = 1, limit = 10, onlyDeleted } = {}) {
         const { sequelize } = require('../configs/db');
         const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
         const { offset, limit: l } = getPagination({ page, limit });
@@ -14,7 +14,7 @@ class UnionCellService {
         if (courseYear) where.courseYear = courseYear;
         if (status) where.status = status;
 
-        const result = await UnionCell.findAndCountAll({
+        const queryOptions = {
             where,
             attributes: {
                 include: [
@@ -30,27 +30,36 @@ class UnionCellService {
                 ]
             },
             include: [
-                { model: UnionBranch, attributes: ['id', 'name', 'code'] },
+                { model: UnionBranch, attributes: ['id', 'name', 'code'], paranoid: false },
                 { 
                     model: UnionMember, 
                     as: 'SecretaryOfCell', 
                     attributes: ['id', 'fullName'],
-                    include: [{ model: require('../models').User, attributes: ['id', 'avatar'] }]
+                    paranoid: false,
+                    include: [{ model: require('../models').User, attributes: ['id', 'avatar'], paranoid: false }]
                 }
             ],
-            order: [['name', 'ASC']],
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['name', 'ASC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            where.deletedAt = { [Op.ne]: null };
+        }
+
+        const result = await UnionCell.findAndCountAll(queryOptions);
 
         return formatPaginatedResponse(result, page, l);
     }
 
     static async getById(id) {
         const cell = await UnionCell.findByPk(id, {
+            paranoid: false,
             include: [
-                { model: UnionBranch, attributes: ['id', 'name', 'code'] },
-                { model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'roleInUnion', 'activityStatus'] }
+                { model: UnionBranch, attributes: ['id', 'name', 'code'], paranoid: false },
+                { model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'roleInUnion', 'activityStatus'], paranoid: false }
             ]
         });
         if (!cell) throw new ErrorResponse('Không tìm thấy chi đoàn', 404);
@@ -73,8 +82,40 @@ class UnionCellService {
     static async delete(id) {
         const cell = await UnionCell.findByPk(id);
         if (!cell) throw new ErrorResponse('Không tìm thấy chi đoàn', 404);
+        
+        // Kiểm tra xem có đoàn viên nào chưa bị xóa không
+        const memberCount = await UnionMember.count({ where: { unionCellId: id } });
+        if (memberCount > 0) throw new ErrorResponse(`Không thể xóa Chi đoàn vì vẫn còn ${memberCount} Đoàn viên đang hoạt động.`, 400);
+
         await cell.destroy();
-        return { message: 'Đã xóa chi đoàn thành công' };
+        return { message: 'Đã chuyển chi đoàn vào thùng rác' };
+    }
+
+    static async restoreCell(id) {
+        const cell = await UnionCell.findByPk(id, { paranoid: false });
+        if (!cell) throw new ErrorResponse('Không tìm thấy chi đoàn trong thùng rác', 404);
+        if (!cell.deletedAt) throw new ErrorResponse('Chi đoàn này chưa bị xóa', 400);
+
+        // Kiểm tra xem Đoàn khoa quản lý có bị xóa không
+        if (cell.unionBranchId) {
+            const branch = await UnionBranch.findByPk(cell.unionBranchId, { paranoid: false });
+            if (branch && branch.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Đoàn khoa chủ quản đang bị xóa.', 400);
+        }
+
+        await cell.restore();
+        return cell;
+    }
+
+    static async forceDeleteCell(id) {
+        const cell = await UnionCell.findByPk(id, { paranoid: false });
+        if (!cell) throw new ErrorResponse('Không tìm thấy chi đoàn', 404);
+
+        // Kiểm tra xem có đoàn viên nào bị xóa mềm bên trong không
+        const memberCount = await UnionMember.count({ where: { unionCellId: id }, paranoid: false });
+        if (memberCount > 0) throw new ErrorResponse(`Không thể xóa vĩnh viễn Chi đoàn vì vẫn còn ${memberCount} Đoàn viên liên quan trong thùng rác.`, 400);
+
+        await cell.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn chi đoàn' };
     }
 }
 

@@ -5,12 +5,19 @@ const { getPagination, formatPaginatedResponse, buildSearchCondition } = require
 const { Op } = require('sequelize');
 
 class UnionMemberService {
-    static async getAll({ unionCellId, unionBranchId, search, page, limit, roleInUnion, activityStatus, status, gender } = {}) {
+    static async getAll({ unionCellId, unionBranchId, search, page, limit, roleInUnion, activityStatus, status, gender, onlyDeleted } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
 
         const where = {
-            ...buildSearchCondition(search, ['fullName', 'memberCode', 'email', 'phoneNumber']),
+            ...buildSearchCondition(search, ['fullName', 'memberCode']),
         };
+
+        const userSearch = search ? {
+            [Op.or]: [
+                { email: { [Op.iLike]: `%${search}%` } },
+                { phoneNumber: { [Op.iLike]: `%${search}%` } }
+            ]
+        } : null;
 
         if (unionCellId) where.unionCellId = unionCellId;
         if (roleInUnion) where.roleInUnion = roleInUnion;
@@ -28,31 +35,51 @@ class UnionMemberService {
             cellInclude.where = { unionBranchId };
         }
 
-        const result = await UnionMember.findAndCountAll({
-            where,
+        const queryOptions = {
+            where: {
+                ...where,
+                ...(userSearch && {
+                    [Op.or]: [
+                        ...(where[Op.or] || []),
+                        { '$User.email$': { [Op.iLike]: `%${search}%` } },
+                        { '$User.phoneNumber$': { [Op.iLike]: `%${search}%` } }
+                    ]
+                })
+            },
             include: [
                 cellInclude,
-                { model: User, as: 'Approver', attributes: ['id', 'username'] }
+                { model: User, attributes: ['id', 'username', 'email', 'phoneNumber'], paranoid: false },
+                { model: User, as: 'Approver', attributes: ['id', 'username'], paranoid: false }
             ],
-            order: [['fullName', 'ASC']],
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['fullName', 'ASC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            queryOptions.where.deletedAt = { [Op.ne]: null };
+        }
+
+        const result = await UnionMember.findAndCountAll(queryOptions);
 
         return formatPaginatedResponse(result, p, l);
     }
 
     static async getById(id) {
         const member = await UnionMember.findByPk(id, {
+            paranoid: false,
             include: [
                 { 
                     model: UnionCell, 
+                    paranoid: false,
                     attributes: ['id', 'name', 'code', 'unionBranchId'],
-                    include: [{ model: UnionBranch, attributes: ['id', 'name', 'code'] }]
+                    include: [{ model: UnionBranch, paranoid: false, attributes: ['id', 'name', 'code'] }]
                 },
-                { model: User, attributes: ['id', 'username', 'isActive', 'lastLogin'] },
+                { model: User, paranoid: false, attributes: ['id', 'username', 'email', 'phoneNumber', 'isActive', 'lastLogin'] },
                 {
                     model: UnionPosition,
+                    paranoid: false,
                     through: { model: UnionMemberPosition, attributes: ['assignedDate', 'endedDate', 'isActive'] }
                 },
                 { model: UnionMemberHistory, limit: 10, order: [['createdAt', 'DESC']] }
@@ -65,12 +92,15 @@ class UnionMemberService {
     static async getByUserId(userId) {
         const member = await UnionMember.findOne({
             where: { userId },
+            paranoid: false,
             include: [
                 { 
                     model: UnionCell, 
+                    paranoid: false,
                     attributes: ['id', 'name', 'code', 'unionBranchId'],
-                    include: [{ model: UnionBranch, attributes: ['id', 'name', 'code'] }]
-                }
+                    include: [{ model: UnionBranch, paranoid: false, attributes: ['id', 'name', 'code'] }]
+                },
+                { model: User, paranoid: false, attributes: ['id', 'username', 'email', 'phoneNumber'] }
             ]
         });
         return member;
@@ -96,6 +126,14 @@ class UnionMemberService {
             ...data,
             status: 'pending' // Luôn là pending khi mới tạo từ app
         });
+
+        // Sync contact info to User
+        if (member.userId && (data.email || data.phoneNumber)) {
+            await User.update(
+                { email: data.email, phoneNumber: data.phoneNumber },
+                { where: { id: member.userId } }
+            );
+        }
         
         await UnionMemberHistory.create({
             unionMemberId: member.id,
@@ -135,6 +173,14 @@ class UnionMemberService {
         if (data.unionBranchId) delete data.unionBranchId;
 
         await member.update(data);
+
+        // Sync contact info to User
+        if (member.userId && (data.email || data.phoneNumber)) {
+            const userUpdate = {};
+            if (data.email) userUpdate.email = data.email;
+            if (data.phoneNumber) userUpdate.phoneNumber = data.phoneNumber;
+            await User.update(userUpdate, { where: { id: member.userId } });
+        }
 
         // Track and Sync
         if (data.unionCellId && data.unionCellId !== oldCellId) {
@@ -187,7 +233,37 @@ class UnionMemberService {
         const member = await UnionMember.findByPk(id);
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
         await member.destroy();
-        return { message: 'Đã xóa đoàn viên thành công' };
+        return { message: 'Đã chuyển hồ sơ đoàn viên vào thùng rác' };
+    }
+
+    static async restore(id) {
+        const member = await UnionMember.findByPk(id, { paranoid: false });
+        if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên trong thùng rác', 404);
+        if (!member.deletedAt) throw new ErrorResponse('Hồ sơ này chưa bị xóa', 400);
+
+        // Kiểm tra xem User có bị xóa không
+        if (member.userId) {
+            const user = await User.findByPk(member.userId, { paranoid: false });
+            if (user && user.deletedAt) {
+                // Tùy chọn: Tự động khôi phục User? 
+                // Ở đây ta báo lỗi yêu cầu khôi phục User trước để đảm bảo tính an toàn
+                throw new ErrorResponse('Không thể khôi phục đoàn viên vì tài khoản liên kết đang bị xóa. Hãy khôi phục tài khoản trước.', 400);
+            }
+        }
+
+        await member.restore();
+        return member;
+    }
+
+    static async forceDelete(id) {
+        const member = await UnionMember.findByPk(id, { paranoid: false });
+        if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
+
+        // Xóa các dữ liệu liên quan khác nếu cần (ví dụ UnionMemberPosition, UnionMemberHistory có thể giữ lại hoặc xóa thật)
+        // Ở đây ta chỉ xóa thật bản ghi đoàn viên.
+        
+        await member.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn hồ sơ đoàn viên' };
     }
 
     static async approve(id, adminId) {
@@ -278,6 +354,31 @@ class UnionMemberService {
             roleInUnion = 'commissioner';
         }
         await member.update({ roleInUnion });
+
+        // Tự động đồng bộ secretaryId/deputySecretaryId vào mô hình UnionCell/UnionBranch tương ứng
+        const isSecretary = position.name.includes('Bí thư') && !position.name.includes('Phó');
+        const isViceSecretary = position.name.includes('Phó Bí thư');
+
+        if (isSecretary || isViceSecretary) {
+            const field = isSecretary ? 'secretaryId' : 'deputySecretaryId';
+            if (position.scopeLevel === 'CELL') {
+                const targetCellId = cellId || member.unionCellId;
+                if (targetCellId) {
+                    await UnionCell.update(
+                        { [field]: memberId },
+                        { where: { id: targetCellId } }
+                    );
+                }
+            } else if (position.scopeLevel === 'BRANCH') {
+                const targetBranchId = member.UnionCell?.unionBranchId;
+                if (targetBranchId) {
+                    await UnionBranch.update(
+                        { [field]: memberId },
+                        { where: { id: targetBranchId } }
+                    );
+                }
+            }
+        }
 
         // Sync Specs
         await this._syncUserSystemSpecs(member.id);

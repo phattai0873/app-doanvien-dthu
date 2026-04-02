@@ -137,27 +137,25 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                         <Icon name="ChevronRight" size={16} color="#FFF" />
                     </TouchableOpacity>
                 )}
-
-                {/* Stats Bar - Ẩn vì chưa có dữ liệu thực tế từ backend */}
                 {/* 
                 {status !== 'none' && (
                     <View style={styles.statsBar}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>12</Text>
+                            <Text style={styles.statValue}>{member?.activityCount || 0}</Text>
                             <Text style={styles.statLabel}>Hoạt động</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>75</Text>
-                            <Text style={styles.statLabel}>Điểm RL</Text>
+                            <Text style={styles.statValue}>{user?.socialWorkDays || 0}</Text>
+                            <Text style={styles.statLabel}>Ngày CTXH</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>Tốt</Text>
-                            <Text style={styles.statLabel}>Xếp loại</Text>
+                            <Text style={styles.statValue}>{member?.points || 0}</Text>
+                            <Text style={styles.statLabel}>Điểm RL</Text>
                         </View>
                     </View>
-                )} 
+                )}
                 */}
             </View>
 
@@ -190,9 +188,12 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                         </View>
                         <View style={styles.sectionContent}>
                             <DetailRow label="Mã số sinh viên" value={member?.studentId} />
-                            <DetailRow label="Số điện thoại" value={member?.phoneNumber} />
-                            <DetailRow label="Email" value={member?.email || user?.email} />
+                            <DetailRow label="Số điện thoại" value={user?.sdt} />
+                            <DetailRow label="Email" value={user?.email} />
+                            <DetailRow label="Giới tính" value={user?.gioi_tinh} />
                             <DetailRow label="Ngày sinh" value={member?.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : null} />
+                            <DetailRow label="Dân tộc" value={member?.ethnicity} />
+                            <DetailRow label="Tôn giáo" value={member?.religion} />
                             <DetailRow label="Quê quán" value={member?.hometown} />
                             <DetailRow label="Thường trú" value={member?.homeAddress} />
                         </View>
@@ -209,6 +210,7 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                             <DetailRow label="Trực thuộc" value={member?.UnionCell?.UnionBranch?.name || 'Trường Đại học Đồng Tháp'} />
                             <DetailRow label="Ngày vào đoàn" value={member?.joinedDate ? new Date(member.joinedDate).toLocaleDateString('vi-VN') : '—'} />
                             <DetailRow label="Nơi vào đoàn" value={member?.joinedPlace} />
+                            <DetailRow label="Nghề nghiệp / CM" value={member?.occupation} />
                         </View>
                     </View>
                 </>
@@ -221,6 +223,12 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                     label="Đoàn phí & Quỹ"
                     onPress={() => onNavigate('fee_payment')}
                     badge="Mới"
+                />
+                <View style={styles.menuCardDivider} />
+                <MenuRow
+                    icon="History"
+                    label="Lịch sử hoạt động"
+                    onPress={() => onNavigate('activity_history')}
                 />
                 <View style={styles.menuCardDivider} />
                 <MenuRow
@@ -240,7 +248,7 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
                 <MenuRow
                     icon="Info"
                     label="Về ứng dụng"
-                    onPress={() => {}}
+                    onPress={() => { }}
                 />
             </View>
 

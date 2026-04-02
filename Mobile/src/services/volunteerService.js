@@ -40,6 +40,17 @@ export const volunteerService = {
         }
     },
 
+    // [DELETE] /api/activities/{id}/register
+    unregister: async (activityId) => {
+        try {
+            const res = await apiClient.delete(`/api/activities/${activityId}/register`);
+            return res.data;
+        } catch (error) {
+            console.error('Error unregistering for activity:', error);
+            throw error;
+        }
+    },
+
     // [POST] /api/activities/{id}/check-in
     checkIn: async (activityId, checkinCode) => {
         try {
@@ -58,6 +69,17 @@ export const volunteerService = {
             return res.data || res;
         } catch (error) {
             console.error('Error refreshing check-in code:', error);
+            throw error;
+        }
+    },
+
+    // [GET] /api/activities/history
+    getMyHistory: async () => {
+        try {
+            const res = await apiClient.get('/api/activities/history');
+            return res.data || res;
+        } catch (error) {
+            console.error('Error fetching activity history:', error);
             throw error;
         }
     }

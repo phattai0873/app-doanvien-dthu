@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Lock, Unlock, KeyRound, ShieldCheck, ShieldOff, Shield, Building2, BookOpen } from 'lucide-react';
+import { Plus, Pencil, Trash2, Lock, Unlock, KeyRound, ShieldCheck, ShieldOff, Shield, Building2, BookOpen, RotateCcw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { userMgmtApi } from '../../services/api';
-import { confirmDelete, confirmAction } from '../../utils/swal';
+import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 const BTN_ICON = "p-2 rounded-lg text-base transition";
@@ -20,7 +20,7 @@ const ROLE_LABELS = {
 
 function UserModal({ user, onClose, onSave }) {
     const isEdit = !!user;
-    const [form, setForm] = useState(user || { username: '', password: '' });
+    const [form, setForm] = useState(user || { username: '', password: '', email: '', phoneNumber: '' });
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(user?.avatar ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}${user.avatar}` : null);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -37,6 +37,8 @@ function UserModal({ user, onClose, onSave }) {
         const formData = new FormData();
         formData.append('username', form.username);
         if (form.password) formData.append('password', form.password);
+        if (form.email) formData.append('email', form.email);
+        if (form.phoneNumber) formData.append('phoneNumber', form.phoneNumber);
         if (form.isActive !== undefined) formData.append('isActive', form.isActive);
         if (file) formData.append('avatar', file);
         onSave(formData);
@@ -61,6 +63,16 @@ function UserModal({ user, onClose, onSave }) {
                             <input type="password" className={INPUT} value={form.password || ''} onChange={e => set('password', e.target.value)} placeholder="Ít nhất 6 ký tự" />
                         </div>
                     )}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+                            <input type="email" className={INPUT} value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="example@dtu.edu.vn" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Số điện thoại</label>
+                            <input className={INPUT} value={form.phoneNumber || ''} onChange={e => set('phoneNumber', e.target.value)} placeholder="09xxx..." />
+                        </div>
+                    </div>
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
                     <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
@@ -116,10 +128,11 @@ export default function UsersPage() {
     const qc = useQueryClient();
     const [modal, setModal] = useState(null); // null | 'add' | user object
     const [resetModal, setResetModal] = useState(null); // user object
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['users'],
-        queryFn: userMgmtApi.getAll,
+        queryKey: ['users', showTrash],
+        queryFn: () => userMgmtApi.getAll({ onlyDeleted: showTrash }),
     });
 
     const users = data?.data?.data || [];
@@ -152,7 +165,17 @@ export default function UsersPage() {
     });
     const deleteMutation = useMutation({
         mutationFn: userMgmtApi.delete,
-        onSuccess: () => { qc.invalidateQueries(['users']); toast.success('Đã xóa tài khoản!'); },
+        onSuccess: () => { qc.invalidateQueries(['users']); toast.success('Đã chuyển tài khoản vào thùng rác!'); },
+        onError: e => toast.error(e.response?.data?.message || 'Lỗi!')
+    });
+    const restoreMutation = useMutation({
+        mutationFn: userMgmtApi.restore,
+        onSuccess: () => { qc.invalidateQueries(['users']); toast.success('Đã khôi phục tài khoản!'); },
+        onError: e => toast.error(e.response?.data?.message || 'Lỗi!')
+    });
+    const forceDeleteMutation = useMutation({
+        mutationFn: userMgmtApi.forceDelete,
+        onSuccess: () => { qc.invalidateQueries(['users']); toast.success('Đã xóa vĩnh viễn!'); },
         onError: e => toast.error(e.response?.data?.message || 'Lỗi!')
     });
 
@@ -166,10 +189,23 @@ export default function UsersPage() {
         <div className="space-y-4">
             {/* Toolbar */}
             <div className="flex gap-3 flex-wrap justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-2 text-primary-800 text-xs font-bold px-3 py-2 bg-primary-50 rounded-lg border border-primary-100 uppercase tracking-tight">
-                    <Shield size={14} /> Quản lý tài khoản hệ thống
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-primary-800 text-xs font-bold px-3 py-2 bg-primary-50 rounded-lg border border-primary-100 uppercase tracking-tight">
+                        <Shield size={14} /> Quản lý tài khoản hệ thống
+                    </div>
+                    <button 
+                        onClick={() => setShowTrash(!showTrash)}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
                 </div>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo tài khoản Admin</button>
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo tài khoản Admin</button>
+                )}
             </div>
 
             {/* Stats cards */}
@@ -189,7 +225,7 @@ export default function UsersPage() {
             {/* Table */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">Danh sách Tài khoản</h2>
+                    <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">{showTrash ? 'Thùng rác Tài khoản' : 'Danh sách Tài khoản'}</h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase">{users.length} tài khoản</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -200,6 +236,7 @@ export default function UsersPage() {
                                     <thead>
                                         <tr className="bg-gray-50/50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-500 tracking-widest">
                                             <th className="px-6 py-4 text-left">Người dùng</th>
+                                            <th className="px-6 py-4 text-left">Liên lạc</th>
                                             <th className="px-6 py-4 text-left">Vai trò / Quyền hạn</th>
                                             <th className="px-6 py-4 text-left">Phạm vi quản lý</th>
                                             <th className="px-6 py-4 text-left">Trạng thái</th>
@@ -216,6 +253,13 @@ export default function UsersPage() {
                                                         <div>
                                                             <p className="font-bold text-gray-800">{u.username}</p>
                                                             <p className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-tighter">ID: {u.id?.slice(0, 8)}</p>
+                                                        </div>
+                                                    </td>
+                                                    {/* Liên lạc */}
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-[11px] space-y-0.5">
+                                                            <p className="text-gray-600 font-medium">{u.email || '—'}</p>
+                                                            <p className="text-gray-400">{u.phoneNumber || '—'}</p>
                                                         </div>
                                                     </td>
                                                     {/* Vai trò */}
@@ -264,49 +308,72 @@ export default function UsersPage() {
                                                     {/* Actions */}
                                                     <td className="px-6 py-4">
                                                         <div className="flex gap-2 justify-center flex-wrap">
-                                                            <button
-                                                                className={`${BTN_ICON} bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-100 shadow-sm`}
-                                                                onClick={async () => {
-                                                                    const action = u.isActive ? 'hủy hoạt động' : 'duyệt';
-                                                                    const result = await confirmAction(
-                                                                        `${u.isActive ? 'Hủy hoạt động' : 'Duyệt'} tài khoản?`,
-                                                                        `Bạn có chắc muốn ${action} tài khoản "${u.username}"?`,
-                                                                        u.isActive ? 'Hủy hoạt động' : 'Duyệt'
-                                                                    );
-                                                                    if (result.isConfirmed) toggleActiveMutation.mutate(u.id);
-                                                                }}
-                                                                title={u.isActive ? 'Hủy duyệt tài khoản' : 'Duyệt tài khoản'}
-                                                            >
-                                                                {u.isActive ? <ShieldOff size={16} /> : <ShieldCheck size={16} />}
-                                                            </button>
-                                                            <button
-                                                                className={`${BTN_ICON} ${u.isLocked ? 'bg-green-50 hover:bg-green-100 text-green-600 border-green-100' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border-orange-100'} border shadow-sm`}
-                                                                onClick={async () => {
-                                                                    const action = u.isLocked ? 'mở khóa' : 'khóa';
-                                                                    const result = await confirmAction(
-                                                                        `${u.isLocked ? 'Mở khóa' : 'Khóa'} tài khoản?`,
-                                                                        `Bạn có chắc muốn ${action} tài khoản "${u.username}"?`,
-                                                                        u.isLocked ? 'Mở khóa' : 'Khóa tài khoản'
-                                                                    );
-                                                                    if (result.isConfirmed) toggleLockMutation.mutate(u.id);
-                                                                }}
-                                                                title={u.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
-                                                            >
-                                                                {u.isLocked ? <Unlock size={16} /> : <Lock size={16} />}
-                                                            </button>
-                                                            <button
-                                                                className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
-                                                                onClick={() => setResetModal(u)}
-                                                                title="Đặt lại mật khẩu"
-                                                            ><KeyRound size={16} /></button>
-                                                            <button
-                                                                className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
-                                                                onClick={async () => {
-                                                                    const result = await confirmDelete(u.username);
-                                                                    if (result.isConfirmed) deleteMutation.mutate(u.id);
-                                                                }}
-                                                                title="Xóa tài khoản"
-                                                            ><Trash2 size={16} /></button>
+                                                            {!showTrash ? (
+                                                                <>
+                                                                    <button
+                                                                        className={`${BTN_ICON} bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-100 shadow-sm`}
+                                                                        onClick={async () => {
+                                                                            const action = u.isActive ? 'hủy hoạt động' : 'duyệt';
+                                                                            const result = await confirmAction(
+                                                                                `${u.isActive ? 'Hủy hoạt động' : 'Duyệt'} tài khoản?`,
+                                                                                `Bạn có chắc muốn ${action} tài khoản "${u.username}"?`,
+                                                                                u.isActive ? 'Hủy hoạt động' : 'Duyệt'
+                                                                            );
+                                                                            if (result.isConfirmed) toggleActiveMutation.mutate(u.id);
+                                                                        }}
+                                                                        title={u.isActive ? 'Hủy duyệt tài khoản' : 'Duyệt tài khoản'}
+                                                                    >
+                                                                        {u.isActive ? <ShieldOff size={16} /> : <ShieldCheck size={16} />}
+                                                                    </button>
+                                                                    <button
+                                                                        className={`${BTN_ICON} ${u.isLocked ? 'bg-green-50 hover:bg-green-100 text-green-600 border-green-100' : 'bg-orange-50 hover:bg-orange-100 text-orange-600 border-orange-100'} border shadow-sm`}
+                                                                        onClick={async () => {
+                                                                            const action = u.isLocked ? 'mở khóa' : 'khóa';
+                                                                            const result = await confirmAction(
+                                                                                `${u.isLocked ? 'Mở khóa' : 'Khóa'} tài khoản?`,
+                                                                                `Bạn có chắc muốn ${action} tài khoản "${u.username}"?`,
+                                                                                u.isLocked ? 'Mở khóa' : 'Khóa tài khoản'
+                                                                            );
+                                                                            if (result.isConfirmed) toggleLockMutation.mutate(u.id);
+                                                                        }}
+                                                                        title={u.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
+                                                                    >
+                                                                        {u.isLocked ? <Unlock size={16} /> : <Lock size={16} />}
+                                                                    </button>
+                                                                    <button
+                                                                        className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
+                                                                        onClick={() => setResetModal(u)}
+                                                                        title="Đặt lại mật khẩu"
+                                                                    ><KeyRound size={16} /></button>
+                                                                    <button
+                                                                        className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
+                                                                        onClick={async () => {
+                                                                            const result = await confirmDelete(u.username);
+                                                                            if (result.isConfirmed) deleteMutation.mutate(u.id);
+                                                                        }}
+                                                                        title="Xóa tài khoản"
+                                                                    ><Trash2 size={16} /></button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <button
+                                                                        className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`}
+                                                                        onClick={async () => {
+                                                                            const result = await confirmRestore(u.username);
+                                                                            if (result.isConfirmed) restoreMutation.mutate(u.id);
+                                                                        }}
+                                                                        title="Khôi phục tài khoản"
+                                                                    ><RotateCcw size={16} /></button>
+                                                                    <button
+                                                                        className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`}
+                                                                        onClick={async () => {
+                                                                            const result = await confirmForceDelete(u.username);
+                                                                            if (result.isConfirmed) forceDeleteMutation.mutate(u.id);
+                                                                        }}
+                                                                        title="Xóa vĩnh viễn"
+                                                                    ><Trash2 size={16} /></button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>

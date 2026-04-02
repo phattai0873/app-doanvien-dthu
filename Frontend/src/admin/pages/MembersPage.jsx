@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { memberApi, positionApi } from '../../services/api';
-import { confirmDelete, confirmAction } from '../../utils/swal';
+import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const SELECT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition bg-white";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
@@ -28,7 +28,11 @@ const ROLES_IN_UNION = [
 ];
 
 function MemberModal({ member, onClose, onSave }) {
-    const [form, setForm] = useState(member || { 
+    const [form, setForm] = useState(member ? {
+        ...member,
+        email: member.User?.email || member.email || '',
+        phoneNumber: member.User?.phoneNumber || member.phoneNumber || ''
+    } : { 
         memberCode: '', fullName: '', dateOfBirth: '', gender: 'male', 
         email: '', phoneNumber: '', permanentAddress: '', hometown: '', 
         joinedDate: '', activityStatus: 'active', roleInUnion: 'member' 
@@ -230,8 +234,8 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
                                 </div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày sinh</label><p className="text-sm text-gray-700">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</p></div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Giới tính</label><p className="text-sm text-gray-700">{member.gender === 'female' ? 'Nữ' : 'Nam'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Số điện thoại</label><p className="text-sm text-gray-700 font-medium">{member.phoneNumber || '—'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Email</label><p className="text-sm text-gray-700 font-medium">{member.email || '—'}</p></div>
+                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Số điện thoại</label><p className="text-sm text-gray-700 font-medium">{member.User?.phoneNumber || member.phoneNumber || '—'}</p></div>
+                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Email</label><p className="text-sm text-gray-700 font-medium">{member.User?.email || member.email || '—'}</p></div>
                                 <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Quê quán</label><p className="text-sm text-gray-700">{member.hometown || '—'}</p></div>
                                 <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Thường trú</label><p className="text-sm text-gray-700">{member.permanentAddress || '—'}</p></div>
                                 <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày gia nhập Đoàn</label><p className="text-sm text-gray-700">{member.joinedDate ? new Date(member.joinedDate).toLocaleDateString('vi-VN') : '—'}</p></div>
@@ -306,6 +310,7 @@ export default function MembersPage() {
     const [modal, setModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [appointmentModal, setAppointmentModal] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data: posRes } = useQuery({ queryKey: ['positions'], queryFn: positionApi.getAll });
     const positions = posRes?.data?.data || [];
@@ -321,14 +326,15 @@ export default function MembersPage() {
     const cellsByBranch = cellsRes?.data?.data || [];
 
     const { data, isLoading } = useQuery({
-        queryKey: ['members', search, page, unionCellId, roleFilter, activityStatusFilter, approvalStatusFilter, branchFilter, cellFilter],
+        queryKey: ['members', search, page, unionCellId, roleFilter, activityStatusFilter, approvalStatusFilter, branchFilter, cellFilter, showTrash],
         queryFn: () => memberApi.getAll({ 
             search, page, limit: 10, 
             unionCellId: cellFilter || unionCellId || undefined,
             roleInUnion: roleFilter || undefined,
             activityStatus: activityStatusFilter || undefined,
             status: approvalStatusFilter || undefined,
-            unionBranchId: branchFilter || undefined
+            unionBranchId: branchFilter || undefined,
+            onlyDeleted: showTrash
         }),
         keepPreviousData: true,
     });
@@ -338,7 +344,9 @@ export default function MembersPage() {
 
     const createMutation = useMutation({ mutationFn: memberApi.create, onSuccess: () => { qc.invalidateQueries(['members']); setModal(null); toast.success('Đã thêm đoàn viên!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => memberApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['members']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteMutation = useMutation({ mutationFn: memberApi.delete, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã xóa!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteMutation = useMutation({ mutationFn: memberApi.delete, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã chuyển đoàn viên vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreMutation = useMutation({ mutationFn: memberApi.restore, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã khôi phục đoàn viên!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteMutation = useMutation({ mutationFn: memberApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const approveMutation = useMutation({ mutationFn: memberApi.approve, onSuccess: () => { qc.invalidateQueries(['members']); setDetailModal(null); toast.success('Đã duyệt!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const rejectMutation = useMutation({ mutationFn: memberApi.reject, onSuccess: () => { qc.invalidateQueries(['members']); setDetailModal(null); toast.success('Đã từ chối!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const appointMutation = useMutation({ mutationFn: ({ id, data }) => memberApi.assignPosition(id, data), onSuccess: () => { qc.invalidateQueries(['members']); setAppointmentModal(null); toast.success('Bổ nhiệm thành công! Tài khoản đã được đồng bộ quyền Admin.'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
@@ -405,7 +413,20 @@ export default function MembersPage() {
                         <FilterX size={14} /> Xóa lọc Chi đoàn
                     </button>
                 )}
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
+
+                <button 
+                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                        ${showTrash 
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                >
+                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                </button>
+
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
+                )}
             </div>
 
             {/* Table card */}
@@ -413,7 +434,7 @@ export default function MembersPage() {
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                     <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 uppercase tracking-wide">
                         <Shield size={16} className="text-primary-700" />
-                        Danh sách Đoàn viên
+                        {showTrash ? 'Thùng rác Đoàn viên' : 'Danh sách Đoàn viên'}
                     </h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest leading-none flex items-center justify-center min-w-[40px] shadow-sm shadow-primary-200">{pagination.total || 0}</span>
                 </div>
@@ -440,8 +461,8 @@ export default function MembersPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <p className="text-xs text-gray-600 font-medium">{m.email || '—'}</p>
-                                                <p className="text-xs text-gray-400">{m.phoneNumber || '—'}</p>
+                                                <p className="text-xs text-gray-600 font-medium">{m.User?.email || m.email || '—'}</p>
+                                                <p className="text-xs text-gray-400">{m.User?.phoneNumber || m.phoneNumber || '—'}</p>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-1.5 flex-wrap">
@@ -461,25 +482,40 @@ export default function MembersPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex gap-2 flex-wrap min-w-[120px]">
-                                                    {m.status === 'pending' ? (
-                                                        <button title="Xét duyệt hồ sơ" className={`${BTN_ICON} bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100 shadow-sm`} onClick={() => setDetailModal(m)}>
-                                                            <CheckCircle size={16} />
-                                                        </button>
+                                                    {!showTrash ? (
+                                                        <>
+                                                            {m.status === 'pending' ? (
+                                                                <button title="Xét duyệt hồ sơ" className={`${BTN_ICON} bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100 shadow-sm`} onClick={() => setDetailModal(m)}>
+                                                                    <CheckCircle size={16} />
+                                                                </button>
+                                                            ) : (
+                                                                <>
+                                                                    <button title="Xem chi tiết" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`} onClick={() => setDetailModal(m)}>
+                                                                        <Eye size={16} />
+                                                                    </button>
+                                                                    <button title="Bổ nhiệm chức vụ" className={`${BTN_ICON} bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-100 shadow-sm`} onClick={() => setAppointmentModal(m)}>
+                                                                        <UserPlus size={16} />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(m)}><Pencil size={16} /></button>
+                                                            <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
+                                                                const result = await confirmDelete(m.fullName);
+                                                                if (result.isConfirmed) deleteMutation.mutate(m.id);
+                                                            }}><Trash2 size={16} /></button>
+                                                        </>
                                                     ) : (
                                                         <>
-                                                            <button title="Xem chi tiết" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`} onClick={() => setDetailModal(m)}>
-                                                                <Eye size={16} />
-                                                            </button>
-                                                            <button title="Bổ nhiệm chức vụ" className={`${BTN_ICON} bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-100 shadow-sm`} onClick={() => setAppointmentModal(m)}>
-                                                                <UserPlus size={16} />
-                                                            </button>
+                                                            <button title="Khôi phục" className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`} onClick={async () => {
+                                                                const result = await confirmRestore(m.fullName);
+                                                                if (result.isConfirmed) restoreMutation.mutate(m.id);
+                                                            }}><RotateCcw size={16} /></button>
+                                                            <button title="Xóa vĩnh viễn" className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`} onClick={async () => {
+                                                                const result = await confirmForceDelete(m.fullName);
+                                                                if (result.isConfirmed) forceDeleteMutation.mutate(m.id);
+                                                            }}><Trash2 size={16} /></button>
                                                         </>
                                                     )}
-                                                    <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(m)}><Pencil size={16} /></button>
-                                                    <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
-                                                        const result = await confirmDelete(m.fullName);
-                                                        if (result.isConfirmed) deleteMutation.mutate(m.id);
-                                                    }}><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>

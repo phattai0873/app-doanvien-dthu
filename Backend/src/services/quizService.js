@@ -3,7 +3,7 @@ const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 
 class QuizService {
-    static async getAll({ search, level, status: reqStatus, unionBranchId, unionCellId, page, limit } = {}) {
+    static async getAll({ search, level, status: reqStatus, unionBranchId, unionCellId, page, limit, onlyDeleted } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
         const now = new Date();
@@ -40,7 +40,7 @@ class QuizService {
         where[Op.or] = scopingConditions;
 
         const { sequelize } = require('../configs/db');
-        const rows = await QuizExam.findAll({
+        const queryOptions = {
             where,
             attributes: {
                 include: [
@@ -55,10 +55,17 @@ class QuizService {
                     ]
                 ]
             },
-            order: [['createdAt', 'DESC']],
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['createdAt', 'DESC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            where.deletedAt = { [Op.ne]: null };
+        }
+
+        const rows = await QuizExam.findAll(queryOptions);
         
         const count = await QuizExam.count({ where });
         const result = { rows, count };
@@ -68,9 +75,11 @@ class QuizService {
 
     static async getById(id) {
         const exam = await QuizExam.findByPk(id, {
+            paranoid: false,
             include: [{
                 model: QuizQuestion,
-                include: [{ model: QuizOption }],
+                paranoid: false,
+                include: [{ model: QuizOption, paranoid: false }],
                 order: [['order', 'ASC']]
             }]
         });
@@ -99,11 +108,12 @@ class QuizService {
         if (questions) {
             // Simple approach: delete existing questions and re-create
             // 1. Get question ids to delete options first (or use cascade if set up)
-            const existingQs = await QuizQuestion.findAll({ where: { examId: id } });
+            const existingQs = await QuizQuestion.findAll({ where: { examId: id }, paranoid: false });
             const qIds = existingQs.map(q => q.id);
             
-            await QuizOption.destroy({ where: { questionId: qIds } });
-            await QuizQuestion.destroy({ where: { examId: id } });
+            // Dùng force: true để xóa thật khi cập nhật (clean up)
+            await QuizOption.destroy({ where: { questionId: qIds }, force: true });
+            await QuizQuestion.destroy({ where: { examId: id }, force: true });
 
             if (questions.length) {
                 await this._createQuestions(id, questions);
@@ -116,11 +126,30 @@ class QuizService {
     static async delete(id) {
         const exam = await QuizExam.findByPk(id);
         if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
-        
-        // Soft delete or hard delete? Let's do hard delete for now if relations are set to cascade
-        // Or deactivate it.
         await exam.destroy();
-        return true;
+        return { message: 'Đã chuyển kỳ thi vào thùng rác' };
+    }
+
+    static async restoreQuiz(id) {
+        const exam = await QuizExam.findByPk(id, { paranoid: false });
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi trong thùng rác', 404);
+        if (!exam.deletedAt) throw new ErrorResponse('Kỳ thi này chưa bị xóa', 400);
+
+        await exam.restore();
+        return exam;
+    }
+
+    static async forceDeleteQuiz(id) {
+        const exam = await QuizExam.findByPk(id, { paranoid: false });
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
+
+        // Xóa thật questions và options kèm theo (nếu chưa cascade ở tầng DB)
+        const qIds = (await QuizQuestion.findAll({ where: { examId: id }, paranoid: false })).map(q => q.id);
+        await QuizOption.destroy({ where: { questionId: qIds }, force: true });
+        await QuizQuestion.destroy({ where: { examId: id }, force: true });
+
+        await exam.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn kỳ thi và dữ liệu liên quan' };
     }
 
     static async _createQuestions(examId, questions) {

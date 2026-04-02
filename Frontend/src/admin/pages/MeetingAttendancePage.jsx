@@ -96,7 +96,7 @@ export default function MeetingAttendancePage() {
                         Xuất Excel
                     </button>
                     <select 
-                        className="px-3 py-2 border-2 border-gray-100 rounded-lg text-sm outline-none focus:border-primary-700 transition font-bold text-gray-600 bg-white"
+                        className="px-3 py-2 bg-white border-2 border-gray-100 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition font-bold text-gray-600"
                         value={filterStatus}
                         onChange={e => setFilterStatus(e.target.value)}
                     >
@@ -107,7 +107,7 @@ export default function MeetingAttendancePage() {
                     <div className="relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input 
-                            className="pl-9 pr-4 py-2 border-2 border-gray-100 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition font-medium" 
+                            className="pl-9 pr-4 py-2 bg-white border-2 border-gray-100 rounded-lg text-sm w-64 outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition font-medium" 
                             placeholder="Tìm kiếm đoàn viên..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}

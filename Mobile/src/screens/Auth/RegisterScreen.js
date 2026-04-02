@@ -19,6 +19,8 @@ import { authService } from '../../services/authService';
 const RegisterScreen = ({ onNavigateBack }) => {
     const [formData, setFormData] = useState({
         username: '',
+        email: '',
+        phoneNumber: '',
         password: '',
         confirmPassword: '',
     });
@@ -42,6 +44,19 @@ const RegisterScreen = ({ onNavigateBack }) => {
     const validate = () => {
         const newErrors = {};
         if (!formData.username.trim()) newErrors.username = 'Vui lòng nhập tên đăng nhập';
+        
+        if (!formData.email.trim()) {
+            newErrors.email = 'Vui lòng nhập email';
+        } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+            newErrors.email = 'Email không hợp lệ';
+        }
+
+        if (!formData.phoneNumber.trim()) {
+            newErrors.phoneNumber = 'Vui lòng nhập số điện thoại';
+        } else if (!/^\d{10,11}$/.test(formData.phoneNumber)) {
+            newErrors.phoneNumber = 'Số điện thoại không hợp lệ (10-11 số)';
+        }
+
         if (!formData.password) {
             newErrors.password = 'Vui lòng nhập mật khẩu';
         } else if (formData.password.length < 6) {
@@ -128,6 +143,27 @@ const RegisterScreen = ({ onNavigateBack }) => {
                         error={errors.username}
                         autoCapitalize="none"
                         autoCorrect={false}
+                    />
+
+                    <TextInput
+                        label="Email *"
+                        placeholder="example@dtu.edu.vn"
+                        value={formData.email}
+                        onChangeText={(text) => handleChange('email', text)}
+                        iconName="mail-outline"
+                        error={errors.email}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+
+                    <TextInput
+                        label="Số điện thoại *"
+                        placeholder="09xxx..."
+                        value={formData.phoneNumber}
+                        onChangeText={(text) => handleChange('phoneNumber', text)}
+                        iconName="call-outline"
+                        error={errors.phoneNumber}
+                        keyboardType="phone-pad"
                     />
 
                     <TextInput

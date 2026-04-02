@@ -23,6 +23,7 @@ const NAV = [
     { label: 'Tin tức', icon: Newspaper, to: '/admin/news' },
     { label: 'Thi & Khảo sát', icon: BookOpen, to: '/admin/quiz' },
     { label: 'Văn bản', icon: FileText, to: '/admin/documents' },
+    { label: 'Đoàn phí', icon: Wallet, to: '/admin/fees' },
     { label: 'Thông báo', icon: Bell, to: '/admin/notifications' },
     { section: 'Hệ thống' },
     { label: 'Tài khoản', icon: UserCog, to: '/admin/users' },
@@ -40,6 +41,7 @@ const PAGE_TITLES = {
     '/admin/news': 'Quản lý Tin tức',
     '/admin/quiz': 'Thi & Khảo sát',
     '/admin/documents': 'Kho Văn bản',
+    '/admin/fees': 'Quản lý Đoàn phí',
     '/admin/notifications': 'Quản lý Thông báo',
     '/admin/users': 'Quản lý Tài khoản',
     '/admin/banners': 'Quản lý Banner',
@@ -260,7 +262,7 @@ export default function AdminLayout() {
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu hiện tại</label>
                                 <input 
                                     type="password" 
-                                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700" 
+                                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition" 
                                     placeholder="Bỏ trống nếu không đổi"
                                     value={pwForm.oldPassword} 
                                     onChange={e => setPwForm(prev => ({ ...prev, oldPassword: e.target.value }))} 
@@ -270,7 +272,7 @@ export default function AdminLayout() {
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu mới</label>
                                 <input 
                                     type="password" 
-                                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700" 
+                                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition" 
                                     placeholder="Ít nhất 6 ký tự"
                                     value={pwForm.newPassword} 
                                     onChange={e => setPwForm(prev => ({ ...prev, newPassword: e.target.value }))} 
@@ -280,7 +282,7 @@ export default function AdminLayout() {
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
                                 <input 
                                     type="password" 
-                                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700" 
+                                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition" 
                                     value={pwForm.confirm} 
                                     onChange={e => setPwForm(prev => ({ ...prev, confirm: e.target.value }))} 
                                 />

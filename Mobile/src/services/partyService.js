@@ -139,8 +139,8 @@ export const partyService = {
             // Avatar lấy từ bảng Users (userData.avatar) theo yêu cầu, dự phòng bằng member.avatar
             anh_dai_dien: userData.avatar ? `${API_BASE_URL}${userData.avatar}` : 
                           (member.avatar ? `${API_BASE_URL}${member.avatar}` : null),
-            sdt: member.phoneNumber,
-            email: member.email || userData.email,
+            sdt: userData.phoneNumber,
+            email: userData.email,
             cccd: member.identityNumber,
             ngay_sinh: member.dateOfBirth,
             dia_chi: member.permanentAddress,
@@ -151,7 +151,8 @@ export const partyService = {
             ngay_vao_doan: member.joinedDate,
             noi_vao_doan: member.joinedPlace,
             trinh_do: member.educationLevel,
-            nghe_nghiep: member.occupation
+            nghe_nghiep: member.occupation,
+            socialWorkDays: member.socialWorkDays || 0
         };
     },
 

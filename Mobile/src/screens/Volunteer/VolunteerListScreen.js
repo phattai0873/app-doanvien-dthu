@@ -26,7 +26,8 @@ export const VolunteerListScreen = () => {
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
-    
+    const [activeTab, setActiveTab] = useState('UPCOMING'); // UPCOMING, ONGOING, COMPLETED
+
     // Check-in Modal States
     const [isCheckinModalVisible, setCheckinModalVisible] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState(null);
@@ -94,7 +95,7 @@ export const VolunteerListScreen = () => {
 
     const handleRegister = (activity) => {
         console.log('[Mobile] Registering for activity:', activity.id, activity.title);
-        
+
         const doRegister = async () => {
             console.log('[Mobile] User confirmed registration, calling API...');
             try {
@@ -130,6 +131,29 @@ export const VolunteerListScreen = () => {
         }
     };
 
+    const handleUnregister = async (activity) => {
+        Alert.alert(
+            'Hủy đăng ký',
+            `Đồng chí muốn hủy đăng ký tham gia hoạt động "${activity.title}"?`,
+            [
+                { text: 'Quay lại', style: 'cancel' },
+                { 
+                    text: 'Xác nhận hủy', 
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await volunteerService.unregister(activity.id);
+                            Alert.alert('Thành công', 'Đã hủy đăng ký tham gia.');
+                            fetchData();
+                        } catch (error) {
+                            Alert.alert('Lỗi', error?.message || 'Không thể hủy đăng ký.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const openCheckinModal = (activity) => {
         // Kiểm tra permission
         if (user?.UnionMember?.status !== 'approved') {
@@ -149,7 +173,7 @@ export const VolunteerListScreen = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập đúng 6 ký tự mã điểm danh.');
             return;
         }
-        
+
         setIsSubmitting(true);
         try {
             await volunteerService.checkIn(selectedActivity.id, checkinCode);
@@ -169,7 +193,7 @@ export const VolunteerListScreen = () => {
     const handleQRScan = async (code) => {
         setQrScannerVisible(false);
         setCheckinCode(code);
-        
+
         // Tự động submmit sau khi quét được mã
         setIsSubmitting(true);
         try {
@@ -218,9 +242,11 @@ export const VolunteerListScreen = () => {
         const maxParticipants = item.maxParticipants || 100;
         const registeredCount = item.participantCount || (item.ActivityParticipants ? item.ActivityParticipants.length : 0);
         const progress = Math.min((registeredCount / maxParticipants) * 100, 100);
-        
+
         const isApproved = item.status === 'APPROVED' || item.status === 'approved';
         const isInProgress = item.status === 'IN_PROGRESS' || item.status === 'in_progress';
+        const isCompleted = item.status === 'COMPLETED' || item.status === 'completed';
+        const isCancelled = item.status === 'CANCELLED' || item.status === 'cancelled';
         const isOpen = isApproved || isInProgress;
 
         const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN';
@@ -260,6 +286,11 @@ export const VolunteerListScreen = () => {
                         <Text style={styles.infoText}>Bắt đầu: {startDate} {startTime}</Text>
                     </View>
 
+                    <View style={[styles.infoLine, { marginTop: 4 }]}>
+                        <Icon name="Briefcase" size={14} color="#6B7280" />
+                        <Text style={styles.infoText}>Ngày CTXH: {item.socialWorkDays || 0} ngày</Text>
+                    </View>
+
                     <View style={styles.participantInfo}>
                         <View style={styles.progressBarBg}>
                             <View
@@ -272,8 +303,8 @@ export const VolunteerListScreen = () => {
                         </View>
                         <View style={styles.participantRow}>
                             <Text style={styles.participantText}>Đã đăng ký: {registeredCount}/{maxParticipants}</Text>
-                            <Text style={[styles.statusLabel, { color: isInProgress ? '#10B981' : (isOpen ? COLORS.primary : '#EF4444') }]}>
-                                {isInProgress ? 'ĐANG ĐIỂM DANH' : (isOpen ? 'ĐANG NHẬN' : 'ĐÃ ĐÓNG')}
+                            <Text style={[styles.statusLabel, { color: isInProgress ? '#10B981' : (isApproved ? COLORS.primary : isCompleted ? '#6B7280' : '#EF4444') }]}>
+                                {isInProgress ? 'ĐANG ĐIỂM DANH' : (isApproved ? 'ĐANG NHẬN ĐĂNG KÝ' : isCompleted ? 'ĐÃ KẾT THÚC' : isCancelled ? 'ĐÃ HỦY' : 'ĐÃ ĐÓNG')}
                             </Text>
                         </View>
                     </View>
@@ -282,19 +313,30 @@ export const VolunteerListScreen = () => {
                 {/* Primary CTA Button */}
                 <TouchableOpacity
                     style={[
-                        styles.actionBtn, 
-                        (!isOpen || (isApproved && isRegistered) || isCheckedIn) && styles.disabledBtn,
+                        styles.actionBtn,
+                        (!isOpen || isCheckedIn || (isApproved && isRegistered)) && styles.disabledBtn,
+                        (isApproved && isRegistered) && { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }, // Light gray for already registered
                         (isInProgress && !isCheckedIn) && styles.checkinBtn
                     ]}
-                    disabled={!isOpen || (isApproved && isRegistered) || isCheckedIn}
+                    disabled={!isOpen || isCheckedIn}
                     onPress={() => {
-                        if (isInProgress) openCheckinModal(item);
-                        else handleRegister(item);
+                        if (isInProgress) {
+                            if (isCheckedIn) return;
+                            openCheckinModal(item);
+                        } else {
+                            if (isRegistered) handleUnregister(item);
+                            else handleRegister(item);
+                        }
                     }}
                 >
-                    <Icon name={isCheckedIn ? 'CheckCircle' : (isInProgress ? 'Scan' : (isRegistered && !isInProgress ? 'Check' : 'UserPlus'))} size={18} color="#FFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.actionBtnText}>
-                        {isCheckedIn ? 'ĐÃ ĐIỂM DANH' : (isInProgress ? 'ĐIỂM DANH THAM GIA' : (isApproved ? (isRegistered ? 'ĐÃ ĐĂNG KÝ' : 'ĐĂNG KÝ NGAY') : 'HẾT HẠN / ĐÃ ĐÓNG'))}
+                    <Icon 
+                        name={isCheckedIn ? 'CheckCircle' : (isInProgress ? 'Scan' : (isRegistered && !isInProgress ? 'XCircle' : 'UserPlus'))} 
+                        size={18} 
+                        color={isRegistered && !isInProgress && !isCheckedIn ? '#EF4444' : '#FFF'} 
+                        style={{ marginRight: 8 }} 
+                    />
+                    <Text style={[styles.actionBtnText, isRegistered && !isInProgress && !isCheckedIn && { color: '#EF4444' }]}>
+                        {isCheckedIn ? 'ĐÃ ĐIỂM DANH' : (isInProgress ? 'ĐIỂM DANH THAM GIA' : (isApproved ? (isRegistered ? 'HỦY ĐĂNG KÝ' : 'ĐĂNG KÝ NGAY') : isCompleted ? 'ĐÃ KẾT THÚC' : isCancelled ? 'ĐÃ HỦY' : 'HẾT HẠN / ĐÃ ĐÓNG'))}
                     </Text>
                 </TouchableOpacity>
 
@@ -323,7 +365,17 @@ export const VolunteerListScreen = () => {
     return (
         <View style={styles.container}>
             <FlatList
-                data={activities}
+                data={activities.filter(item => {
+                    const isApproved = item.status === 'APPROVED' || item.status === 'approved';
+                    const isInProgress = item.status === 'IN_PROGRESS' || item.status === 'in_progress';
+                    const isCompleted = item.status === 'COMPLETED' || item.status === 'completed';
+                    const isCancelled = item.status === 'CANCELLED' || item.status === 'cancelled';
+
+                    if (activeTab === 'UPCOMING') return isApproved;
+                    if (activeTab === 'ONGOING') return isInProgress;
+                    if (activeTab === 'COMPLETED') return isCompleted || isCancelled;
+                    return true;
+                })}
                 renderItem={renderItem}
                 keyExtractor={item => item.id.toString()}
                 contentContainerStyle={styles.listContent}
@@ -331,12 +383,37 @@ export const VolunteerListScreen = () => {
                     <View style={styles.listHeader}>
                         <Text style={styles.headerTitle}>Hành động cộng đồng</Text>
                         <Text style={styles.headerSubtitle}>Đăng ký và điểm danh trực tiếp các hoạt động tại đây.</Text>
+                        
+                        <View style={styles.tabContainer}>
+                            <TouchableOpacity 
+                                style={[styles.tabButton, activeTab === 'UPCOMING' && styles.activeTabButton]}
+                                onPress={() => setActiveTab('UPCOMING')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'UPCOMING' && styles.activeTabText]}>Sắp diễn ra</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabButton, activeTab === 'ONGOING' && styles.activeTabButton]}
+                                onPress={() => setActiveTab('ONGOING')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'ONGOING' && styles.activeTabText]}>Đang diễn ra</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabButton, activeTab === 'COMPLETED' && styles.activeTabButton]}
+                                onPress={() => setActiveTab('COMPLETED')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'COMPLETED' && styles.activeTabText]}>Đã kết thúc</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 }
                 ListEmptyComponent={
                     <View style={[styles.center, { marginTop: 60 }]}>
                         <Icon name="Compass" size={48} color="#D1D5DB" />
-                        <Text style={{ marginTop: 16, color: '#6B7280' }}>Chưa có hoạt động nào trong danh sách</Text>
+                        <Text style={{ marginTop: 16, color: '#6B7280' }}>
+                            {activeTab === 'UPCOMING' ? 'Chưa có hoạt động sắp diễn ra' : 
+                             activeTab === 'ONGOING' ? 'Chưa có hoạt động đang diễn ra' : 
+                             'Chưa có hoạt động đã kết thúc'}
+                        </Text>
                     </View>
                 }
             />
@@ -350,9 +427,9 @@ export const VolunteerListScreen = () => {
                         </View>
                         <Text style={styles.inputModalTitle}>Điểm danh Hoạt động</Text>
                         <Text style={styles.inputModalSub}>{selectedActivity?.title}</Text>
-                        
-                        <TouchableOpacity 
-                            style={styles.qrScanBtn} 
+
+                        <TouchableOpacity
+                            style={styles.qrScanBtn}
                             onPress={() => setQrScannerVisible(true)}
                         >
                             <Icon name="QrCode" size={24} color="#FFF" />
@@ -364,7 +441,7 @@ export const VolunteerListScreen = () => {
                             <Text style={styles.dividerText}>Hoặc nhập mã</Text>
                             <View style={styles.line} />
                         </View>
-                        
+
                         <View style={styles.inputGroup}>
                             <Text style={styles.inputLabel}>Nhập mã xác nhận (6 ký tự)</Text>
                             <TextInput
@@ -380,14 +457,14 @@ export const VolunteerListScreen = () => {
                         </View>
 
                         <View style={styles.modalActionRow}>
-                            <TouchableOpacity 
-                                style={styles.cancelModalBtn} 
+                            <TouchableOpacity
+                                style={styles.cancelModalBtn}
                                 onPress={() => setCheckinModalVisible(false)}
                             >
                                 <Text style={styles.cancelModalBtnText}>Hủy</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.submitModalBtn, isSubmitting && { opacity: 0.7 }]} 
+                            <TouchableOpacity
+                                style={[styles.submitModalBtn, isSubmitting && { opacity: 0.7 }]}
                                 onPress={handleCheckinSubmit}
                                 disabled={isSubmitting}
                             >
@@ -507,7 +584,37 @@ const styles = StyleSheet.create({
     listHeader: { marginBottom: 20 },
     headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1F2937' },
     headerSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 4, lineHeight: 20 },
-    
+
+    tabContainer: {
+        flexDirection: 'row',
+        marginTop: 20,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        padding: 4,
+    },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    activeTabButton: {
+        backgroundColor: '#FFF',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6B7280',
+    },
+    activeTabText: {
+        color: COLORS.primary,
+    },
+
     card: {
         backgroundColor: '#FFF',
         borderRadius: 16,
@@ -541,7 +648,7 @@ const styles = StyleSheet.create({
     participantRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
     participantText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
     statusLabel: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-    
+
     actionBtn: {
         backgroundColor: COLORS.primary,
         paddingVertical: 14,
@@ -552,7 +659,7 @@ const styles = StyleSheet.create({
     checkinBtn: { backgroundColor: '#10B981' },
     disabledBtn: { backgroundColor: '#D1D5DB' },
     actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: 'bold', letterSpacing: 0.5 },
-    
+
     adminActionBtn: {
         backgroundColor: '#F8FAFC',
         paddingVertical: 12,

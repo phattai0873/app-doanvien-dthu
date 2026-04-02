@@ -13,9 +13,13 @@ router.use(protect);
 router.post('/categories', documentController.createCategory);
 router.put('/categories/:id', documentController.updateCategory);
 router.delete('/categories/:id', documentController.deleteCategory);
+router.patch('/categories/:id/restore', documentController.restoreCategory);
+router.delete('/categories/:id/force', documentController.forceDeleteCategory);
 router.patch('/:id/toggle-status', documentController.toggleStatus);
 router.post('/', uploadDocument, documentController.createDocument);
 router.put('/:id', uploadDocument, documentController.updateDocument);
 router.delete('/:id', documentController.deleteDocument);
+router.patch('/:id/restore', documentController.restoreDocument);
+router.delete('/:id/force', documentController.forceDeleteDocument);
 
 module.exports = router;

@@ -21,11 +21,10 @@ import { API_BASE_URL } from '../../services/api';
 export const ExamListScreen = ({ onNavigate }) => {
     const [exams, setExams] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('all');
+    const [activeTab, setActiveTab] = useState('ONGOING');
     const [userStats, setUserStats] = useState({ totalPoints: 0, quizCount: 0, rank: 'C' });
 
     const TABS = [
-        { id: 'all', name: 'Tất cả' },
         { id: 'ONGOING', name: 'Đang diễn ra' },
         { id: 'UPCOMING', name: 'Sắp tới' },
         { id: 'FINISHED', name: 'Đã kết thúc' },
@@ -85,7 +84,7 @@ export const ExamListScreen = ({ onNavigate }) => {
         const { bg, text, label } = getStatusStyle(currentStatus);
         const isOngoing = currentStatus === 'ONGOING';
         const isUpcoming = currentStatus === 'UPCOMING';
-        
+
         if (item.thumbnail) {
             console.log(`[ExamList] Title: ${item.title}, Thumbnail: ${API_BASE_URL}${item.thumbnail}`);
         }
@@ -112,8 +111,8 @@ export const ExamListScreen = ({ onNavigate }) => {
                 <View style={styles.cardBody}>
                     <View style={styles.imagePlaceholder}>
                         {item.thumbnail ? (
-                            <Image 
-                                source={{ uri: `${API_BASE_URL.replace(/\/$/, '')}${item.thumbnail}` }} 
+                            <Image
+                                source={{ uri: `${API_BASE_URL.replace(/\/$/, '')}${item.thumbnail}` }}
                                 style={styles.quizThumbnail}
                                 resizeMode="cover"
                                 onError={(e) => console.log(`[ExamList] Image Load Error: ${e.nativeEvent.error} for ${item.title}`)}
@@ -171,20 +170,18 @@ export const ExamListScreen = ({ onNavigate }) => {
 
             {/* Content Section */}
             <View style={styles.contentBody}>
-                <View style={styles.catWrapper}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
-                        {TABS.map(tab => (
-                            <TouchableOpacity
-                                key={tab.id}
-                                style={[styles.catPill, activeTab === tab.id && styles.catPillActive]}
-                                onPress={() => setActiveTab(tab.id)}
-                            >
-                                <Text style={[styles.catText, activeTab === tab.id && styles.catTextActive]}>
-                                    {tab.name}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
+                <View style={styles.tabContainer}>
+                    {TABS.map(tab => (
+                        <TouchableOpacity
+                            key={tab.id}
+                            style={[styles.tabButton, activeTab === tab.id && styles.activeTabButton]}
+                            onPress={() => setActiveTab(tab.id)}
+                        >
+                            <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
+                                {tab.name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
 
                 <FlatList
@@ -261,19 +258,38 @@ const styles = StyleSheet.create({
 
     // Content Styles
     contentBody: { flex: 1, marginTop: -20, paddingTop: 30 },
-    catWrapper: { marginBottom: 15 },
-    catScroll: { paddingHorizontal: 20, gap: 10 },
-    catPill: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 25,
-        backgroundColor: '#FFF',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
+    // Tabs Styles
+    tabContainer: {
+        flexDirection: 'row',
+        marginHorizontal: 20,
+        marginBottom: 20,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 14,
+        padding: 4,
     },
-    catPillActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, elevation: 4 },
-    catText: { fontSize: 13, color: COLORS.gray600, fontWeight: '600' },
-    catTextActive: { color: '#FFF', fontWeight: 'bold' },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 10,
+    },
+    activeTabButton: {
+        backgroundColor: '#FFF',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: COLORS.gray500,
+    },
+    activeTabText: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+    },
 
     listContent: { padding: 20, paddingBottom: 100 },
     card: {

@@ -17,7 +17,8 @@ const meetingController = {
 
         const meetings = await MeetingService.getAll({
             unionCellId, unionBranchId, level, status,
-            search, page, limit, type, semester, academicYear
+            search, page, limit, type, semester, academicYear,
+            onlyDeleted: req.query.onlyDeleted === 'true'
         });
         res.status(200).json({ success: true, ...meetings });
     }),
@@ -45,6 +46,16 @@ const meetingController = {
 
     deleteMeeting: asyncHandler(async (req, res) => {
         const result = await MeetingService.delete(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreMeeting: asyncHandler(async (req, res) => {
+        const result = await MeetingService.restoreMeeting(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteMeeting: asyncHandler(async (req, res) => {
+        const result = await MeetingService.forceDeleteMeeting(req.params.id);
         res.status(200).json({ success: true, data: result });
     }),
 

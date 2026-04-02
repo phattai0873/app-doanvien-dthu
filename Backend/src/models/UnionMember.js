@@ -26,15 +26,6 @@ const UnionMember = sequelize.define('UnionMember', {
     identityNumber: {
         type: DataTypes.STRING
     },
-    email: {
-        type: DataTypes.STRING,
-        validate: {
-            isEmail: true
-        }
-    },
-    phoneNumber: {
-        type: DataTypes.STRING
-    },
     permanentAddress: {
         type: DataTypes.TEXT
     },

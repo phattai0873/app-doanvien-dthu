@@ -121,9 +121,21 @@ export const AdminDashboardScreen = ({ onNavigate }) => {
                         onPress={() => onNavigate('meeting_create')}
                     />
                     <QuickAction
+                        title="Điểm danh QR"
+                        icon="qr-code"
+                        color="#805AD5"
+                        onPress={() => onNavigate('attendance_mgmt')}
+                    />
+                    <QuickAction
+                        title="Đoàn phí"
+                        icon="wallet"
+                        color="#ED8936"
+                        onPress={() => onNavigate('fee_mgmt')}
+                    />
+                    <QuickAction
                         title="Thống kê"
                         icon="bar-chart"
-                        color="#805AD5"
+                        color="#48BB78"
                         onPress={() => { }}
                     />
                 </View>

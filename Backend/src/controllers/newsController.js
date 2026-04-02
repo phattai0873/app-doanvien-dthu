@@ -26,12 +26,16 @@ const newsController = {
             status = 'PUBLISHED';
         }
 
-        const result = await NewsService.getAll({ status, categoryId, level, unionBranchId, unionCellId, search, page, limit });
+        const result = await NewsService.getAll({ 
+            status, categoryId, level, scope: req.query.scope, unionBranchId, unionCellId, search, page, limit,
+            userId: req.user?.id,
+            onlyDeleted: req.query.onlyDeleted === 'true'
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
     getNewsById: asyncHandler(async (req, res) => {
-        const news = await NewsService.getById(req.params.id);
+        const news = await NewsService.getById(req.params.id, req.user?.id);
         res.status(200).json({ success: true, data: news });
     }),
 
@@ -63,7 +67,8 @@ const newsController = {
     }),
 
     publishNews: asyncHandler(async (req, res) => {
-        const news = await NewsService.publish(req.params.id);
+        const { publishedAt } = req.body;
+        const news = await NewsService.publish(req.params.id, publishedAt);
         res.status(200).json({ success: true, data: news });
     }),
 
@@ -77,11 +82,79 @@ const newsController = {
         res.status(200).json({ success: true, data: result });
     }),
 
+    restoreNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.restore(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.forceDelete(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    likeNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.likeNews(req.params.id, req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    unlikeNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.unlikeNews(req.params.id, req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    shareNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.shareNews(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    // ==================== BÌNH LUẬN ====================
+
+    getComments: asyncHandler(async (req, res) => {
+        const { page, limit } = req.query;
+        const result = await NewsService.getComments(req.params.id, {
+            page,
+            limit,
+            userId: req.user?.id
+        });
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    getReplies: asyncHandler(async (req, res) => {
+        const result = await NewsService.getReplies(req.params.commentId, {
+            userId: req.user?.id
+        });
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    createComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.createComment(req.params.id, req.user.id, req.body);
+        res.status(201).json({ success: true, data: result });
+    }),
+
+    likeComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.likeComment(req.params.commentId, req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    reportComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.reportComment(req.params.commentId, req.user.id, req.body);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    deleteComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.deleteComment(req.params.commentId, req.user.id);
+        res.status(200).json({ success: true, ...result });
+    }),
+
     // ==================== CHUYÊN MỤC ====================
 
     getCategories: asyncHandler(async (req, res) => {
-        const { search, isActive } = req.query;
-        const categories = await NewsService.getCategories({ search, isActive });
+        const { search, isActive, onlyDeleted } = req.query;
+        const categories = await NewsService.getCategories({ 
+            search, 
+            isActive, 
+            onlyDeleted: onlyDeleted === 'true' 
+        });
         res.status(200).json({ success: true, data: categories });
     }),
 
@@ -102,6 +175,16 @@ const newsController = {
 
     deleteCategory: asyncHandler(async (req, res) => {
         const result = await NewsService.deleteCategory(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreCategory: asyncHandler(async (req, res) => {
+        const result = await NewsService.restoreCategory(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteCategory: asyncHandler(async (req, res) => {
+        const result = await NewsService.forceDeleteCategory(req.params.id);
         res.status(200).json({ success: true, data: result });
     }),
 

@@ -98,7 +98,7 @@ export default function ActivityParticipantsPage() {
                         Xuất Excel
                     </button>
                     <select 
-                        className="px-3 py-2 border-2 border-gray-100 rounded-lg text-sm outline-none focus:border-primary-700 transition font-bold text-gray-600 bg-white"
+                        className="px-3 py-2 bg-white border-2 border-gray-100 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition font-bold text-gray-600"
                         value={filterStatus}
                         onChange={e => setFilterStatus(e.target.value)}
                     >
@@ -109,7 +109,7 @@ export default function ActivityParticipantsPage() {
                     <div className="relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input 
-                            className="pl-9 pr-4 py-2 border-2 border-gray-100 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition" 
+                            className="pl-9 pr-4 py-2 bg-white border-2 border-gray-100 rounded-lg text-sm w-64 outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition" 
                             placeholder="Tìm kiếm đoàn viên..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -131,11 +131,9 @@ export default function ActivityParticipantsPage() {
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b border-gray-100">
                                     <tr>
-                                        <th className="px-6 py-4">Đoàn viên</th>
-                                        <th className="px-6 py-4">Mã SV</th>
-                                        <th className="px-6 py-4 text-center">Đăng ký</th>
-                                        <th className="px-6 py-4 text-center">Điểm danh</th>
-                                        <th className="px-6 py-4 text-center">Điểm rèn luyện</th>
+                                        <th className="px-6 py-4">Họ và tên</th>
+                                        <th className="px-6 py-4">Chi đoàn</th>
+                                        <th className="px-6 py-4 text-center">Trạng thái điểm danh</th>
                                         <th className="px-6 py-4 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
@@ -143,45 +141,21 @@ export default function ActivityParticipantsPage() {
                                     {filteredParticipants.map(p => (
                                         <tr key={p.id} className="hover:bg-gray-50/50 transition border-l-4 border-l-transparent hover:border-l-primary-700">
                                             <td className="px-6 py-4">
-                                                <div>
-                                                    <span className="font-bold text-gray-800 block leading-tight">{p.UnionMember?.fullName}</span>
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{p.UnionMember?.UnionCell?.name || '—'}</span>
-                                                </div>
+                                                <span className="font-bold text-gray-800 block leading-tight">{p.UnionMember?.fullName}</span>
                                             </td>
-                                            <td className="px-6 py-4 font-mono text-xs font-bold text-gray-500">{p.UnionMember?.memberCode}</td>
-                                            <td className="px-6 py-4 text-center text-[10px] font-black uppercase">
-                                                <span className={`px-2.5 py-1 rounded-lg shadow-xs ${p.registrationStatus === 'APPROVED' ? 'bg-green-100 text-green-700' : p.registrationStatus === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
-                                                    {p.registrationStatus}
-                                                </span>
+                                            <td className="px-6 py-4">
+                                                <span className="text-[11px] text-gray-500 font-bold uppercase tracking-tight">{p.UnionMember?.UnionCell?.name || '—'}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 {p.attendanceStatus ? (
-                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase shadow-xs ${ATTENDANCE_COLORS[p.attendanceStatus]}`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-xs ${ATTENDANCE_COLORS[p.attendanceStatus]}`}>
                                                         {ATTENDANCE_LABELS[p.attendanceStatus]}
                                                     </span>
-                                                ) : <span className="text-gray-300 font-bold">—</span>}
+                                                ) : <span className="text-gray-300 font-bold text-xs">Chưa điểm danh</span>}
                                             </td>
-                                            <td className="px-6 py-4 text-center font-black text-primary-700 text-base">{p.scoreAwarded || 0}</td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex gap-1.5 justify-center">
-                                                    {p.registrationStatus === 'REGISTERED' && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => updateStatus.mutate({ memberId: p.memberId, data: { registrationStatus: 'APPROVED' } })}
-                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg border border-transparent hover:border-green-100 bg-green-50/10 transition shadow-sm"
-                                                                title="Duyệt tham gia"
-                                                            >
-                                                                <CheckCircle2 size={18} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => updateStatus.mutate({ memberId: p.memberId, data: { registrationStatus: 'REJECTED' } })}
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-100 bg-red-50/10 transition shadow-sm"
-                                                                title="Từ chối"
-                                                            >
-                                                                <XCircle size={18} />
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                    {/* Removed Approve/Reject buttons as per user request */}
                                                     <button 
                                                         onClick={() => {
                                                             const status = p.attendanceStatus === 'PRESENT' ? 'ABSENT_NO_REASON' : 'PRESENT';

@@ -4,8 +4,11 @@ const UnionBranchService = require('../services/unionBranchService');
 
 const unionBranchController = {
     getBranches: asyncHandler(async (req, res) => {
-        const { search, status, unionLevel, page, limit } = req.query;
-        const result = await UnionBranchService.getAll({ search, status, unionLevel, page, limit });
+        const { search, status, unionLevel, page, limit, onlyDeleted } = req.query;
+        const result = await UnionBranchService.getAll({ 
+            search, status, unionLevel, page, limit,
+            onlyDeleted: onlyDeleted === 'true'
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -38,6 +41,16 @@ const unionBranchController = {
 
     deleteBranch: asyncHandler(async (req, res) => {
         const result = await UnionBranchService.delete(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreBranch: asyncHandler(async (req, res) => {
+        const result = await UnionBranchService.restoreBranch(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteBranch: asyncHandler(async (req, res) => {
+        const result = await UnionBranchService.forceDeleteBranch(req.params.id);
         res.status(200).json({ success: true, data: result });
     }),
 

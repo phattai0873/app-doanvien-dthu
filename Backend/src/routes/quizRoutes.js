@@ -11,6 +11,8 @@ router.post('/', uploadQuizThumbnail, quizController.createExam);
 router.get('/:id', quizController.getExam);
 router.put('/:id', uploadQuizThumbnail, quizController.updateExam);
 router.delete('/:id', quizController.deleteExam);
+router.patch('/:id/restore', quizController.restoreQuiz);
+router.delete('/:id/force', quizController.forceDeleteQuiz);
 router.post('/:id/submit', quizController.submitAttempt);
 router.get('/:id/attempts', quizController.getAttempts);
 

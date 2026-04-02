@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Star, QrCode, RotateCw, Download, Copy, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Star, QrCode, RotateCw, Download, Copy, Users, CheckCircle2, XCircle, RotateCcw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { activityApi } from '../../services/api';
-import { confirmDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 const BTN_ICON = "p-2 rounded-lg text-base transition";
@@ -15,9 +15,11 @@ const BTN_ICON = "p-2 rounded-lg text-base transition";
 const ACTIVITY_STATUS = [
     { value: 'DRAFT', label: 'Bản nháp', color: 'bg-gray-100 text-gray-600' },
     { value: 'PENDING_APPROVAL', label: 'Chờ duyệt', color: 'bg-orange-100 text-orange-700' },
-    { value: 'APPROVED', label: 'Đã duyệt', color: 'bg-green-100 text-green-700' },
+    { value: 'APPROVED', label: 'Sắp diễn ra', color: 'bg-green-100 text-green-700' },
+    { value: 'REJECTED', label: 'Từ chối', color: 'bg-red-100 text-red-700' },
     { value: 'IN_PROGRESS', label: 'Đang diễn ra', color: 'bg-blue-100 text-blue-700' },
     { value: 'COMPLETED', label: 'Hoàn thành', color: 'bg-purple-100 text-purple-700' },
+    { value: 'CANCELLED', label: 'Đã hủy', color: 'bg-gray-500 text-white' },
 ];
 
 const ACTIVITY_LEVELS = [
@@ -221,15 +223,17 @@ export default function ActivitiesPage() {
     const [page, setPage] = useState(1);
     const [modal, setModal] = useState(null);
     const [showQR, setShowQR] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data, isLoading } = useQuery({ 
-        queryKey: ['activities', search, page, levelFilter, branchFilter, cellFilter, statusFilter], 
+        queryKey: ['activities', search, page, levelFilter, branchFilter, cellFilter, statusFilter, showTrash], 
         queryFn: () => activityApi.getAll({ 
             search, page, limit: 10, 
             level: levelFilter || undefined, 
             status: statusFilter || undefined,
             unionBranchId: branchFilter || undefined,
-            unionCellId: cellFilter || undefined
+            unionCellId: cellFilter || undefined,
+            onlyDeleted: showTrash
         }), 
         keepPreviousData: true 
     });
@@ -248,7 +252,9 @@ export default function ActivitiesPage() {
 
     const createMutation = useMutation({ mutationFn: activityApi.create, onSuccess: () => { qc.invalidateQueries(['activities']); setModal(null); toast.success('Đã gửi yêu cầu phê duyệt!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => activityApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['activities']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteMutation = useMutation({ mutationFn: activityApi.delete, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã xóa!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteMutation = useMutation({ mutationFn: activityApi.delete, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã chuyển hoạt động vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreMutation = useMutation({ mutationFn: activityApi.restore, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã khôi phục hoạt động!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteMutation = useMutation({ mutationFn: activityApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const approveMutation = useMutation({ 
         mutationFn: activityApi.approve, 
         onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã phê duyệt hoạt động!'); }, 
@@ -291,12 +297,25 @@ export default function ActivitiesPage() {
                     <option value="">Tất cả trạng thái</option>
                     {ACTIVITY_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo hoạt động mới</button>
+                
+                <button 
+                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                        ${showTrash 
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                >
+                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                </button>
+
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo hoạt động mới</button>
+                )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                    <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Hệ thống Quản lý Hoạt động</h2>
+                    <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">{showTrash ? 'Thùng rác Hoạt động' : 'Hệ thống Quản lý Hoạt động'}</h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm shadow-primary-200">{pagination.total || 0} mục</span>
                 </div>
                 <div className="overflow-x-auto">
@@ -347,42 +366,73 @@ export default function ActivitiesPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-xs ${statusObj.color}`}>
-                                                        {statusObj.label}
-                                                    </span>
+                                                    <select
+                                                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border-0 outline-none cursor-pointer shadow-xs ${statusObj.color}`}
+                                                        value={a.status}
+                                                        onChange={e => updateMutation.mutate({ id: a.id, data: { status: e.target.value } })}
+                                                    >
+                                                        {ACTIVITY_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                                    </select>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2 justify-center">
-                                                        {a.status === 'PENDING_APPROVAL' && (
-                                                            <button 
-                                                                className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-700 border border-green-100 shadow-sm`}
-                                                                title="Phê duyệt hoạt động"
-                                                                onClick={() => approveMutation.mutate(a.id)}
-                                                            >
-                                                                <Star size={16} fill="currentColor" />
-                                                            </button>
+                                                        {!showTrash ? (
+                                                            <>
+                                                                {a.status === 'PENDING_APPROVAL' && (
+                                                                    <button 
+                                                                        className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-700 border border-green-100 shadow-sm`}
+                                                                        title="Phê duyệt hoạt động"
+                                                                        onClick={() => approveMutation.mutate(a.id)}
+                                                                    >
+                                                                        <Star size={16} fill="currentColor" />
+                                                                    </button>
+                                                                )}
+                                                                {a.checkinCode && (
+                                                                    <button 
+                                                                        className={`${BTN_ICON} bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 shadow-sm`}
+                                                                        title="Hiển thị QR Check-in"
+                                                                        onClick={() => setShowQR({ id: a.id, title: a.title, code: a.checkinCode, expiresAt: a.checkinCodeExpiresAt })}
+                                                                    >
+                                                                        <QrCode size={16} />
+                                                                    </button>
+                                                                )}
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
+                                                                    title="Danh sách tham gia"
+                                                                    onClick={() => navigate(`${a.id}/participants`)}
+                                                                >
+                                                                    <Users size={16} />
+                                                                </button>
+                                                                <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(a)}><Pencil size={16} /></button>
+                                                                <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
+                                                                    const result = await confirmDelete(a.title);
+                                                                    if (result.isConfirmed) deleteMutation.mutate(a.id);
+                                                                }}><Trash2 size={16} /></button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`}
+                                                                    title="Khôi phục"
+                                                                    onClick={async () => {
+                                                                        const result = await confirmRestore(a.title);
+                                                                        if (result.isConfirmed) restoreMutation.mutate(a.id);
+                                                                    }}
+                                                                >
+                                                                    <RotateCcw size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`}
+                                                                    title="Xóa vĩnh viễn"
+                                                                    onClick={async () => {
+                                                                        const result = await confirmForceDelete(a.title);
+                                                                        if (result.isConfirmed) forceDeleteMutation.mutate(a.id);
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </>
                                                         )}
-                                                        {a.checkinCode && (
-                                                            <button 
-                                                                className={`${BTN_ICON} bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 shadow-sm`}
-                                                                title="Hiển thị QR Check-in"
-                                                                onClick={() => setShowQR({ id: a.id, title: a.title, code: a.checkinCode, expiresAt: a.checkinCodeExpiresAt })}
-                                                            >
-                                                                <QrCode size={16} />
-                                                            </button>
-                                                        )}
-                                                        <button 
-                                                            className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
-                                                            title="Danh sách tham gia"
-                                                            onClick={() => navigate(`${a.id}/participants`)}
-                                                        >
-                                                            <Users size={16} />
-                                                        </button>
-                                                        <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(a)}><Pencil size={16} /></button>
-                                                        <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
-                                                            const result = await confirmDelete(a.title);
-                                                            if (result.isConfirmed) deleteMutation.mutate(a.id);
-                                                        }}><Trash2 size={16} /></button>
                                                     </div>
                                                 </td>
                                             </tr>

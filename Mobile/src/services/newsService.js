@@ -20,15 +20,12 @@ export const newsService = {
     },
 
     // [GET] /api/news
-    getNews: async (categoryId = 'all', level = null) => {
+    getNews: async (categoryId = 'all', scope = null) => {
         if (USE_SUPABASE) {
             const query = supabase.from('news').select('*').eq('status', 1);
             if (categoryId !== 'all') query.eq('category_id', categoryId);
-            if (level) {
-                let mappedLevel = level;
-                if (level === 'Trường') mappedLevel = 'SCHOOL';
-                else if (level === 'Tỉnh') mappedLevel = 'BRANCH';
-                query.eq('level', mappedLevel);
+            if (scope) {
+                query.eq('scope', scope);
             }
             const { data, error } = await query.order('published_at', { ascending: false });
             if (error) throw error;
@@ -38,11 +35,8 @@ export const newsService = {
             return new Promise(r => {
                 setTimeout(() => {
                     let data = categoryId === 'all' ? MOCK_DB.news : MOCK_DB.news.filter(n => n.categoryId === categoryId);
-                    if (level) {
-                        let mappedLevel = level;
-                        if (level === 'Trường') mappedLevel = 'SCHOOL';
-                        else if (level === 'Tỉnh') mappedLevel = 'BRANCH';
-                        data = data.filter(n => n.level === mappedLevel);
+                    if (scope) {
+                        data = data.filter(n => n.scope === scope);
                     }
                     r({ data, pagination: { page: 1, limit: 10, total: data.length } });
                 }, SIMULATE_DELAY);
@@ -52,11 +46,7 @@ export const newsService = {
         // API THỰC
         const params = { status: 'PUBLISHED' };
         if (categoryId !== 'all') params.categoryId = categoryId;
-        
-        // Map level names to backend ENUM
-        if (level === 'Trường') params.level = 'SCHOOL';
-        else if (level === 'Tỉnh') params.level = 'BRANCH';
-        else if (level) params.level = level;
+        if (scope) params.scope = scope;
         
         const response = await apiClient.get('/api/news', { params });
         return {
@@ -97,6 +87,47 @@ export const newsService = {
 
     unpublishNews: async (id) => {
         return await apiClient.patch(`/api/news/${id}/unpublish`);
+    },
+
+    likeNews: async (id) => {
+        return await apiClient.post(`/api/news/${id}/like`);
+    },
+
+    unlikeNews: async (id) => {
+        return await apiClient.post(`/api/news/${id}/unlike`);
+    },
+
+    shareNews: async (id) => {
+        return await apiClient.post(`/api/news/${id}/share`);
+    },
+
+    // ==================== COMMENTS ====================
+    getComments: async (newsId, page = 1, limit = 10) => {
+        const response = await apiClient.get(`/api/news/${newsId}/comments`, {
+            params: { page, limit }
+        });
+        return response;
+    },
+
+    getReplies: async (commentId) => {
+        const response = await apiClient.get(`/api/news/comments/${commentId}/replies`);
+        return response.data || [];
+    },
+
+    createComment: async (newsId, content, parentId = null) => {
+        return await apiClient.post(`/api/news/${newsId}/comments`, { content, parentId });
+    },
+
+    likeComment: async (commentId) => {
+        return await apiClient.post(`/api/news/comments/${commentId}/like`);
+    },
+
+    reportComment: async (commentId, reason) => {
+        return await apiClient.post(`/api/news/comments/${commentId}/report`, { reason });
+    },
+
+    deleteComment: async (commentId) => {
+        return await apiClient.delete(`/api/news/comments/${commentId}`);
     }
 };
 

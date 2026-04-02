@@ -11,5 +11,7 @@ router.get('/', bannerController.getAllBanners);
 router.post('/', protect, uploadBanner, bannerController.createBanner);
 router.patch('/:id/toggle', protect, bannerController.toggleBanner);
 router.delete('/:id', protect, bannerController.deleteBanner);
+router.patch('/:id/restore', protect, bannerController.restoreBanner);
+router.delete('/:id/force', protect, bannerController.forceDeleteBanner);
 
 module.exports = router;

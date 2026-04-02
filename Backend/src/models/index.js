@@ -14,6 +14,10 @@ const Attendance = require('./Attendance');
 const Meeting = require('./Meeting');
 const News = require('./News');
 const NewsCategory = require('./NewsCategory');
+const NewsLike = require('./NewsLike');
+const NewsComment = require('./NewsComment');
+const NewsCommentLike = require('./NewsCommentLike');
+const NewsCommentReport = require('./NewsCommentReport');
 const Document = require('./Document');
 const DocumentCategory = require('./DocumentCategory');
 const Notification = require('./Notification');
@@ -26,6 +30,9 @@ const UnionFeePayment = require('./UnionFeePayment');
 const CellMeetingLocation = require('./CellMeetingLocation');
 const Banner = require('./Banner');
 const LandingConfig = require('./LandingConfig');
+const UnionFeeType = require('./UnionFeeType');
+const PaymentTransaction = require('./PaymentTransaction');
+const BankSetting = require('./BankSetting');
 
 // Associations
 
@@ -75,7 +82,7 @@ UnionMemberPosition.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 UnionMember.hasMany(UnionMemberHistory, { foreignKey: 'unionMemberId' });
 UnionMemberHistory.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
 
-// Activity & Attendance (Nếu vẫn dùng - tuy nhiên ActivityParticipant được ưu tiên hơn)
+// Activity & Attendance
 Activity.hasMany(Attendance, { foreignKey: 'activityId' });
 Attendance.belongsTo(Activity, { foreignKey: 'activityId' });
 
@@ -124,6 +131,38 @@ News.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 UnionCell.hasMany(News, { foreignKey: 'unionCellId' });
 News.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 
+// News & NewsLike
+News.hasMany(NewsLike, { foreignKey: 'newsId', as: 'NewsLikes' });
+NewsLike.belongsTo(News, { foreignKey: 'newsId' });
+
+User.hasMany(NewsLike, { foreignKey: 'userId' });
+NewsLike.belongsTo(User, { foreignKey: 'userId' });
+
+// News & NewsComment
+News.hasMany(NewsComment, { foreignKey: 'newsId', as: 'Comments' });
+NewsComment.belongsTo(News, { foreignKey: 'newsId' });
+
+User.hasMany(NewsComment, { foreignKey: 'userId' });
+NewsComment.belongsTo(User, { foreignKey: 'userId' });
+
+// Self-referencing for replies (1 level recommended)
+NewsComment.hasMany(NewsComment, { foreignKey: 'parentId', as: 'Replies' });
+NewsComment.belongsTo(NewsComment, { foreignKey: 'parentId', as: 'Parent' });
+
+// NewsComment & NewsCommentLike
+NewsComment.hasMany(NewsCommentLike, { foreignKey: 'commentId', as: 'CommentLikes' });
+NewsCommentLike.belongsTo(NewsComment, { foreignKey: 'commentId' });
+
+User.hasMany(NewsCommentLike, { foreignKey: 'userId' });
+NewsCommentLike.belongsTo(User, { foreignKey: 'userId' });
+
+// NewsComment & NewsCommentReport
+NewsComment.hasMany(NewsCommentReport, { foreignKey: 'commentId', as: 'Reports' });
+NewsCommentReport.belongsTo(NewsComment, { foreignKey: 'commentId' });
+
+User.hasMany(NewsCommentReport, { foreignKey: 'userId' });
+NewsCommentReport.belongsTo(User, { foreignKey: 'userId' });
+
 // Document & Categories
 DocumentCategory.hasMany(Document, { foreignKey: 'categoryId' });
 Document.belongsTo(DocumentCategory, { foreignKey: 'categoryId' });
@@ -170,14 +209,27 @@ UnionFeePayment.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
 UnionBranch.hasMany(UnionFeePayment, { foreignKey: 'unionBranchId' });
 UnionFeePayment.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
+UnionFeeType.hasMany(UnionFeePayment, { foreignKey: 'unionFeeTypeId' });
+UnionFeePayment.belongsTo(UnionFeeType, { foreignKey: 'unionFeeTypeId' });
+
+// PaymentTransaction associations
+UnionMember.hasMany(PaymentTransaction, { foreignKey: 'unionMemberId' });
+PaymentTransaction.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+UnionFeeType.hasMany(PaymentTransaction, { foreignKey: 'unionFeeTypeId' });
+PaymentTransaction.belongsTo(UnionFeeType, { foreignKey: 'unionFeeTypeId' });
+
+PaymentTransaction.hasOne(UnionFeePayment, { foreignKey: 'paymentTransactionId' });
+UnionFeePayment.belongsTo(PaymentTransaction, { foreignKey: 'paymentTransactionId' });
+
 module.exports = {
     User, Role, Permission, AuditLog,
     UnionBranch, UnionCell, UnionMember, UnionMemberHistory,
     UnionPosition, UnionMemberPosition,
     Activity, ActivityParticipant, Attendance, Meeting,
-    News, NewsCategory,
+    News, NewsCategory, NewsLike, NewsComment, NewsCommentLike, NewsCommentReport,
     Document, DocumentCategory,
     Notification, NotificationReadStatus,
     QuizExam, QuizQuestion, QuizOption, QuizAttempt,
-    UnionFeePayment, CellMeetingLocation, Banner, LandingConfig
+    UnionFeePayment, UnionFeeType, PaymentTransaction, CellMeetingLocation, Banner, LandingConfig, BankSetting
 };

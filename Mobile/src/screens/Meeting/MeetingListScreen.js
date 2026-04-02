@@ -18,6 +18,7 @@ export const MeetingListScreen = ({ onNavigate }) => {
     const [meetings, setMeetings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [activeTab, setActiveTab] = useState('UPCOMING'); // UPCOMING, ONGOING, COMPLETED
 
     const fetchData = async () => {
         try {
@@ -143,17 +144,53 @@ export const MeetingListScreen = ({ onNavigate }) => {
     return (
         <View style={styles.container}>
             <FlatList
-                data={meetings}
+                data={meetings.filter(item => {
+                    if (activeTab === 'UPCOMING') return item.status === 'scheduled';
+                    if (activeTab === 'ONGOING') return item.status === 'active';
+                    if (activeTab === 'COMPLETED') return item.status === 'finished' || item.status === 'cancelled';
+                    return true;
+                })}
                 renderItem={renderItem}
                 keyExtractor={item => item.id.toString()}
                 contentContainerStyle={styles.listContent}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
                 }
+                ListHeaderComponent={
+                    <View style={styles.listHeader}>
+                        <Text style={styles.headerTitle}>Lịch họp & Sinh hoạt</Text>
+                        <Text style={styles.headerSubtitle}>Theo dõi và tham gia các buổi sinh hoạt Chi đoàn.</Text>
+                        
+                        <View style={styles.tabContainer}>
+                            <TouchableOpacity 
+                                style={[styles.tabButton, activeTab === 'UPCOMING' && styles.activeTabButton]}
+                                onPress={() => setActiveTab('UPCOMING')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'UPCOMING' && styles.activeTabText]}>Sắp tới</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabButton, activeTab === 'ONGOING' && styles.activeTabButton]}
+                                onPress={() => setActiveTab('ONGOING')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'ONGOING' && styles.activeTabText]}>Đang diễn ra</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabButton, activeTab === 'COMPLETED' && styles.activeTabButton]}
+                                onPress={() => setActiveTab('COMPLETED')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'COMPLETED' && styles.activeTabText]}>Đã kết thúc</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Icon name="Calendar" size={64} color="#E5E7EB" />
-                        <Text style={styles.emptyText}>Chưa có lịch họp nào</Text>
+                        <Text style={styles.emptyText}>
+                            {activeTab === 'UPCOMING' ? 'Chưa có lịch họp sắp tới' : 
+                             activeTab === 'ONGOING' ? 'Hiện không có cuộc họp nào đang diễn ra' : 
+                             'Chưa có lịch họp đã kết thúc'}
+                        </Text>
                     </View>
                 }
             />
@@ -251,5 +288,50 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#9CA3AF',
         marginTop: 16,
-    }
+        textAlign: 'center',
+        paddingHorizontal: 40,
+    },
+    listHeader: {
+        marginBottom: 20,
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#1F2937',
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: '#6B7280',
+        marginTop: 4,
+        lineHeight: 20,
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        marginTop: 16,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        padding: 4,
+    },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    activeTabButton: {
+        backgroundColor: '#FFF',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6B7280',
+    },
+    activeTabText: {
+        color: COLORS.primary,
+    },
 });

@@ -22,7 +22,10 @@ const documentController = {
             }
         }
 
-        const result = await DocumentService.getAll({ search, categoryId, status, page, limit, unionBranchId });
+        const result = await DocumentService.getAll({ 
+            search, categoryId, status, page, limit, unionBranchId,
+            onlyDeleted: req.query.onlyDeleted === 'true'
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -47,13 +50,25 @@ const documentController = {
         res.status(200).json({ success: true, data: result });
     }),
 
+    restoreDocument: asyncHandler(async (req, res) => {
+        const result = await DocumentService.restoreDocument(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteDocument: asyncHandler(async (req, res) => {
+        const result = await DocumentService.forceDeleteDocument(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
     toggleStatus: asyncHandler(async (req, res) => {
         const doc = await DocumentService.toggleStatus(req.params.id);
         res.status(200).json({ success: true, data: doc });
     }),
 
     getCategories: asyncHandler(async (req, res) => {
-        const categories = await DocumentService.getCategories();
+        const categories = await DocumentService.getCategories({ 
+            onlyDeleted: req.query.onlyDeleted === 'true' 
+        });
         res.status(200).json({ success: true, data: categories });
     }),
 
@@ -69,6 +84,16 @@ const documentController = {
 
     deleteCategory: asyncHandler(async (req, res) => {
         const result = await DocumentService.deleteCategory(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreCategory: asyncHandler(async (req, res) => {
+        const result = await DocumentService.restoreCategory(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteCategory: asyncHandler(async (req, res) => {
+        const result = await DocumentService.forceDeleteCategory(req.params.id);
         res.status(200).json({ success: true, data: result });
     })
 };

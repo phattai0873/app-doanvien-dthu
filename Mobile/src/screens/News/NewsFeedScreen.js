@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../../services/api';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
 import { newsService } from '../../services/newsService';
+import { formatViews } from '../../utils/helpers';
 
 export const NewsFeedScreen = ({ onNavigate }) => {
     const [activeCat, setActiveCat] = useState('all');
@@ -112,19 +113,21 @@ export const NewsFeedScreen = ({ onNavigate }) => {
             </View>
 
             {/* Categories */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                {categories.map(cat => (
-                    <TouchableOpacity
-                        key={cat.id}
-                        style={[styles.catPill, activeCat === cat.id && styles.catPillActive]}
-                        onPress={() => setActiveCat(cat.id)}
-                    >
-                        <Text style={[styles.catText, activeCat === cat.id && styles.catTextActive]}>
-                            {cat.name}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+            <View style={styles.catWrapper}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
+                    {categories.map(cat => (
+                        <TouchableOpacity
+                            key={cat.id}
+                            style={[styles.catPill, activeCat === cat.id && styles.catPillActive]}
+                            onPress={() => setActiveCat(cat.id)}
+                        >
+                            <Text style={[styles.catText, activeCat === cat.id && styles.catTextActive]}>
+                                {cat.name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
             {/* Hero News */}
             {heroNews && (
@@ -150,6 +153,20 @@ export const NewsFeedScreen = ({ onNavigate }) => {
                         <View style={styles.metaItem}>
                             <Icon name="Clock" size={12} color="#6B7280" />
                             <Text style={styles.metaText}>{heroNews.publishedAtDisplay}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <View style={styles.metaItem}>
+                                <Icon name={heroNews.isLiked ? "HeartFilled" : "Heart"} size={12} color={heroNews.isLiked ? COLORS.error : "#6B7280"} />
+                                <Text style={[styles.metaText, heroNews.isLiked && { color: COLORS.error }]}>{heroNews.likesCount || 0}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Icon name="Share2" size={12} color="#6B7280" />
+                                <Text style={styles.metaText}>{heroNews.sharesCount || 0}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Icon name="Eye" size={12} color="#6B7280" />
+                                <Text style={styles.metaText}>{formatViews(heroNews.viewsCount || 0)}</Text>
+                            </View>
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -178,7 +195,20 @@ export const NewsFeedScreen = ({ onNavigate }) => {
                             <Text style={styles.newsTitle} numberOfLines={2}>{item.title}</Text>
                             <Text style={styles.newsSummary} numberOfLines={2}>{item.summary}</Text>
                             <View style={styles.newsFooter}>
-                                <Text style={styles.newsCat}>{item.NewsCategory?.name || 'Tin tức'}</Text>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <View style={styles.metaItem}>
+                                        <Icon name={item.isLiked ? "HeartFilled" : "Heart"} size={10} color={item.isLiked ? COLORS.error : "#9CA3AF"} />
+                                        <Text style={[styles.metaTextSm, item.isLiked && { color: COLORS.error }]}>{item.likesCount || 0}</Text>
+                                    </View>
+                                    <View style={styles.metaItem}>
+                                        <Icon name="Share2" size={10} color="#9CA3AF" />
+                                        <Text style={styles.metaTextSm}>{item.sharesCount || 0}</Text>
+                                    </View>
+                                    <View style={styles.metaItem}>
+                                        <Icon name="Eye" size={10} color="#9CA3AF" />
+                                        <Text style={styles.metaTextSm}>{formatViews(item.viewsCount || 0)}</Text>
+                                    </View>
+                                </View>
                                 <View style={styles.metaItem}>
                                     <Icon name="Clock" size={10} color="#9CA3AF" />
                                     <Text style={styles.metaTextSm}>{item.publishedAtDisplay}</Text>
@@ -237,29 +267,27 @@ const styles = StyleSheet.create({
     scopeBtnTextActive: {
         color: COLORS.primary,
     },
-    catScroll: { marginBottom: 16, paddingVertical: 4 },
+    catWrapper: { marginBottom: 15 },
+    catScroll: { paddingHorizontal: 20, gap: 10 },
     catPill: {
-        paddingHorizontal: 18,
+        paddingHorizontal: 20,
         paddingVertical: 10,
-        borderRadius: SIZES.radiusFull,
-        borderWidth: 1.5,
-        borderColor: COLORS.gray200,
-        backgroundColor: COLORS.white,
-        marginRight: 10,
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderRadius: 25,
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
-    catPillActive: {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
+    catPillActive: { 
+        backgroundColor: COLORS.primary, 
+        borderColor: COLORS.primary, 
+        elevation: 4,
         shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
+        shadowRadius: 8,
     },
-    catText: { fontSize: 13, fontWeight: '600', color: COLORS.gray500 },
-    catTextActive: { color: COLORS.white },
+    catText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+    catTextActive: { color: '#FFF', fontWeight: 'bold' },
     heroCard: {
         backgroundColor: COLORS.white,
         borderRadius: SIZES.radiusLg,

@@ -11,7 +11,7 @@ class UserService {
      * @description Register a new user
      */
     static async register(userData) {
-        const { username, password } = userData;
+        const { username, password, email, phoneNumber } = userData;
 
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
@@ -22,12 +22,12 @@ class UserService {
         const passwordHash = await bcrypt.hash(password, salt);
 
         // Tạo user
-        const user = await User.create({ 
-            username, 
+        const user = await User.create({
+            username,
             passwordHash,
-            isActive: true // Mặc định cho phép login sau khi đăng ký? 
-                           // Theo flow của user: "User đăng ký -> Backend tạo users -> Step 2: Login thành công"
-                           // Vậy isActive nên là true. Nếu cần duyệt tài khoản thì để false.
+            email,
+            phoneNumber,
+            isActive: true
         });
 
         // Gán role mặc định
@@ -140,10 +140,18 @@ class UserService {
     /**
      * @description Get all users
      */
-    static async getAllUsers() {
-        return await User.findAll({
-            attributes: { exclude: ['passwordHash', 'refreshTokenHash'] }
-        });
+    static async getAllUsers({ onlyDeleted = false } = {}) {
+        const queryOptions = {
+            attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['username', 'ASC']]
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            queryOptions.where = { deletedAt: { [Op.ne]: null } };
+        }
+
+        return await User.findAll(queryOptions);
     }
 
     /**
@@ -153,14 +161,17 @@ class UserService {
         const { Role, UnionMember, UnionCell, UnionBranch } = require('../models');
         const user = await User.findByPk(userId, {
             attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
+            paranoid: false,
             include: [
-                { model: Role, through: { attributes: [] } },
-                { 
+                { model: Role, through: { attributes: [] }, paranoid: false },
+                {
                     model: UnionMember,
+                    paranoid: false,
                     include: [
-                        { 
-                            model: UnionCell, 
-                            include: [{ model: UnionBranch }] 
+                        {
+                            model: UnionCell,
+                            paranoid: false,
+                            include: [{ model: UnionBranch, paranoid: false }]
                         }
                     ]
                 }
@@ -193,9 +204,9 @@ class UserService {
 
         // 2. Count of attended meetings
         const meetingsAttended = await Attendance.count({
-            where: { 
-                unionMemberId: memberId, 
-                status: { [Op.in]: ['PRESENT', 'Có mặt', 'LATE'] } 
+            where: {
+                unionMemberId: memberId,
+                status: { [Op.in]: ['PRESENT', 'Có mặt', 'LATE'] }
             }
         });
 
@@ -225,21 +236,22 @@ class UserService {
     static async updateUser(userId, data) {
         const user = await User.findByPk(userId);
         if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
-        
+
         const allowed = {};
         if (data.username !== undefined) allowed.username = data.username;
+        if (data.email !== undefined) allowed.email = data.email;
+        if (data.phoneNumber !== undefined) allowed.phoneNumber = data.phoneNumber;
         if (data.isActive !== undefined) allowed.isActive = data.isActive;
         if (data.avatarUrl !== undefined) {
             allowed.avatar = data.avatarUrl;
-            
-            // Xóa file avatar cũ nếu thay mới hoặc drop avatar
+
             if (user.avatar && user.avatar !== data.avatarUrl) {
                 const fs = require('fs');
                 const path = require('path');
                 try {
                     const oldPath = path.join(__dirname, '../../', user.avatar);
                     if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-                } catch(e) { console.error('Error removing old avatar:', e); }
+                } catch (e) { console.error('Error removing old avatar:', e); }
             }
         }
 
@@ -290,7 +302,7 @@ class UserService {
         if (!oldPassword || !newPassword) {
             throw new ErrorResponse('Vui lòng cung cấp mật khẩu cũ và mật khẩu mới', 400);
         }
-        
+
         const user = await User.findByPk(userId);
         if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
 
@@ -301,8 +313,7 @@ class UserService {
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(newPassword, salt);
-        // Có thể reset refreshTokenHash để bắt đăng nhập lại ở các thiết bị khác, hoặc không.
-        await user.update({ passwordHash, refreshTokenHash: null }); 
+        await user.update({ passwordHash, refreshTokenHash: null });
         return { message: 'Thay đổi mật khẩu thành công' };
     }
 
@@ -313,7 +324,34 @@ class UserService {
         const user = await User.findByPk(userId);
         if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
         await user.destroy();
-        return { message: 'Đã xóa tài khoản thành công' };
+        return { message: 'Đã chuyển tài khoản vào thùng rác' };
+    }
+
+    static async restoreUser(userId) {
+        const user = await User.findByPk(userId, { paranoid: false });
+        if (!user) throw new ErrorResponse('Không tìm thấy người dùng trong thùng rác', 404);
+        if (!user.deletedAt) throw new ErrorResponse('Tài khoản này chưa bị xóa', 400);
+
+        await user.restore();
+        return user;
+    }
+
+    static async forceDeleteUser(userId) {
+        const user = await User.findByPk(userId, { paranoid: false });
+        if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
+
+        // Xóa file avatar vật lý
+        if (user.avatar) {
+            const fs = require('fs');
+            const path = require('path');
+            const avatarPath = path.join(__dirname, '../../../', user.avatar); // Fix path depth
+            if (fs.existsSync(avatarPath)) {
+                fs.unlinkSync(avatarPath);
+            }
+        }
+
+        await user.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn tài khoản và các tệp đính kèm' };
     }
 }
 

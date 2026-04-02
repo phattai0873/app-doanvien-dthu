@@ -13,7 +13,8 @@ const NotificationReadStatus = sequelize.define('NotificationReadStatus', {
     }
 }, {
     tableName: 'notification_read_statuses',
-    timestamps: true
+    timestamps: true,
+    paranoid: false
 });
 
 module.exports = NotificationReadStatus;

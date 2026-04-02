@@ -10,6 +10,8 @@ import { MeetingCreatorScreen } from '../screens/Admin/MeetingCreatorScreen';
 import { AdminNewsScreen } from '../screens/Admin/AdminNewsScreen';
 import { AdminStatisticsScreen } from '../screens/Admin/AdminStatisticsScreen';
 import { AdminProfileScreen } from '../screens/Admin/AdminProfileScreen';
+import { AdminAttendanceScreen } from '../screens/Admin/AdminAttendanceScreen';
+import { AdminFeeManagementScreen } from '../screens/Admin/AdminFeeManagementScreen';
 
 // Navigation Components
 import { CustomHeader } from '../components/navigation/CustomHeader';
@@ -38,6 +40,8 @@ export const AdminNavigator = ({ onLogout }) => {
         if (currentScreen === 'member_mgmt') return 'Quản lý Đoàn viên';
         if (currentScreen === 'cell_mgmt') return 'Quản lý Chi đoàn';
         if (currentScreen === 'meeting_create') return 'Tạo lịch sinh hoạt';
+        if (currentScreen === 'attendance_mgmt') return 'Quản lý điểm danh';
+        if (currentScreen === 'fee_mgmt') return 'Quản lý Đoàn phí';
         if (activeTab === 'admin_home') return 'Bảng điều khiển';
         if (activeTab === 'members') return 'Đoàn viên';
         if (activeTab === 'news_mgmt') return 'Quản lý Tin tức';
@@ -51,6 +55,8 @@ export const AdminNavigator = ({ onLogout }) => {
             case 'member_mgmt': return <MemberManagementScreen />;
             case 'cell_mgmt': return <CellManagementScreen />;
             case 'meeting_create': return <MeetingCreatorScreen onBack={goBack} />;
+            case 'attendance_mgmt': return <AdminAttendanceScreen onBack={goBack} />;
+            case 'fee_mgmt': return <AdminFeeManagementScreen />;
             case 'main':
             default:
                 switch (activeTab) {

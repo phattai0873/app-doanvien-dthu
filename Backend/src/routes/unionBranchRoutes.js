@@ -13,5 +13,7 @@ router.post('/', unionBranchController.createBranch);
 router.get('/:id', unionBranchController.getBranch);
 router.put('/:id', unionBranchController.updateBranch);
 router.delete('/:id', unionBranchController.deleteBranch);
+router.patch('/:id/restore', unionBranchController.restoreBranch);
+router.delete('/:id/force', unionBranchController.forceDeleteBranch);
 
 module.exports = router;

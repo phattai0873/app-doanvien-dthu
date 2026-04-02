@@ -81,7 +81,7 @@ const LandingSettingsPage = () => {
                             <input 
                                 value={heroData.title}
                                 onChange={e => setHeroData({...heroData, title: e.target.value})}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition"
+                                className="w-full px-4 py-2 bg-white border-2 border-gray-200 rounded-xl outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                             />
                         </div>
                         <div className="space-y-1.5">
@@ -89,7 +89,7 @@ const LandingSettingsPage = () => {
                             <input 
                                 value={heroData.subtitle}
                                 onChange={e => setHeroData({...heroData, subtitle: e.target.value})}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition"
+                                className="w-full px-4 py-2 bg-white border-2 border-gray-200 rounded-xl outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                             />
                         </div>
                         <div className="space-y-1.5">
@@ -98,7 +98,7 @@ const LandingSettingsPage = () => {
                                 rows={4}
                                 value={heroData.description}
                                 onChange={e => setHeroData({...heroData, description: e.target.value})}
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition"
+                                className="w-full px-4 py-2 bg-white border-2 border-gray-200 rounded-xl outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                             />
                         </div>
                         <button 
@@ -126,7 +126,7 @@ const LandingSettingsPage = () => {
                                     value={appLinks.ios}
                                     onChange={e => setAppLinks({...appLinks, ios: e.target.value})}
                                     placeholder="https://apps.apple.com/..."
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition"
+                                    className="w-full px-4 py-2 bg-white border-2 border-gray-200 rounded-xl outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                 />
                             </div>
                             <div className="space-y-1.5">
@@ -135,7 +135,7 @@ const LandingSettingsPage = () => {
                                     value={appLinks.android}
                                     onChange={e => setAppLinks({...appLinks, android: e.target.value})}
                                     placeholder="https://play.google.com/..."
-                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition"
+                                    className="w-full px-4 py-2 bg-white border-2 border-gray-200 rounded-xl outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                 />
                             </div>
                             <button 

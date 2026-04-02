@@ -1,121 +1,166 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, AlertCircle, Plus, User, Calendar, CreditCard } from 'lucide-react';
+import { Search, Wallet, CheckCircle2, XCircle, Filter, RotateCcw, Download, CreditCard, Pencil, History, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { feeApi, feeTypeApi, memberApi } from '../../services/api';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
-import { feeApi, cellApi, memberApi } from '../../services/api';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 
-function CreateFeeModal({ cells, onClose, onSave }) {
-    const [form, setForm] = useState({ unionMemberId: '', period: '', amount: '10000', paymentDate: new Date().toISOString().split('T')[0], note: '', unionCellId: '' });
-    const [memberSearch, setMemberSearch] = useState('');
-    const [selectedMember, setSelectedMember] = useState(null);
-
-    const { data: membersRes, isLoading: loadingMembers } = useQuery({
-        queryKey: ['members-search', memberSearch],
-        queryFn: () => memberApi.getAll({ search: memberSearch, limit: 5 }),
-        enabled: memberSearch.length > 2
+function FeeModal({ fee, onClose, onSave, members, types }) {
+    const [form, setForm] = useState(fee || {
+        unionMemberId: '', period: new Date().getFullYear().toString(), amount: 24000, 
+        unionFeeTypeId: '', paymentMethod: 'CASH', status: 'COMPLETED', note: ''
     });
-    const members = membersRes?.data?.data || [];
 
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    return (
+        <ModalPortal onClose={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h3 className="font-black text-gray-700 uppercase text-xs tracking-widest">{fee ? 'Cập nhật bản ghi phí' : 'Tạo bản ghi phí mới'}</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
+                </div>
+                <div className="p-5 space-y-4">
+                    {!fee && (
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Đoàn viên *</label>
+                            <select className={INPUT} value={form.unionMemberId} onChange={e => setForm({ ...form, unionMemberId: e.target.value })}>
+                                <option value="">-- Chọn đoàn viên --</option>
+                                {members.map(m => <option key={m.id} value={m.id}>{m.fullName} ({m.memberCode})</option>)}
+                            </select>
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Loại phí</label>
+                            <select className={INPUT} value={form.unionFeeTypeId} onChange={e => setForm({ ...form, unionFeeTypeId: e.target.value })}>
+                                <option value="">-- Chọn loại phí --</option>
+                                {types?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Năm (Kỳ)</label>
+                            <input className={INPUT} value={form.period} onChange={e => setForm({ ...form, period: e.target.value })} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Số tiền (đ)</label>
+                            <input type="number" className={INPUT} value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Phương thức</label>
+                            <select className={INPUT} value={form.paymentMethod} onChange={e => setForm({ ...form, paymentMethod: e.target.value })}>
+                                <option value="CASH">Tiền mặt</option>
+                                <option value="BANK_TRANSFER">Chuyển khoản</option>
+                                <option value="E-WALLET">Ví điện tử</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ghi chú</label>
+                        <textarea className={INPUT} value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} rows={2} />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+                    <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
+                    <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Lưu dữ liệu</button>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
 
-    const handleSelectMember = (m) => {
-        setSelectedMember(m);
-        set('unionMemberId', m.id);
-        set('unionCellId', m.unionCellId || '');
-        setMemberSearch('');
+function FeeTypeModal({ type, onClose, onSave }) {
+    const [form, setForm] = useState(type || { name: '', description: '' });
+
+    return (
+        <ModalPortal onClose={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h3 className="font-black text-gray-700 uppercase text-xs tracking-widest">{type ? 'Cập nhật loại phí' : 'Thêm loại phí mới'}</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
+                </div>
+                <div className="p-5 space-y-4">
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Tên loại phí</label>
+                        <input className={INPUT} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Mô tả</label>
+                        <textarea className={INPUT} value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+                    <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
+                    <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Lưu dữ liệu</button>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+const VIET_BANKS = [
+    { code: 'MB', name: 'MB Bank', bin: '970422' },
+    { code: 'VCB', name: 'Vietcombank', bin: '970436' },
+    { code: 'ICB', name: 'VietinBank', bin: '970415' },
+    { code: 'BIDV', name: 'BIDV', bin: '970418' },
+    { code: 'VBA', name: 'Agribank', bin: '970405' },
+    { code: 'TCB', name: 'Techcombank', bin: '970407' },
+    { code: 'ACB', name: 'ACB', bin: '970416' },
+    { code: 'VPB', name: 'VPBank', bin: '970432' },
+    { code: 'STB', name: 'Sacombank', bin: '970403' },
+    { code: 'HDB', name: 'HDBank', bin: '970437' },
+    { code: 'TPB', name: 'TPBank', bin: '970423' },
+    { code: 'VTB', name: 'Vietinbank', bin: '970415' },
+    { code: 'VIB', name: 'VIB', bin: '970441' },
+    { code: 'SHB', name: 'SHB', bin: '970443' },
+    { code: 'MSB', name: 'MSB', bin: '970426' },
+];
+
+function BankSettingModal({ setting, onClose, onSave, isLoading }) {
+    const [form, setForm] = useState(setting || { bankId: 'MB', bankName: 'MB Bank', accountNo: '', accountName: '' });
+
+    const handleBankChange = (e) => {
+        const bank = VIET_BANKS.find(b => b.code === e.target.value);
+        if (bank) {
+            setForm({ ...form, bankId: bank.code, bankName: bank.name });
+        }
     };
 
     return (
         <ModalPortal onClose={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-800">Thêm bản ghi nộp phí</h3>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <h3 className="font-black text-gray-700 uppercase text-xs tracking-widest text-[#006a31]">Cấu hình ngân hàng nhận tiền</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-5 space-y-4">
-                    {/* Tìm kiếm Đoàn viên */}
-                    <div className="relative">
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Tìm Đoàn viên *</label>
-                        {selectedMember ? (
-                            <div className="flex items-center justify-between bg-primary-50 p-2 rounded-lg border border-primary-100">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700"><User size={14} /></div>
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{selectedMember.fullName}</p>
-                                        <p className="text-[10px] text-gray-500">{selectedMember.memberCode}</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setSelectedMember(null)} className="text-xs text-red-500 hover:underline">Thay đổi</button>
-                            </div>
-                        ) : (
-                            <>
-                                <input
-                                    className={INPUT}
-                                    placeholder="Nhập tên hoặc mã đoàn viên..."
-                                    value={memberSearch}
-                                    onChange={e => setMemberSearch(e.target.value)}
-                                />
-                                {memberSearch.length > 2 && (
-                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
-                                        {loadingMembers ? (
-                                            <div className="p-3 text-center text-xs text-gray-400 italic">Đang tìm...</div>
-                                        ) : members.length === 0 ? (
-                                            <div className="p-3 text-center text-xs text-gray-400 italic">Không thấy kết quả</div>
-                                        ) : (
-                                            members.map(m => (
-                                                <button
-                                                    key={m.id}
-                                                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center justify-between border-b last:border-0 border-gray-100 transition"
-                                                    onClick={() => handleSelectMember(m)}
-                                                >
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-gray-800">{m.fullName}</p>
-                                                        <p className="text-[10px] text-gray-500">{m.memberCode} - {m.UnionCell?.name}</p>
-                                                    </div>
-                                                    <Plus size={14} className="text-primary-600" />
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">Kỳ nộp *</label>
-                            <input className={INPUT} placeholder="VD: Q1/2026" value={form.period} onChange={e => set('period', e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-600 mb-1">Số tiền (VNĐ) *</label>
-                            <input type="number" className={INPUT} value={form.amount} onChange={e => set('amount', e.target.value)} />
-                        </div>
-                    </div>
-
                     <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày nộp</label>
-                        <input type="date" className={INPUT} value={form.paymentDate} onChange={e => set('paymentDate', e.target.value)} />
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Chọn Ngân hàng *</label>
+                        <select className={INPUT} value={form.bankId} onChange={handleBankChange}>
+                            <option value="">-- Chọn ngân hàng --</option>
+                            {VIET_BANKS.map(b => (
+                                <option key={b.code} value={b.code}>{b.name} ({b.code})</option>
+                            ))}
+                        </select>
                     </div>
-
                     <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-1">Ghi chú</label>
-                        <textarea className={`${INPUT} h-20 resize-none`} value={form.note} onChange={e => set('note', e.target.value)} placeholder="Nhập ghi chú nếu có..." />
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Số tài khoản trường *</label>
+                        <input className={INPUT} value={form.accountNo} onChange={e => setForm({ ...form, accountNo: e.target.value })} placeholder="VD: 0383..." />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Tên chủ tài khoản *</label>
+                        <input className={INPUT} value={form.accountName} onChange={e => setForm({ ...form, accountName: e.target.value.toUpperCase() })} placeholder="VD: DOAN THANH NIEN DTHU" />
                     </div>
                 </div>
-                <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+                <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
                     <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
-                    <button
-                        className={BTN_PRIMARY}
-                        onClick={() => onSave(form)}
-                        disabled={!form.unionMemberId || !form.period || !form.amount}
-                    >
-                        Xác nhận nộp
+                    <button className={BTN_PRIMARY} disabled={isLoading} onClick={() => onSave(form)}>
+                        {isLoading ? 'Đang lưu...' : 'Cập nhật STK'}
                     </button>
                 </div>
             </div>
@@ -123,125 +168,403 @@ function CreateFeeModal({ cells, onClose, onSave }) {
     );
 }
 
+function EvidenceModal({ imageUrl, onClose }) {
+    return (
+        <ModalPortal onClose={onClose}>
+            <div className="bg-black/90 p-4 rounded-xl relative max-w-4xl w-full flex flex-col items-center">
+                <button onClick={onClose} className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-white/20 p-2 rounded-full">✕</button>
+                <div className="w-full h-[80vh] flex items-center justify-center">
+                    <img src={imageUrl} alt="Evidence" className="max-w-full max-h-full object-contain" />
+                </div>
+                <p className="text-white text-xs mt-4 uppercase font-black tracking-widest">Minh chứng thanh toán (Bill)</p>
+            </div>
+        </ModalPortal>
+    );
+}
+
 export default function FeesPage() {
-    const [period, setPeriod] = useState('');
-    const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [tab, setTab] = useState('paid');
-    const [selectedCell, setSelectedCell] = useState('');
-    const [modal, setModal] = useState(false);
-
     const qc = useQueryClient();
+    const [search, setSearch] = useState('');
+    const [period, setPeriod] = useState(new Date().getFullYear().toString());
+    const [branchFilter, setBranchFilter] = useState('');
+    const [cellFilter, setCellFilter] = useState('');
+    const [typeFilter, setTypeFilter] = useState('');
+    const [page, setPage] = useState(1);
+    const [activeTab, setActiveTab ] = useState('unpaid'); // 'unpaid', 'history', 'types', 'pending'
+    const [modal, setModal] = useState(null);
+    const [typeModal, setTypeModal] = useState(null);
+    const [bankModal, setBankModal] = useState(false);
+    const [evidenceUrl, setEvidenceUrl] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
-    const { data: cellsRes } = useQuery({ queryKey: ['cells'], queryFn: () => cellApi.getAll() });
+    const { data: feeTypesRes } = useQuery({ queryKey: ['fee-types'], queryFn: () => feeTypeApi.getAll() });
+    const feeTypes = feeTypesRes?.data?.data || [];
+
+    const { data: unpaidRes, isLoading: loadingUnpaid } = useQuery({
+        queryKey: ['fees', 'unpaid', period, branchFilter, cellFilter, search, page, typeFilter],
+        queryFn: () => feeApi.getUnpaid({ period, search, page, unionFeeTypeId: typeFilter || undefined, unionBranchId: branchFilter || undefined, unionCellId: cellFilter || undefined }),
+        enabled: activeTab === 'unpaid'
+    });
+
+    const { data: historyRes, isLoading: loadingHistory } = useQuery({
+        queryKey: ['fees', 'history', period, branchFilter, cellFilter, search, page, typeFilter, showTrash],
+        queryFn: () => feeApi.getAll({ period, search, page, unionFeeTypeId: typeFilter || undefined, unionBranchId: branchFilter || undefined, unionCellId: cellFilter || undefined, onlyDeleted: showTrash }),
+        enabled: activeTab === 'history'
+    });
+
+    const { data: pendingRes, isLoading: loadingPending } = useQuery({
+        queryKey: ['fees', 'pending'],
+        queryFn: () => feeApi.getPending(),
+        enabled: activeTab === 'pending'
+    });
+
+    const { data: bankSettingRes } = useQuery({
+        queryKey: ['bank-setting'],
+        queryFn: () => feeApi.getBankSetting()
+    });
+    const bankSetting = bankSettingRes?.data?.data || null;
+
+    const { data: membersRes } = useQuery({ queryKey: ['members-all'], queryFn: () => memberApi.getAll({ limit: 1000 }) });
+    const { data: branchesRes } = useQuery({ queryKey: ['union-branches'], queryFn: () => memberApi.getBranches() });
+    const { data: cellsRes } = useQuery({ 
+        queryKey: ['union-cells', branchFilter], 
+        queryFn: () => memberApi.getCells(branchFilter),
+        enabled: !!branchFilter 
+    });
+
+    const allMembers = membersRes?.data?.data?.data || membersRes?.data?.data || [];
+    const branches = branchesRes?.data?.data || [];
     const cells = cellsRes?.data?.data || [];
 
-    const paidQ = useQuery({ queryKey: ['fees', period, selectedCell, search, page], queryFn: () => feeApi.getAll({ period, unionCellId: selectedCell, search, page, limit: 10 }), enabled: tab === 'paid' });
-    const unpaidQ = useQuery({ queryKey: ['unpaid', period, selectedCell, search, page], queryFn: () => feeApi.getUnpaid({ period, unionCellId: selectedCell, search, page, limit: 10 }), enabled: tab === 'unpaid' && !!period });
-    const activeQ = tab === 'paid' ? paidQ : unpaidQ;
-    const rows = activeQ.data?.data?.data || [];
-    const pagination = activeQ.data?.data?.pagination || {};
+    const pagination = activeTab === 'unpaid' ? (unpaidRes?.data?.data?.pagination || {}) : (historyRes?.data?.data?.pagination || {});
+    const currentData = activeTab === 'unpaid' ? (unpaidRes?.data?.data?.data || []) : (activeTab === 'history' ? (historyRes?.data?.data?.data || []) : (pendingRes?.data?.data || []));
+    const isLoading = activeTab === 'unpaid' ? loadingUnpaid : (activeTab === 'history' ? loadingHistory : loadingPending);
+
+    const approveMutation = useMutation({
+        mutationFn: feeApi.approve,
+        onSuccess: () => { qc.invalidateQueries(['fees']); toast.success('Đã phê duyệt thanh toán'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const rejectMutation = useMutation({
+        mutationFn: ({ id, reason }) => feeApi.reject(id, reason),
+        onSuccess: () => { qc.invalidateQueries(['fees']); toast.success('Đã từ chối'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const updateBankMutation = useMutation({
+        mutationFn: feeApi.updateBankSetting,
+        onSuccess: () => { qc.invalidateQueries(['bank-setting']); setBankModal(false); toast.success('Đã cập nhật STK trường'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
 
     const createMutation = useMutation({
         mutationFn: feeApi.create,
-        onSuccess: () => {
-            qc.invalidateQueries(['fees']);
-            qc.invalidateQueries(['unpaid']);
-            setModal(false);
-            toast.success('Đã ghi nhận nộp phí!');
-        },
-        onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
+        onSuccess: () => { qc.invalidateQueries(['fees']); setModal(null); toast.success('Đã ghi nhận'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
     });
 
-    const handleSave = (form) => createMutation.mutate(form);
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }) => feeApi.update(id, data),
+        onSuccess: () => { qc.invalidateQueries(['fees']); setModal(null); toast.success('Đã cập nhật'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: feeApi.delete,
+        onSuccess: () => { qc.invalidateQueries(['fees']); toast.success('Đã chuyển bản ghi vào thùng rác!'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const restoreMutation = useMutation({
+        mutationFn: feeApi.restore,
+        onSuccess: () => { qc.invalidateQueries(['fees']); toast.success('Đã khôi phục bản ghi!'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const forceDeleteMutation = useMutation({
+        mutationFn: feeApi.forceDelete,
+        onSuccess: () => { qc.invalidateQueries(['fees']); toast.success('Đã xóa vĩnh viễn!'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const createTypeMutation = useMutation({
+        mutationFn: feeTypeApi.create,
+        onSuccess: () => { qc.invalidateQueries(['fee-types']); setTypeModal(null); toast.success('Đã thêm'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const updateTypeMutation = useMutation({
+        mutationFn: ({ id, data }) => feeTypeApi.update(id, data),
+        onSuccess: () => { qc.invalidateQueries(['fee-types']); setTypeModal(null); toast.success('Đã cập nhật'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const deleteTypeMutation = useMutation({
+        mutationFn: feeTypeApi.delete,
+        onSuccess: () => { qc.invalidateQueries(['fee-types']); toast.success('Đã xóa'); },
+        onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
+    });
+
+    const handleConfirmFee = (member) => {
+        const selectedType = feeTypes.find(t => t.id === typeFilter) || feeTypes[0];
+        if (!selectedType) return toast.error('Vui lòng tạo loại phí trước!');
+        const amount = 24000;
+        const typeLabel = selectedType.name + ` năm ${period}`;
+        if (window.confirm(`Xác nhận đoàn viên ${member.fullName} đã nộp ${typeLabel}? (Ghi nhận số tiền mặc định 24,000đ)`)) {
+            createMutation.mutate({ unionMemberId: member.id, period, amount, unionFeeTypeId: selectedType.id, paymentMethod: 'CASH', status: 'COMPLETED', note: `Nộp ${typeLabel}` });
+        }
+    };
+
+    const handleSave = (data) => {
+        if (modal?.id) updateMutation.mutate({ id: modal.id, data });
+        else createMutation.mutate(data);
+    };
+
+    const handleSaveType = (data) => {
+        if (typeModal?.id) updateTypeMutation.mutate({ id: typeModal.id, data });
+        else createTypeMutation.mutate(data);
+    };
 
     return (
-        <div className="space-y-4">
-            <div className="flex gap-3 flex-wrap items-center">
-                <select
-                    className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition"
-                    style={{ width: 220 }}
-                    value={selectedCell}
-                    onChange={e => { setSelectedCell(e.target.value); setPage(1); }}
-                >
-                    <option value="">Tất cả Chi đoàn</option>
-                    {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <input className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition" style={{ width: 150 }} placeholder="Kỳ: VD Q1/2026" value={period} onChange={e => setPeriod(e.target.value)} />
-                <div className="relative">
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition" placeholder="Tìm đoàn viên..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <div className="space-y-6">
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex bg-gray-100 p-1 rounded-xl">
+                        <button className={`px-6 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'unpaid' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => { setActiveTab('unpaid'); setPage(1); }}>Chưa nộp phí</button>
+                        <button className={`px-6 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'pending' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => { setActiveTab('pending'); setPage(1); }}>
+                            Chờ duyệt {(pendingRes?.data?.data?.length > 0) && <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingRes.data.data.length}</span>}
+                        </button>
+                        <button className={`px-6 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'history' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => { setActiveTab('history'); setPage(1); }}>Lịch sử nộp phí</button>
+                        <button className={`px-6 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'types' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`} onClick={() => { setActiveTab('types'); setPage(1); }}>Loại phí</button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button className={BTN_SECONDARY} onClick={() => setBankModal(true)}>
+                            <CreditCard size={16} /> Cấu hình Ngân hàng
+                        </button>
+                        {activeTab === 'types' ? (
+                            <button className={BTN_PRIMARY} onClick={() => setTypeModal('add')}><Wallet size={16} /> Thêm loại phí</button>
+                        ) : (
+                            <div className="flex gap-2">
+                                {activeTab === 'history' && (
+                                    <button 
+                                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                            ${showTrash 
+                                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                                    >
+                                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                                    </button>
+                                )}
+                                {!showTrash && (
+                                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Wallet size={16} /> Tạo bản ghi mới</button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                    <button className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${tab === 'paid' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-800'}`} onClick={() => setTab('paid')}>Đã nộp</button>
-                    <button className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${tab === 'unpaid' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-800'}`} onClick={() => setTab('unpaid')}>Chưa nộp</button>
-                </div>
-                <div className="flex-grow" />
-                <button className={BTN_PRIMARY} onClick={() => setModal(true)}>
-                    <Plus size={16} /> Ghi nhận nộp phí
-                </button>
-            </div>
 
-            {tab === 'unpaid' && !period && (
-                <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-700">
-                    <AlertCircle size={16} className="flex-shrink-0" />
-                    Nhập kỳ (ví dụ: Q1/2026) để xem danh sách chưa nộp phí
-                </div>
-            )}
-
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-800">{tab === 'paid' ? 'Lịch sử nộp đoàn phí' : `Chưa nộp phí kỳ ${period || '...'}`}</h2>
-                    <span className="text-xs bg-primary-50 text-primary-700 font-semibold px-3 py-1 rounded-full">{pagination.total || 0} bản ghi</span>
-                </div>
-                <div className="overflow-x-auto">
-                    {activeQ.isLoading ? <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
-                        : rows.length === 0 ? <div className="text-center py-12 text-gray-400 text-sm">Không có dữ liệu</div>
-                            : tab === 'paid' ? (
-                                <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Đoàn viên</th><th className="px-4 py-3 text-left">Mã ĐV</th><th className="px-4 py-3 text-left">Chi đoàn</th><th className="px-4 py-3 text-left">Kỳ</th><th className="px-4 py-3 text-left">Số tiền</th><th className="px-4 py-3 text-left">Ngày nộp</th><th className="px-4 py-3 text-left">Ghi chú</th></tr></thead>
-                                    <tbody>
-                                        {rows.map(r => (
-                                            <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                                <td className="px-4 py-3 font-semibold">{r.UnionMember?.fullName || '—'}</td>
-                                                <td className="px-4 py-3"><span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-mono">{r.UnionMember?.memberCode}</span></td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{r.UnionCell?.name || '—'}</td>
-                                                <td className="px-4 py-3"><span className="bg-primary-50 text-primary-700 text-xs font-semibold px-2 py-0.5 rounded-full">{r.period}</span></td>
-                                                <td className="px-4 py-3 font-bold text-primary-700">{r.amount?.toLocaleString('vi-VN')}đ</td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{r.paymentDate ? new Date(r.paymentDate).toLocaleDateString('vi-VN') : '—'}</td>
-                                                <td className="px-4 py-3 text-gray-400 text-xs">{r.note || '—'}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            ) : (
-                                <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">Họ tên</th><th className="px-4 py-3 text-left">Mã ĐV</th><th className="px-4 py-3 text-left">Chi đoàn</th><th className="px-4 py-3 text-left">Email</th><th className="px-4 py-3 text-left">SĐT</th></tr></thead>
-                                    <tbody>
-                                        {rows.map(r => (
-                                            <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                                <td className="px-4 py-3 font-semibold">{r.fullName}</td>
-                                                <td className="px-4 py-3"><span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-mono">{r.memberCode}</span></td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{r.UnionCell?.name || '—'}</td>
-                                                <td className="px-4 py-3 text-gray-500 text-xs">{r.email || '—'}</td>
-                                                <td className="px-4 py-3">{r.phoneNumber || '—'}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                </div>
-                {pagination.totalPages > 1 && (
-                    <div className="flex items-center justify-end gap-2 px-5 py-4">
-                        <button className="w-8 h-8 rounded-lg border border-gray-200 text-sm flex items-center justify-center disabled:opacity-40" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>‹</button>
-                        {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
-                            <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg border text-sm ${p === page ? 'bg-primary-700 text-white border-primary-700' : 'border-gray-200 bg-white'}`}>{p}</button>
-                        ))}
-                        <button className="w-8 h-8 rounded-lg border border-gray-200 text-sm flex items-center justify-center disabled:opacity-40" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>›</button>
+                {activeTab !== 'types' && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        <div className="relative lg:col-span-2">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                             <input className={`${INPUT} pl-10`} placeholder="Tìm đoàn viên..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                        </div>
+                        <input type="number" className={INPUT} placeholder="Năm" value={period} onChange={e => { setPeriod(e.target.value); setPage(1); }} />
+                        <select className={INPUT} value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }}>
+                             <option value="">-- Tất cả loại phí --</option>
+                             {feeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                        <select className={INPUT} value={branchFilter} onChange={e => { setBranchFilter(e.target.value); setCellFilter(''); setPage(1); }}>
+                             <option value="">-- Liên chi đoàn --</option>
+                             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                        <select className={INPUT} value={cellFilter} onChange={e => { setCellFilter(e.target.value); setPage(1); }} disabled={!branchFilter}>
+                             <option value="">-- Chi đoàn --</option>
+                             {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
                     </div>
                 )}
             </div>
-            {modal && <CreateFeeModal cells={cells} onClose={() => setModal(false)} onSave={handleSave} />}
+
+            {activeTab === 'types' ? (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                            <tr>
+                                <th className="px-6 py-4">Tên loại phí</th>
+                                <th className="px-6 py-4">Mô tả</th>
+                                <th className="px-6 py-4 text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 font-medium">
+                            {feeTypes.map(item => (
+                                <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                                    <td className="px-6 py-4 font-bold text-gray-800">{item.name}</td>
+                                    <td className="px-6 py-4 text-gray-500 max-w-lg">{item.description}</td>
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="flex gap-2 justify-center">
+                                            <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" onClick={() => setTypeModal(item)}><Pencil size={16} /></button>
+                                            <button className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" onClick={async () => {
+                                                const res = await confirmDelete('Loại phí này');
+                                                if (res.isConfirmed) deleteTypeMutation.mutate(item.id);
+                                            }}><XCircle size={16} /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                        <h3 className="text-sm font-black text-gray-600 uppercase tracking-widest flex items-center gap-2">
+                             <Wallet size={18} className="text-primary-700" />
+                             {activeTab === 'unpaid' ? `Đoàn viên chưa nộp ${period}` : (activeTab === 'history' ? (showTrash ? `Thùng rác nộp phí ${period}` : `Lịch sử nộp phí ${period}`) : 'Giao dịch chờ phê duyệt (VietQR)')}
+                        </h3>
+                        {activeTab !== 'pending' && <button className="text-[10px] font-black text-primary-700 uppercase flex items-center gap-1 hover:underline"><Download size={14} /> Xuất Excel</button>}
+                    </div>
+                    <div className="overflow-x-auto">
+                        {isLoading ? (
+                            <div className="py-20 flex justify-center"><div className="spinner" /></div>
+                        ) : currentData.length === 0 ? (
+                            <div className="py-20 text-center text-gray-400 italic">Không có dữ liệu phù hợp</div>
+                        ) : (
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                                    <tr>
+                                        <th className="px-6 py-4">Đoàn viên</th>
+                                        <th className="px-6 py-4">Đơn vị</th>
+                                        <th className="px-6 py-4">{activeTab === 'pending' ? 'Kỳ đóng / Loại phí' : 'Loại phí'}</th>
+                                        <th className="px-6 py-4">Số tiền</th>
+                                        <th className="px-6 py-4 text-center">Trạng thái / Minh chứng</th>
+                                        <th className="px-6 py-4 text-center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 font-medium">
+                                    {currentData.map(item => (
+                                        <tr key={item.id} className="hover:bg-gray-50/50 transition border-l-4 border-l-transparent hover:border-l-primary-700">
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-gray-800">{item.fullName || item.UnionMember?.fullName}</span>
+                                                    <span className="text-[11px] text-gray-400">{item.memberCode || item.UnionMember?.memberCode}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-gray-500">{item.UnionCell?.name || item.UnionMember?.UnionCell?.name}</td>
+                                            <td className="px-6 py-4">
+                                                {activeTab === 'pending' ? (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                                        Kỳ {item.period} - {item.UnionFeeType?.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                                        {item.UnionFeeType?.name || item.type}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 font-bold text-gray-800">{Number(item.amount || 0).toLocaleString()}đ</td>
+                                            <td className="px-6 py-4 text-center">
+                                                {activeTab === 'unpaid' ? (
+                                                    <span className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest">Chưa nộp</span>
+                                                ) : activeTab === 'history' ? (
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1 mx-auto w-fit ${item.deletedAt ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>
+                                                        {item.deletedAt ? <><Trash2 size={12} /> Đã xóa mềm</> : <><CheckCircle2 size={12} /> Đã nộp</>}
+                                                    </span>
+                                                ) : (
+                                                    <button 
+                                                        className="flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-[10px] font-black uppercase mx-auto transition"
+                                                        onClick={() => setEvidenceUrl(item.evidenceImageUrl)}
+                                                    >
+                                                        <Search size={12} /> Xem Bill
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {activeTab === 'unpaid' ? (
+                                                    <button className="p-2 bg-primary-100 text-primary-700 hover:bg-primary-700 hover:text-white rounded-lg active:scale-95 shadow-sm" onClick={() => handleConfirmFee(item)}><CreditCard size={16} /></button>
+                                                ) : activeTab === 'history' ? (
+                                                    <div className="flex gap-2 justify-center">
+                                                        {!showTrash ? (
+                                                            <>
+                                                                <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" onClick={() => setModal(item)}><Pencil size={16} /></button>
+                                                                <button className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" onClick={async () => {
+                                                                    const res = await confirmDelete('Bản ghi');
+                                                                    if (res.isConfirmed) deleteMutation.mutate(item.id);
+                                                                }}><XCircle size={16} /></button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button 
+                                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition" 
+                                                                    onClick={async () => {
+                                                                        const res = await confirmRestore(`bản ghi của ${item.UnionMember?.fullName}`);
+                                                                        if (res.isConfirmed) restoreMutation.mutate(item.id);
+                                                                    }}
+                                                                    title="Khôi phục"
+                                                                >
+                                                                    <RotateCcw size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition" 
+                                                                    onClick={async () => {
+                                                                        const res = await confirmForceDelete(`bản ghi của ${item.UnionMember?.fullName}`);
+                                                                        if (res.isConfirmed) forceDeleteMutation.mutate(item.id);
+                                                                    }}
+                                                                    title="Xóa vĩnh viễn"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex gap-2 justify-center">
+                                                        <button 
+                                                            className="p-2 bg-green-100 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition" 
+                                                            title="Phê duyệt"
+                                                            onClick={() => {
+                                                                if (window.confirm(`Phê duyệt giao dịch của ${item.UnionMember?.fullName}?`)) approveMutation.mutate(item.id);
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 size={16} />
+                                                        </button>
+                                                        <button 
+                                                            className="p-2 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition" 
+                                                            title="Từ chối"
+                                                            onClick={() => {
+                                                                const reason = window.prompt('Nhập lý do từ chối:', 'Minh chứng không hợp lệ');
+                                                                if (reason) rejectMutation.mutate({ id: item.id, reason });
+                                                            }}
+                                                        >
+                                                            <XCircle size={16} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            )}
+            {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-end gap-2 px-5 py-4 bg-gray-50/30 border-t border-gray-100">
+                     <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 disabled:opacity-40" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>‹</button>
+                     {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
+                         <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg border text-[11px] font-black ${p === page ? 'bg-primary-700 text-white border-primary-700' : 'border-gray-200 bg-white hover:border-primary-700'}`}>{p}</button>
+                     ))}
+                     <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 disabled:opacity-40" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>›</button>
+                </div>
+            )}
+
+            {modal && <FeeModal fee={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} members={allMembers} types={feeTypes} />}
+            {typeModal && <FeeTypeModal type={typeModal === 'add' ? null : typeModal} onClose={() => setTypeModal(null)} onSave={handleSaveType} />}
+            {bankModal && <BankSettingModal setting={bankSetting} onClose={() => setBankModal(false)} onSave={(data) => updateBankMutation.mutate(data)} isLoading={updateBankMutation.isPending} />}
+            {evidenceUrl && <EvidenceModal imageUrl={evidenceUrl} onClose={() => setEvidenceUrl(null)} />}
         </div>
     );
 }

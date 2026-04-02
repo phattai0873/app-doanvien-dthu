@@ -107,7 +107,7 @@ export default function NewsEditor({ initialContent, onChange }) {
     if (!editor) return null;
 
     return (
-        <div className="border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-primary-600 transition bg-white shadow-sm">
+        <div className="border-2 border-gray-200 rounded-xl overflow-hidden hover:border-primary-400 focus-within:border-primary-700 focus-within:ring-2 focus-within:ring-primary-50 transition bg-white shadow-sm">
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 bg-gray-50 border-b border-gray-200">
                 <ToolBtn title="Hoàn tác" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}><Undo2 size={13} /></ToolBtn>

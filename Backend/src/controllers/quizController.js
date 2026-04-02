@@ -33,7 +33,8 @@ const quizController = {
 
         const result = await QuizService.getAll({ 
             search, level, status, 
-            unionBranchId, unionCellId, page, limit 
+            unionBranchId, unionCellId, page, limit,
+            onlyDeleted: req.query.onlyDeleted === 'true'
         });
         res.status(200).json({ success: true, ...result });
     }),
@@ -147,8 +148,18 @@ const quizController = {
     }),
 
     deleteExam: asyncHandler(async (req, res) => {
-        await QuizService.delete(req.params.id);
-        res.status(200).json({ success: true, message: 'Đã xóa kỳ thi thành công' });
+        const result = await QuizService.delete(req.params.id);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    restoreQuiz: asyncHandler(async (req, res) => {
+        const result = await QuizService.restoreQuiz(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteQuiz: asyncHandler(async (req, res) => {
+        const result = await QuizService.forceDeleteQuiz(req.params.id);
+        res.status(200).json({ success: true, ...result });
     })
 };
 

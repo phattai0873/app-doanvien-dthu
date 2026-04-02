@@ -1,4 +1,4 @@
-const { Activity, Attendance, UnionMember, UnionCell, UnionBranch, ActivityParticipant } = require('../models');
+const { Activity, Attendance, UnionMember, UnionCell, UnionBranch, ActivityParticipant, User } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 const { sanitizeUUID } = require('../utils/sanitize');
@@ -11,7 +11,7 @@ function generateCheckinCode() {
 }
 
 class ActivityService {
-    static async getAll({ upcoming, level, status, unionBranchId, unionCellId, search, page, limit } = {}) {
+    static async getAll({ upcoming, level, status, unionBranchId, unionCellId, search, page, limit, onlyDeleted } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
 
@@ -59,29 +59,45 @@ class ActivityService {
             where.startDate = { [Op.gte]: new Date() };
         }
 
-        const result = await Activity.findAndCountAll({
+        const queryOptions = {
             where,
             include: [
-                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
+                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'], paranoid: false },
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'], paranoid: false },
                 { model: ActivityParticipant, attributes: ['id', 'memberId', 'registrationStatus', 'attendanceStatus'] }
             ],
-            order: [['startDate', 'DESC']],
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['startDate', 'DESC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            where.deletedAt = { [Op.ne]: null };
+        }
+
+        const result = await Activity.findAndCountAll(queryOptions);
 
         return formatPaginatedResponse(result, p, l);
     }
 
     static async getById(id) {
         const activity = await Activity.findByPk(id, {
+            paranoid: false,
             include: [
-                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
+                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'], paranoid: false },
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'], paranoid: false },
                 {
                     model: ActivityParticipant,
-                    include: [{ model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'avatar', 'phoneNumber'], include: [{ model: UnionCell, attributes: ['id', 'name'] }] }]
+                    include: [{
+                        model: UnionMember,
+                        paranoid: false,
+                        attributes: ['id', 'fullName', 'memberCode', 'avatar'],
+                        include: [
+                            { model: User, attributes: ['phoneNumber', 'email'], paranoid: false },
+                            { model: UnionCell, attributes: ['id', 'name'], paranoid: false }
+                        ]
+                    }]
                 }
             ]
         });
@@ -139,7 +155,7 @@ class ActivityService {
             include: [{ model: UnionCell }]
         });
         if (!member) throw new ErrorResponse('Không tìm thấy thông tin đoàn viên', 404);
-        
+
         console.log(`[Service-Register] Member: ${member.fullName}, Status: ${member.status}, CellID: ${member.unionCellId}, BranchID (from Cell): ${member.UnionCell?.unionBranchId}`);
         if (member.UnionCell) {
             console.log(`[Service-Register] Member UnionCell -> id: ${member.UnionCell.id}, unionBranchId: ${member.UnionCell.unionBranchId}`);
@@ -178,11 +194,23 @@ class ActivityService {
 
         const [participant, created] = await ActivityParticipant.findOrCreate({
             where: { activityId, memberId },
-            defaults: { registrationStatus: 'REGISTERED' }
+            defaults: { registrationStatus: 'APPROVED' }
         });
 
         if (!created) throw new ErrorResponse('Đồng chí đã đăng ký hoạt động này rồi', 400);
         return participant;
+    }
+
+    static async unregisterParticipant(activityId, memberId) {
+        const participant = await ActivityParticipant.findOne({ where: { activityId, memberId } });
+        if (!participant) throw new ErrorResponse('Bạn chưa đăng ký hoạt động này', 404);
+
+        if (participant.attendanceStatus === 'PRESENT') {
+            throw new ErrorResponse('Không thể hủy đăng ký sau khi đã điểm danh', 400);
+        }
+
+        await participant.destroy();
+        return { message: 'Đã hủy đăng ký thành công' };
     }
 
     static async updateParticipantStatus(activityId, memberId, { registrationStatus, attendanceStatus, scoreAwarded, remarks }) {
@@ -231,7 +259,35 @@ class ActivityService {
         const activity = await Activity.findByPk(id);
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
         await activity.destroy();
-        return { message: 'Đã xóa hoạt động thành công' };
+        return { message: 'Đã chuyển hoạt động vào thùng rác' };
+    }
+
+    static async restoreActivity(id) {
+        const activity = await Activity.findByPk(id, { paranoid: false });
+        if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động trong thùng rác', 404);
+        if (!activity.deletedAt) throw new ErrorResponse('Hoạt động này chưa bị xóa', 400);
+
+        // Kiểm tra xem đơn vị tổ chức có bị xóa không
+        if (activity.level === 'CELL' && activity.organizedByCellId) {
+            const cell = await UnionCell.findByPk(activity.organizedByCellId, { paranoid: false });
+            if (cell && cell.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Chi đoàn tổ chức đang bị xóa.', 400);
+        } else if (activity.level === 'BRANCH' && activity.organizedByBranchId) {
+            const branch = await UnionBranch.findByPk(activity.organizedByBranchId, { paranoid: false });
+            if (branch && branch.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Đoàn khoa tổ chức đang bị xóa.', 400);
+        }
+
+        await activity.restore();
+        return activity;
+    }
+
+    static async forceDeleteActivity(id) {
+        const activity = await Activity.findByPk(id, { paranoid: false });
+        if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
+
+        // Xóa file banner/image nếu có (Activity model hiện tại chưa thấy trường image nhưng giả sử có trong tương lai hoặc nội dung editor)
+        
+        await activity.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn hoạt động' };
     }
 
     static async markAttendance(activityId, memberId, status, remarks) {
