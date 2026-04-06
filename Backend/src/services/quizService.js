@@ -25,19 +25,21 @@ class QuizService {
         }
 
         const scopingConditions = [];
-        // Public exams (no branch or cell)
+        // Kỳ thi công khai (không gán khoa hoặc lớp)
         scopingConditions.push({ [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] });
         
-        if (unionCellId) {
+        if (unionCellId && unionCellId !== 'undefined') {
             scopingConditions.push({ unionCellId: unionCellId });
         }
         
-        if (unionBranchId) {
+        if (unionBranchId && unionBranchId !== 'undefined') {
             scopingConditions.push({ unionBranchId: unionBranchId });
             scopingConditions.push({ level: 'SCHOOL' });
         }
 
-        where[Op.or] = scopingConditions;
+        if (scopingConditions.length > 0) {
+            where[Op.or] = scopingConditions;
+        }
 
         const { sequelize } = require('../configs/db');
         const queryOptions = {

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, checkPermission } = require('../middlewares/authMiddleware');
 const validate = require('../middlewares/validateMiddleware');
 const userValidation = require('../validations/userValidation');
 const { uploadAvatar } = require('../middlewares/uploadMiddleware');
@@ -26,4 +26,5 @@ router.patch('/:id/reset-password', protect, userController.resetPassword);
 router.delete('/:id', protect, userController.deleteUser);
 router.patch('/:id/restore', protect, userController.restoreUser);
 router.delete('/:id/force', protect, userController.forceDeleteUser);
+router.patch('/:id/roles', protect, checkPermission('system:config'), userController.assignRoles);
 module.exports = router;

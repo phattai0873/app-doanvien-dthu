@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import { Search, Plus, Pencil, Trash2, Building2, Calendar, Shield, Hash, Layers, History, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { branchApi } from '../../services/api';
@@ -92,6 +93,7 @@ function BranchModal({ branch, onClose, onSave }) {
 }
 
 export default function BranchesPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
@@ -176,15 +178,17 @@ export default function BranchesPage() {
                     <option value="Cấp Khoa">Cấp Khoa</option>
                     <option value="Cấp Trường">Cấp Trường</option>
                 </select>
-                <button 
-                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                        ${showTrash 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                </button>
+                {hasPermission('branch:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
                 {!showTrash && (
                     <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
                         <Plus size={16} /> Thêm Liên chi đoàn

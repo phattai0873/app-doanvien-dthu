@@ -54,7 +54,12 @@ export const ICONS = {
     Female: 'female-outline',
     Earth: 'earth-outline',
     School: 'school-outline',
-    Compass: 'compass-outline'
+    Compass: 'compass-outline',
+    Send: 'send',
+    MessageSquare: 'chatbubble-outline',
+    ChevronDown: 'chevron-down',
+    ChevronUp: 'chevron-up',
+    Trophy: 'trophy-outline'
 };
 
 export const Icon = ({ name, size = 24, color = '#000', style }) => (

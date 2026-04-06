@@ -59,6 +59,12 @@ AuditLog.belongsTo(User, { foreignKey: 'userId' });
 UnionBranch.hasMany(UnionCell, { foreignKey: 'unionBranchId' });
 UnionCell.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
+// User Scope Associations
+User.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
+UnionBranch.hasMany(User, { foreignKey: 'unionBranchId' });
+User.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
+UnionCell.hasMany(User, { foreignKey: 'unionCellId' });
+
 // UnionCell & UnionMember
 UnionCell.hasMany(UnionMember, { foreignKey: 'unionCellId' });
 UnionMember.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
@@ -74,9 +80,11 @@ UnionCell.belongsTo(UnionMember, { foreignKey: 'deputySecretaryId', as: 'DeputyS
 // UnionMember & UnionPosition via UnionMemberPosition
 UnionMember.belongsToMany(UnionPosition, { through: UnionMemberPosition, foreignKey: 'unionMemberId' });
 UnionPosition.belongsToMany(UnionMember, { through: UnionMemberPosition, foreignKey: 'unionPositionId' });
-// UnionMemberPosition also relates to UnionCell
+// UnionMemberPosition also relates to UnionCell & UnionBranch
 UnionCell.hasMany(UnionMemberPosition, { foreignKey: 'unionCellId' });
 UnionMemberPosition.belongsTo(UnionCell, { foreignKey: 'unionCellId' });
+UnionBranch.hasMany(UnionMemberPosition, { foreignKey: 'unionBranchId' });
+UnionMemberPosition.belongsTo(UnionBranch, { foreignKey: 'unionBranchId' });
 
 // UnionMember History
 UnionMember.hasMany(UnionMemberHistory, { foreignKey: 'unionMemberId' });

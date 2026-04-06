@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -29,17 +29,17 @@ const { width } = Dimensions.get('window');
 // Cấu hình style cho HTML
 const tagsStyles = {
     body: {
-        color: COLORS.gray800,
-        fontSize: 17,
-        lineHeight: 28,
+        color: COLORS.gray700,
+        fontSize: 16,
+        lineHeight: 26,
     },
     p: {
         marginBottom: 16,
     },
     img: {
-        borderRadius: 12,
-        marginTop: 10,
-        marginBottom: 10,
+        borderRadius: 16,
+        marginTop: 12,
+        marginBottom: 12,
     },
     strong: {
         fontWeight: 'bold',
@@ -59,6 +59,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
     const [commentText, setCommentText] = useState('');
     const [replyingTo, setReplyingTo] = useState(null); // { id, username }
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const lastTap = useRef(0);
 
     const formatThumbnail = (url) => {
         if (!url) return null;
@@ -313,6 +314,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
             >
                 {/* Header Image */}
                 <View style={styles.imageContainer}>
@@ -332,7 +334,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                             <Text style={styles.categoryText}>{news.NewsCategory?.name || 'TIN TỨC'}</Text>
                         </View>
                         <View style={styles.timeRow}>
-                            <Icon name="Clock" size={14} color={COLORS.gray400} />
+                            <Icon name="Clock" size={14} color={COLORS.gray400} style={{ marginRight: 6 }} />
                             <Text style={styles.date}>{news.publishedAtDisplay}</Text>
                         </View>
                     </View>
@@ -371,6 +373,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                                 name={news.isLiked ? "HeartFilled" : "Heart"} 
                                 size={22} 
                                 color={news.isLiked ? COLORS.error : COLORS.gray500} 
+                                style={{ marginRight: 8 }}
                             />
                             <Text style={[styles.interactionText, news.isLiked && { color: COLORS.error }]}>
                                 {news.likesCount || 0}
@@ -385,7 +388,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                         <View style={{ flex: 1 }} />
                         
                         <View style={styles.viewCount}>
-                            <Icon name="Eye" size={16} color={COLORS.gray400} />
+                            <Icon name="Eye" size={16} color={COLORS.gray400} style={{ marginRight: 6 }} />
                             <Text style={styles.viewCountText}>{formatViews(news.viewsCount || 0)}</Text>
                         </View>
                     </View>
@@ -473,6 +476,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                             <TextInput
                                 style={styles.textInput}
                                 placeholder={replyingTo ? "Viết phản hồi..." : "Viết bình luận..."}
+                                placeholderTextColor={COLORS.gray400}
                                 value={commentText}
                                 onChangeText={setCommentText}
                                 multiline
@@ -515,10 +519,14 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
     );
 
     function renderCommentItem(comment, isReply = false) {
+        const avatarSource = comment.User?.avatar 
+            ? { uri: formatThumbnail(comment.User.avatar) } 
+            : require('../../assets/images/default-avatar.png');
+
         return (
             <View key={comment.id} style={[styles.commentItem, isReply && styles.replyItem]}>
                 <RNImage 
-                    source={comment.User?.avatar ? { uri: formatThumbnail(comment.User.avatar) } : require('../../assets/images/default-avatar.png')} 
+                    source={avatarSource} 
                     style={isReply ? styles.replyAvatar : styles.commentAvatar} 
                 />
                 <View style={styles.commentBody}>
@@ -530,12 +538,11 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                     <Pressable 
                         onLongPress={() => handleReportComment(comment.id)}
                         onPress={() => {
-                            // Double tap logic simple implementation
                             const now = Date.now();
-                            if (this.lastTap && (now - this.lastTap) < 300) {
+                            if (lastTap.current && (now - lastTap.current) < 300) {
                                 handleLikeComment(comment.id);
                             }
-                            this.lastTap = now;
+                            lastTap.current = now;
                         }}
                     >
                         <Text style={[styles.commentContent, comment.isDeleted && styles.deletedContent]}>
@@ -543,42 +550,37 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                         </Text>
                     </Pressable>
 
-                    <View style={styles.commentActions}>
-                        <TouchableOpacity style={styles.actionBtn} onPress={() => handleLikeComment(comment.id)}>
-                            <Icon 
-                                name={comment.isLiked ? "HeartFilled" : "Heart"} 
-                                size={14} 
-                                color={comment.isLiked ? COLORS.error : COLORS.gray400} 
-                            />
-                            <Text style={[styles.actionText, comment.isLiked && { color: COLORS.error }]}>
-                                {comment.likesCount > 0 ? comment.likesCount : 'Thích'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {!isReply && !comment.isDeleted && (
-                            <TouchableOpacity 
-                                style={styles.actionBtn} 
-                                onPress={() => {
-                                    setReplyingTo({ id: comment.id, username: comment.User?.username });
-                                    // Scroll to input would be nice here
-                                }}
-                            >
-                                <Icon name="MessageSquare" size={14} color={COLORS.gray400} />
-                                <Text style={styles.actionText}>Trả lời</Text>
+                    {!comment.isDeleted && (
+                        <View style={styles.commentActions}>
+                            <TouchableOpacity style={styles.actionBtn} onPress={() => handleLikeComment(comment.id)}>
+                                <Icon 
+                                    name={comment.isLiked ? "HeartFilled" : "Heart"} 
+                                    size={14} 
+                                    color={comment.isLiked ? COLORS.error : COLORS.gray400} 
+                                    style={{ marginRight: 4 }}
+                                />
+                                <Text style={[styles.actionText, comment.isLiked && { color: COLORS.error }]}>
+                                    {comment.likesCount > 0 ? comment.likesCount : 'Thích'}
+                                </Text>
                             </TouchableOpacity>
-                        )}
 
-                        <TouchableOpacity style={styles.actionBtn} onPress={() => handleReportComment(comment.id)}>
-                            <Text style={styles.actionText}>Báo cáo</Text>
-                        </TouchableOpacity>
+                            {!isReply && (
+                                <TouchableOpacity 
+                                    style={styles.actionBtn} 
+                                    onPress={() => {
+                                        setReplyingTo({ id: comment.id, username: comment.User?.username });
+                                    }}
+                                >
+                                    <Icon name="MessageSquare" size={14} color={COLORS.gray400} style={{ marginRight: 4 }} />
+                                    <Text style={styles.actionText}>Trả lời</Text>
+                                </TouchableOpacity>
+                            )}
 
-                        {/* Nếu là user của mình thì hiện nút xóa (Giả định userId khớp, cần auth context thực tế) */}
-                        {/* {comment.userId === currentUserId && (
-                             <TouchableOpacity style={styles.actionBtn} onPress={() => handleDeleteComment(comment.id)}>
-                                <Text style={[styles.actionText, {color: COLORS.error}]}>Xóa</Text>
+                            <TouchableOpacity style={styles.actionBtn} onPress={() => handleReportComment(comment.id)}>
+                                <Text style={styles.actionText}>Báo cáo</Text>
                             </TouchableOpacity>
-                        )} */}
-                    </View>
+                        </View>
+                    )}
 
                     {/* Replies mapping */}
                     {!isReply && comment.repliesCount > 0 && !comment.showReplies && (
@@ -603,7 +605,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.white },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     loadingText: { marginTop: 10, color: COLORS.gray500, fontSize: 14 },
-    scrollContent: { paddingBottom: 60 },
+    scrollContent: { paddingBottom: 120 },
     imageContainer: { width: width, height: 320, position: 'relative' },
     headerImage: { width: width, height: 320 },
     imageOverlay: {
@@ -818,7 +820,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.gray100, 
         borderRadius: 20, 
         paddingHorizontal: 16, 
-        paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+        paddingVertical: Platform.OS === 'ios' ? 10 : 4,
         maxHeight: 100
     },
     textInput: { fontSize: 15, color: COLORS.gray800, padding: 0 },

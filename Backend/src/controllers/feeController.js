@@ -1,97 +1,90 @@
 const asyncHandler = require('../utils/asyncHandler');
 const FeeService = require('../services/feeService');
+const ErrorResponse = require('../utils/errorResponse');
 
 const feeController = {
+    /**
+     * Admin: Lấy danh sách nộp phí (Scoping)
+     */
     getFees: asyncHandler(async (req, res) => {
-        let { period, memberId, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit } = req.query;
+        const { period, memberId, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit } = req.query;
         
-        // Phân quyền theo Liên chi đoàn
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
-        const userUnionMember = req.user?.UnionMember;
-
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
-        }
-
-        const result = await FeeService.getAll({ period, memberId, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit });
+        const result = await FeeService.getAll({ 
+            period, memberId, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit,
+            user: req.user
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
+    /**
+     * Mobile: Dashboard cá nhân
+     */
     getMyFeeDashboard: asyncHandler(async (req, res) => {
-        const memberId = req.user?.UnionMember?.id;
-        if (!memberId) {
-            throw new ErrorResponse('Tài khoản này chưa liên kết với thông tin đoàn viên', 400);
-        }
+        const memberId = req.user?.UnionMember?.id || req.user.unionMemberId;
+        if (!memberId) throw new ErrorResponse('Tài khoản này chưa liên kết với hồ sơ đoàn viên', 400);
 
         const dashboard = await FeeService.getMyFeeDashboard(memberId);
         res.status(200).json({ success: true, data: dashboard });
     }),
 
+    /**
+     * Admin: Ghi nộp phí thủ công
+     */
     createFee: asyncHandler(async (req, res) => {
-        const fee = await FeeService.create(req.body);
+        const fee = await FeeService.create(req.body, req.user);
         res.status(201).json({ success: true, data: fee });
     }),
 
+    /**
+     * Admin: Danh sách chưa nộp phí (Scoping)
+     */
     getUnpaidMembers: asyncHandler(async (req, res) => {
-        let { period, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit } = req.query;
+        const { period, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit } = req.query;
 
-        // Phân quyền theo Liên chi đoàn
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
-        const userUnionMember = req.user?.UnionMember;
-
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
-        }
-
-        const result = await FeeService.getUnpaidMembers(period, { unionCellId, unionBranchId, unionFeeTypeId, search, page, limit });
+        const result = await FeeService.getUnpaidMembers(period, { 
+            unionCellId, unionBranchId, unionFeeTypeId, search, page, limit,
+            user: req.user
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
     deleteFee: asyncHandler(async (req, res) => {
-        const result = await FeeService.delete(req.params.id);
+        const result = await FeeService.delete(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 
     updateFee: asyncHandler(async (req, res) => {
-        const fee = await FeeService.update(req.params.id, req.body);
+        const fee = await FeeService.update(req.params.id, req.body, req.user);
         res.status(200).json({ success: true, data: fee });
     }),
 
+    /**
+     * Mobile: Gửi yêu cầu nộp phí (Chuyển khoản)
+     */
     initPayment: asyncHandler(async (req, res) => {
-        const memberId = req.user?.UnionMember?.id;
-        if (!memberId) throw new ErrorResponse('Tài khoản này chưa liên kết với thông tin đoàn viên', 400);
-
-        const data = {
+        const result = await FeeService.initPayment({
             ...req.body,
-            unionMemberId: memberId,
             evidenceImageUrl: req.file ? req.file.path : null
-        };
-
-        const result = await FeeService.initPayment(data);
+        }, req.user);
         res.status(201).json({ success: true, data: result });
     }),
 
+    /**
+     * Admin: Danh sách giao dịch chờ duyệt (Scoping)
+     */
     getPendingTransactions: asyncHandler(async (req, res) => {
-        const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
-        const userUnionMember = req.user?.UnionMember;
-        let branchId = null;
-
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            branchId = userUnionMember.unionBranchId;
-        }
-
-        const result = await FeeService.getPendingTransactions(branchId);
+        const result = await FeeService.getPendingTransactions(req.user);
         res.status(200).json({ success: true, data: result });
     }),
 
     approveTransaction: asyncHandler(async (req, res) => {
-        const result = await FeeService.approveTransaction(req.params.id);
+        const result = await FeeService.approveTransaction(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 
     rejectTransaction: asyncHandler(async (req, res) => {
         const { reason } = req.body;
-        const result = await FeeService.rejectTransaction(req.params.id, reason);
+        const result = await FeeService.rejectTransaction(req.params.id, reason, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 

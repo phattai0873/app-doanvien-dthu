@@ -41,8 +41,24 @@ export function AuthProvider({ children }) {
         setUser(null);
     };
 
+    const hasPermission = (permission) => {
+        if (!user) return false;
+        if (user.isSuperAdmin) return true;
+        return user.permissions?.includes(permission);
+    };
+
     return (
-        <AuthContext.Provider value={{ user, setUser, login, logout, loading, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            setUser, 
+            login, 
+            logout, 
+            loading, 
+            isAuthenticated: !!user,
+            hasPermission,
+            isSuperAdmin: user?.isSuperAdmin || false,
+            scope: user?.scope || {}
+        }}>
             {children}
         </AuthContext.Provider>
     );

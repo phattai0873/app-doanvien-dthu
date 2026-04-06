@@ -3,28 +3,23 @@ const DocumentService = require('../services/documentService');
 
 const documentController = {
     getDocuments: asyncHandler(async (req, res) => {
-        let { search, categoryId, status, page, limit, unionBranchId } = req.query;
-
-        const roles = req.user?.Roles?.map(r => r.code) || [];
-        const isSuperAdmin = roles.includes('SUPER_ADMIN');
-        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
-        const isCellAdmin = roles.includes('CELL_ADMIN');
-        const isAdmin = isSuperAdmin || isBranchAdmin || isCellAdmin;
-
-        if (!isSuperAdmin) {
-            const member = req.user?.UnionMember;
-            const branchId = member?.unionBranchId || member?.UnionCell?.unionBranchId;
-            if (branchId) unionBranchId = branchId;
-
-            // Nếu không phải Admin, chỉ được xem văn bản đã công khai
-            if (!isAdmin) {
-                status = 'PUBLISH';
-            }
+        let { search, categoryId, status, page, limit, unionBranchId, onlyDeleted } = req.query;
+ 
+        // Logic ẩn/hiện văn bản dựa trên quyền: Nếu không có quyền đọc (document:read), chỉ thấy bài PUBLIC
+        const { hasPermission } = require('../utils/permissionHelper');
+        if (!hasPermission(req.user, 'document:read')) {
+            status = 'PUBLISH';
         }
 
         const result = await DocumentService.getAll({ 
-            search, categoryId, status, page, limit, unionBranchId,
-            onlyDeleted: req.query.onlyDeleted === 'true'
+            search, 
+            categoryId, 
+            status, 
+            page, 
+            limit, 
+            unionBranchId, 
+            onlyDeleted: onlyDeleted === 'true',
+            user: req.user // Tự động xử lý scope trong Service
         });
         res.status(200).json({ success: true, ...result });
     }),
@@ -35,18 +30,17 @@ const documentController = {
     }),
 
     createDocument: asyncHandler(async (req, res) => {
-        const data = req.body;
-        const doc = await DocumentService.create(data, req.file);
+        const doc = await DocumentService.create(req.body, req.file, req.user);
         res.status(201).json({ success: true, data: doc });
     }),
 
     updateDocument: asyncHandler(async (req, res) => {
-        const doc = await DocumentService.update(req.params.id, req.body, req.file);
+        const doc = await DocumentService.update(req.params.id, req.body, req.file, req.user);
         res.status(200).json({ success: true, data: doc });
     }),
 
     deleteDocument: asyncHandler(async (req, res) => {
-        const result = await DocumentService.delete(req.params.id);
+        const result = await DocumentService.delete(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 

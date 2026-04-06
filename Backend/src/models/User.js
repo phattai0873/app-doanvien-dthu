@@ -57,6 +57,11 @@ const User = sequelize.define('User', {
     unionCellId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    role: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'MEMBER'
     }
 }, {
     tableName: 'users',

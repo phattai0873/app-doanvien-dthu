@@ -1,5 +1,4 @@
 const asyncHandler = require('../utils/asyncHandler');
-const ErrorResponse = require('../utils/errorResponse');
 const UnionBranchService = require('../services/unionBranchService');
 
 const unionBranchController = {
@@ -7,65 +6,50 @@ const unionBranchController = {
         const { search, status, unionLevel, page, limit, onlyDeleted } = req.query;
         const result = await UnionBranchService.getAll({ 
             search, status, unionLevel, page, limit,
-            onlyDeleted: onlyDeleted === 'true'
+            onlyDeleted: onlyDeleted === 'true',
+            user: req.user
         });
         res.status(200).json({ success: true, ...result });
     }),
 
     getBranch: asyncHandler(async (req, res) => {
-        const branch = await UnionBranchService.getById(req.params.id);
+        const branch = await UnionBranchService.getById(req.params.id, req.user);
         res.status(200).json({ success: true, data: branch });
     }),
 
     getMyBranch: asyncHandler(async (req, res) => {
-        const cellId = req.user.UnionMember?.unionCellId;
-        if (!cellId) throw new ErrorResponse('Bạn chưa có thông tin tổ chức', 404);
-        
-        const { UnionCell } = require('../models');
-        const cell = await UnionCell.findByPk(cellId);
-        if (!cell || !cell.unionBranchId) throw new ErrorResponse('Không tìm thấy liên chi đoàn quản lý', 404);
-        
-        const branch = await UnionBranchService.getById(cell.unionBranchId);
+        const branchId = req.user.unionBranchId || req.user.scope?.branchId;
+        const branch = await UnionBranchService.getById(branchId, req.user);
         res.status(200).json({ success: true, data: branch });
     }),
 
     createBranch: asyncHandler(async (req, res) => {
-        const branch = await UnionBranchService.create(req.body);
+        const branch = await UnionBranchService.create(req.body, req.user);
         res.status(201).json({ success: true, data: branch });
     }),
 
     updateBranch: asyncHandler(async (req, res) => {
-        const branch = await UnionBranchService.update(req.params.id, req.body);
+        const branch = await UnionBranchService.update(req.params.id, req.body, req.user);
         res.status(200).json({ success: true, data: branch });
     }),
 
     deleteBranch: asyncHandler(async (req, res) => {
-        const result = await UnionBranchService.delete(req.params.id);
+        const result = await UnionBranchService.delete(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 
     restoreBranch: asyncHandler(async (req, res) => {
-        const result = await UnionBranchService.restoreBranch(req.params.id);
+        const result = await UnionBranchService.restoreBranch(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 
     forceDeleteBranch: asyncHandler(async (req, res) => {
-        const result = await UnionBranchService.forceDeleteBranch(req.params.id);
+        const result = await UnionBranchService.forceDeleteBranch(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
     }),
 
     getBranchStats: asyncHandler(async (req, res) => {
-        let id = req.params.id;
-        
-        // Nếu không phải Super Admin, chỉ cho phép xem thống kê của khoa mình
-        const roles = req.user?.Roles?.map(r => r.code) || [];
-        const isSuperAdmin = roles.includes('SUPER_ADMIN');
-
-        if (!isSuperAdmin && req.user.unionBranchId) {
-            id = req.user.unionBranchId;
-        }
-
-        const stats = await UnionBranchService.getStats(id);
+        const stats = await UnionBranchService.getStats(req.params.id, req.user);
         res.status(200).json({ success: true, data: stats });
     })
 };

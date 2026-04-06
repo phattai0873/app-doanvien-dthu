@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { Pencil, Trash2, Search, BookOpen, Users, Plus, Eye, RotateCcw, History } from 'lucide-react';
@@ -21,6 +22,7 @@ const getStatusLabel = (status) => {
 };
 
 export default function QuizPage() {
+    const { hasPermission } = useAuth();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
@@ -113,15 +115,17 @@ export default function QuizPage() {
                         </select>
                     </div>
                     <div className="flex gap-2">
-                        <button 
-                            onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                                ${showTrash 
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                        >
-                            <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                        </button>
+                        {hasPermission('quiz:delete') && (
+                            <button 
+                                onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                    ${showTrash 
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                            >
+                                <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                            </button>
+                        )}
                         {!showTrash && (
                             <button className={BTN_PRIMARY} onClick={() => navigate('/admin/quiz/create')}>
                                 <Plus size={16} /> Tạo kỳ thi

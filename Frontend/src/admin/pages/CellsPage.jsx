@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import { Search, Plus, Pencil, Trash2, Network, User as UserIcon, Users, Filter, CheckCircle2, XCircle, Calendar, MapPin, GraduationCap, History, RotateCcw, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -91,6 +92,7 @@ function CellModal({ cell, branches, locations, onClose, onSave }) {
 }
 
 export default function CellsPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
@@ -183,15 +185,17 @@ export default function CellsPage() {
                     </select>
                 </div>
                 <div className="flex gap-2">
-                    <button 
-                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                            ${showTrash 
-                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                    >
-                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                    </button>
+                    {hasPermission('cell:delete') && (
+                        <button 
+                            onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                ${showTrash 
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                        >
+                            <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                        </button>
+                    )}
                     {!showTrash && (
                         <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
                             <Plus size={16} /> Thêm Chi đoàn

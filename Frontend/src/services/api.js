@@ -105,6 +105,15 @@ export const userMgmtApi = {
     delete: (id) => api.delete(`/users/${id}`),
     restore: (id) => api.patch(`/users/${id}/restore`),
     forceDelete: (id) => api.delete(`/users/${id}/force`),
+    assignRoles: (id, roleIds) => api.patch(`/users/${id}/roles`, { roleIds }),
+};
+
+export const roleApi = {
+    getAll: () => api.get('/roles'),
+    getPermissions: () => api.get('/roles/permissions'),
+    create: (data) => api.post('/roles', data),
+    update: (id, data) => api.put(`/roles/${id}`, data),
+    delete: (id) => api.delete(`/roles/${id}`),
 };
 
 // ─── Đoàn viên ──────────────────────────────────────────

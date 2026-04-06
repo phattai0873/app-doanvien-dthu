@@ -23,6 +23,7 @@ import MeetingsPage from './admin/pages/MeetingsPage';
 import DocumentsPage from './admin/pages/DocumentsPage';
 import NotificationsPage from './admin/pages/NotificationsPage';
 import UsersPage from './admin/pages/UsersPage';
+import RolesPage from './admin/pages/RolesPage';
 import BannersPage from './admin/pages/BannersPage';
 import BranchesPage from './admin/pages/BranchesPage';
 import CellsPage from './admin/pages/CellsPage';
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="roles" element={<RolesPage />} />
         <Route path="banners" element={<BannersPage />} />
         <Route path="branches" element={<BranchesPage />} />
         <Route path="cells" element={<CellsPage />} />

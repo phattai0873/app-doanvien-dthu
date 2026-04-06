@@ -34,7 +34,8 @@ const quizController = {
         const result = await QuizService.getAll({ 
             search, level, status, 
             unionBranchId, unionCellId, page, limit,
-            onlyDeleted: req.query.onlyDeleted === 'true'
+            onlyDeleted: req.query.onlyDeleted === 'true',
+            user: req.user
         });
         res.status(200).json({ success: true, ...result });
     }),

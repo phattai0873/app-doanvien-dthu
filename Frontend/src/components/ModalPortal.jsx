@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 export default function ModalPortal({ children, onClose, overlayClassName = "" }) {
     return createPortal(
         <div
-            className={`fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4 ${overlayClassName}`}
+            className={`fixed inset-0 bg-black/50 flex items-center justify-center z-[1040] p-4 ${overlayClassName}`}
             onClick={e => e.target === e.currentTarget && onClose?.()}
         >
             {children}

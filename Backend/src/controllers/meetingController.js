@@ -18,7 +18,8 @@ const meetingController = {
         const meetings = await MeetingService.getAll({
             unionCellId, unionBranchId, level, status,
             search, page, limit, type, semester, academicYear,
-            onlyDeleted: req.query.onlyDeleted === 'true'
+            onlyDeleted: req.query.onlyDeleted === 'true',
+            user: req.user
         });
         res.status(200).json({ success: true, ...meetings });
     }),

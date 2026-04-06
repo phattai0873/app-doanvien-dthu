@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import { Search, Plus, Pencil, Trash2, FileText, Download, Upload, File, X, Tag, BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff, RotateCcw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -146,6 +147,7 @@ function CategoryModal({ category, onClose, onSave }) {
 }
 
 export default function DocumentsPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [tab, setTab] = useState('docs'); // 'docs' | 'categories'
     const [search, setSearch] = useState('');
@@ -167,9 +169,9 @@ export default function DocumentsPage() {
         keepPreviousData: true,
     });
 
-    const { data: catRes, isLoading: catLoading } = useQuery({ 
-        queryKey: ['doc-categories', showTrash], 
-        queryFn: () => documentApi.getCategories({ onlyDeleted: showTrash }) 
+    const { data: catRes, isLoading: catLoading } = useQuery({
+        queryKey: ['doc-categories', showTrash],
+        queryFn: () => documentApi.getCategories({ onlyDeleted: showTrash })
     });
     const categories = catRes?.data?.data || [];
 
@@ -219,7 +221,7 @@ export default function DocumentsPage() {
                             <input className="pl-9 pr-4 py-2 border-2 border-gray-200 rounded-lg text-sm w-64 outline-none focus:border-primary-700 transition" placeholder="Tìm kiếm tài liệu..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                         </div>
                         <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
-                            <option value="">Trạng thái</option>
+                            <option value="">Tất cả</option>
                             <option value="PUBLISH">Công khai</option>
                             <option value="PRIVATE">Riêng tư</option>
                         </select>
@@ -227,15 +229,17 @@ export default function DocumentsPage() {
                             <option value="">Tất cả chuyên mục</option>
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <button 
-                            onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                                ${showTrash 
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                        >
-                            <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                        </button>
+                        {hasPermission('document:delete') && (
+                            <button
+                                onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                    ${showTrash
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                            >
+                                <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                            </button>
+                        )}
                         {!showTrash && (
                             <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm tài liệu</button>
                         )}
@@ -270,7 +274,7 @@ export default function DocumentsPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
-                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${d.status === 'PUBLISH' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${d.status === '' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
                                                             {d.status === 'PUBLISH' ? 'Công khai' : 'Riêng tư'}
                                                         </span>
                                                     </td>
@@ -335,15 +339,17 @@ export default function DocumentsPage() {
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                         <div className="flex items-center gap-3">
                             <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">{showTrash ? 'Thùng rác Chuyên mục' : 'Quản lý Chuyên mục'}</h2>
-                            <button 
-                                onClick={() => setShowTrash(!showTrash)}
-                                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition border-2 
-                                    ${showTrash 
-                                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                            >
-                                <History size={14} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                            </button>
+                            {hasPermission('document:delete') && (
+                                <button
+                                    onClick={() => setShowTrash(!showTrash)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition border-2 
+                                        ${showTrash
+                                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                                >
+                                    <History size={14} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                                </button>
+                            )}
                         </div>
                         {!showTrash && <button className={BTN_PRIMARY} onClick={() => setCatModal('add')}><Plus size={16} /> Thêm chuyên mục</button>}
                     </div>
@@ -373,7 +379,7 @@ export default function DocumentsPage() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <button 
+                                                                <button
                                                                     className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 shadow-sm`}
                                                                     onClick={async () => {
                                                                         const result = await confirmRestore(c.name);
@@ -381,7 +387,7 @@ export default function DocumentsPage() {
                                                                     }}
                                                                     title="Khôi phục chuyên mục"
                                                                 ><RotateCcw size={16} /></button>
-                                                                <button 
+                                                                <button
                                                                     className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 shadow-sm`}
                                                                     onClick={async () => {
                                                                         const result = await confirmForceDelete(c.name);

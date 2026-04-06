@@ -2,10 +2,11 @@ const { Document, DocumentCategory } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 const { safeDate } = require('../utils/dateUtils');
+const { getScopeFilter, enforceScope } = require('../utils/permissionHelper');
 
 
 class DocumentService {
-    static async getAll({ search, categoryId, status, page, limit, unionBranchId, onlyDeleted } = {}) {
+    static async getAll({ search, categoryId, status, page, limit, unionBranchId, onlyDeleted, user } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
         
@@ -21,17 +22,17 @@ class DocumentService {
             where.status = 'PUBLISH';
         }
 
-        const scopingConditions = [];
-
-        // Public documents (no specific branch or cell)
-        scopingConditions.push({ [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] });
-
-        if (unionBranchId) {
-            scopingConditions.push({ unionBranchId: unionBranchId });
-            scopingConditions.push({ level: 'SCHOOL' });
+        // Tài liệu công khai (toàn trường) + Tài liệu thuộc phạm vi của User
+        const publicCondition = { [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] };
+        const scopeFilter = getScopeFilter(user);
+        
+        if (Object.keys(scopeFilter).length > 0) {
+            // Nếu có scope cụ thể, hiển thị bài công khai HOẶC bài trong scope
+            where[Op.or] = [publicCondition, scopeFilter];
+        } else if (unionBranchId) {
+            // Nếu không có scope (Super Admin) nhưng có truyền filter thủ công
+            where.unionBranchId = unionBranchId;
         }
-
-        where[Op.or] = scopingConditions;
 
         const queryOptions = {
             where,
@@ -70,12 +71,24 @@ class DocumentService {
         } else if (!data.filePath) {
             throw new ErrorResponse('Vui lòng tải lên tập tin văn bản', 400);
         }
+
+        // Chống ID Injection
+        if (user && !user.isSuperAdmin) {
+            data.unionBranchId = user.scope?.branchId;
+        }
+
         return await Document.create(data);
     }
 
-    static async update(id, data, file) {
+    static async update(id, data, file, user) {
         const doc = await Document.findByPk(id);
         if (!doc) throw new ErrorResponse('Không tìm thấy văn bản', 404);
+        
+        enforceScope(user, doc);
+
+        if (user && !user.isSuperAdmin) {
+            delete data.unionBranchId;
+        }
         
         if (file) {
             data.filePath = `/uploads/documents/${file.filename}`;
@@ -87,9 +100,11 @@ class DocumentService {
         return doc;
     }
 
-    static async delete(id) {
+    static async delete(id, user) {
         const doc = await Document.findByPk(id);
         if (!doc) throw new ErrorResponse('Không tìm thấy văn bản', 404);
+
+        enforceScope(user, doc);
         await doc.destroy();
         return { message: 'Đã chuyển văn bản vào thùng rác' };
     }

@@ -28,6 +28,7 @@ const Permission = sequelize.define('Permission', {
 }, {
     tableName: 'permissions',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { unique: true, fields: ['code'] }
     ]

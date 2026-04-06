@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import { Search, Plus, Pencil, Trash2, Send, History, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { notificationApi } from '../../services/api';
@@ -105,6 +106,7 @@ function NotificationModal({ notif, onClose, onSave }) {
 const TARGET_LABELS = { ALL: 'Tất cả', BRANCH: 'Liên chi đoàn', CELL: 'Chi đoàn', INDIVIDUAL: 'Cá nhân' };
 
 export default function NotificationsPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
@@ -145,15 +147,17 @@ export default function NotificationsPage() {
                     <option value="">Tất cả trạng thái</option>
                     {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
-                <button 
-                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                        ${showTrash 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                </button>
+                {hasPermission('notification:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
                 {!showTrash && (
                     <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo thông báo</button>
                 )}

@@ -12,12 +12,12 @@ const {
     UnionBranch, UnionCell,
     UnionMember, UnionMemberHistory,
     Activity, Attendance,
-    CellMeeting,
+    Meeting,
     NewsCategory, News,
     DocumentCategory,
     Notification,
     QuizExam, QuizQuestion, QuizOption,
-    UnionFeePayment, CellMeetingLocation,
+    UnionFeePayment, UnionFeeType, CellMeetingLocation,
     UnionPosition
 } = require('./models');
 const { sequelize } = require('./configs/db');
@@ -52,32 +52,116 @@ async function seed() {
         });
 
         const permDefs = [
+            // Tổ chức
             { code: 'member:read', name: 'Xem đoàn viên', module: 'member' },
             { code: 'member:create', name: 'Thêm đoàn viên', module: 'member' },
             { code: 'member:update', name: 'Sửa đoàn viên', module: 'member' },
             { code: 'member:delete', name: 'Xóa đoàn viên', module: 'member' },
-            { code: 'activity:manage', name: 'Quản lý hoạt động', module: 'activity' },
-            { code: 'news:manage', name: 'Quản lý tin tức', module: 'news' },
-            { code: 'fee:manage', name: 'Quản lý đoàn phí', module: 'fee' },
-            { code: 'quiz:manage', name: 'Quản lý kỳ thi', module: 'quiz' },
-            { code: 'branch:manage', name: 'Quản lý Liên chi đoàn', module: 'branch' },
-            { code: 'cell:manage', name: 'Quản lý Chi đoàn', module: 'cell' },
-            { code: 'user:manage', name: 'Quản lý Tài khoản', module: 'user' },
-            { code: 'banner:manage', name: 'Quản lý Banner', module: 'banner' },
-            { code: 'document:manage', name: 'Quản lý Văn bản', module: 'document' },
-            { code: 'notification:manage', name: 'Quản lý Thông báo', module: 'notification' },
-            { code: 'landing:manage', name: 'Quản lý Landing Page', module: 'landing' },
+            { code: 'member:approve', name: 'Duyệt đoàn viên', module: 'member' },
+            
+            { code: 'cell:read', name: 'Xem Chi đoàn', module: 'cell' },
+            { code: 'cell:create', name: 'Tạo Chi đoàn', module: 'cell' },
+            { code: 'cell:update', name: 'Sửa Chi đoàn', module: 'cell' },
+            { code: 'cell:delete', name: 'Xóa Chi đoàn', module: 'cell' },
+            
+            { code: 'branch:read', name: 'Xem Liên chi đoàn', module: 'branch' },
+            { code: 'branch:create', name: 'Tạo Liên chi đoàn', module: 'branch' },
+            { code: 'branch:update', name: 'Sửa Liên chi đoàn', module: 'branch' },
+            { code: 'branch:delete', name: 'Xóa Liên chi đoàn', module: 'branch' },
+
+            // Nghiệp vụ
+            { code: 'activity:read', name: 'Xem hoạt động', module: 'activity' },
+            { code: 'activity:create', name: 'Tạo hoạt động', module: 'activity' },
+            { code: 'activity:update', name: 'Sửa hoạt động', module: 'activity' },
+            { code: 'activity:delete', name: 'Xóa hoạt động', module: 'activity' },
+            { code: 'activity:approve', name: 'Duyệt hoạt động', module: 'activity' },
+
+            { code: 'meeting:read', name: 'Xem sinh hoạt', module: 'meeting' },
+            { code: 'meeting:create', name: 'Tạo sinh hoạt', module: 'meeting' },
+            { code: 'meeting:update', name: 'Sửa sinh hoạt', module: 'meeting' },
+            { code: 'meeting:delete', name: 'Xóa sinh hoạt', module: 'meeting' },
+
+            { code: 'news:read', name: 'Xem tin tức', module: 'news' },
+            { code: 'news:create', name: 'Tạo tin tức', module: 'news' },
+            { code: 'news:update', name: 'Sửa tin tức', module: 'news' },
+            { code: 'news:delete', name: 'Xóa tin tức', module: 'news' },
+
+            { code: 'quiz:read', name: 'Xem kỳ thi', module: 'quiz' },
+            { code: 'quiz:create', name: 'Tạo kỳ thi', module: 'quiz' },
+            { code: 'quiz:update', name: 'Sửa kỳ thi', module: 'quiz' },
+            { code: 'quiz:delete', name: 'Xóa kỳ thi', module: 'quiz' },
+
+            { code: 'document:read', name: 'Xem văn bản', module: 'document' },
+            { code: 'document:create', name: 'Tạo văn bản', module: 'document' },
+            { code: 'document:update', name: 'Sửa văn bản', module: 'document' },
+            { code: 'document:delete', name: 'Xóa văn bản', module: 'document' },
+
+            { code: 'fee:read', name: 'Xem đoàn phí', module: 'fee' },
+            { code: 'fee:create', name: 'Tạo đoàn phí', module: 'fee' },
+            { code: 'fee:update', name: 'Sửa đoàn phí', module: 'fee' },
+            { code: 'fee:delete', name: 'Xóa đoàn phí', module: 'fee' },
+            { code: 'fee:approve', name: 'Duyệt đoàn phí', module: 'fee' },
+
+            { code: 'notification:read', name: 'Xem thông báo', module: 'notification' },
+            { code: 'notification:create', name: 'Tạo thông báo', module: 'notification' },
+            { code: 'notification:update', name: 'Sửa thông báo', module: 'notification' },
+            { code: 'notification:delete', name: 'Xóa thông báo', module: 'notification' },
+
+            // Hệ thống
+            { code: 'user:read', name: 'Xem tài khoản', module: 'user' },
+            { code: 'user:create', name: 'Tạo tài khoản', module: 'user' },
+            { code: 'user:update', name: 'Sửa tài khoản', module: 'user' },
+            { code: 'user:delete', name: 'Xóa tài khoản', module: 'user' },
+
+            { code: 'role:read', name: 'Xem vai trò', module: 'system' },
+            { code: 'role:update', name: 'Quản lý vai trò', module: 'system' },
+            { code: 'system:config', name: 'Cấu hình hệ thống', module: 'system' },
+
+            // Media & Misc
+            { code: 'banner:read', name: 'Xem banner', module: 'banner' },
+            { code: 'banner:manage', name: 'Quản lý banner', module: 'banner' },
+            { code: 'landing:read', name: 'Xem landing', module: 'landing' },
+            { code: 'landing:manage', name: 'Quản lý landing', module: 'landing' },
+            { code: 'location:manage', name: 'Quản lý địa điểm', module: 'location' },
         ];
 
         const perms = await Promise.all(
             permDefs.map(p => Permission.findOrCreate({ where: { code: p.code }, defaults: { ...p, isActive: true } }).then(([r]) => r))
         );
 
+        // SUPER_ADMIN: Toàn quyền
         await superAdminRole.setPermissions(perms);
-        await branchAdminRole.setPermissions(perms.filter(p => ['member:read', 'activity:manage', 'fee:manage'].includes(p.code)));
-        await cellAdminRole.setPermissions(perms.filter(p => ['member:read', 'activity:manage'].includes(p.code)));
 
-        console.log(`  ✔ Đã tạo 4 role, ${perms.length} permission\n`);
+        // BRANCH_ADMIN (Admin Khoa): Quản lý Branch của mình, các Cell bên trong và Member
+        const branchAdminPerms = perms.filter(p => 
+            p.code.startsWith('member:') || 
+            p.code.startsWith('cell:') || 
+            p.code.startsWith('activity:') ||
+            p.code.startsWith('news:') ||
+            p.code.startsWith('document:') ||
+            p.code.startsWith('fee:') ||
+            p.code.startsWith('notification:') ||
+            ['branch:read', 'branch:update'].includes(p.code)
+        );
+        await branchAdminRole.setPermissions(branchAdminPerms);
+
+        // CELL_ADMIN (Admin Lớp): Quản lý Member trong lớp, xem Cell và thông tin chung
+        const cellAdminPerms = perms.filter(p => 
+            ['member:read', 'member:update', 'member:approve', 'cell:read', 
+             'branch:read', 'activity:read', 'news:read', 'document:read', 
+             'fee:read', 'notification:read'].includes(p.code)
+        );
+        await cellAdminRole.setPermissions(cellAdminPerms);
+
+        // MEMBER (Đoàn viên): Quyền xem thông tin của bản thân và thông tin chung
+        const memberPerms = perms.filter(p => 
+            ['member:read', 'cell:read', 'branch:read', 'activity:read', 
+             'news:read', 'document:read', 'fee:read', 'notification:read', 
+             'quiz:read', 'banner:read'].includes(p.code)
+        );
+        await memberRole.setPermissions(memberPerms);
+
+        console.log(`  ✔ Đã tạo/cập nhật 4 role, ${perms.length} permission\n`);
 
         // ─── 2. TỔ CHỨC ───────────────────────────────────────────
         console.log('📌 Tạo Tổ chức...');
@@ -247,7 +331,7 @@ async function seed() {
         console.log('📌 Tạo Sinh hoạt Chi đoàn...');
         const [locB] = await CellMeetingLocation.findOrCreate({ where: { name: 'Phòng họp 1' }, defaults: { name: 'Phòng họp 1', address: 'Tòa B, Tầng 2', capacity: 20 } });
         
-        await CellMeeting.findOrCreate({
+        await Meeting.findOrCreate({
             where: { title: 'Sinh hoạt chi đoàn tháng 2/2026' },
             defaults: {
                 title: 'Sinh hoạt chi đoàn tháng 2/2026',
@@ -257,7 +341,7 @@ async function seed() {
                 locationId: locB.id,
                 chairpersonId: createdMembers[0].id,
                 secretaryId: createdMembers[1].id,
-                status: 'Hoàn thành',
+                status: 'COMPLETED',
                 minutes: 'Cuộc họp diễn ra đúng giờ với sự tham dự của 4/4 đoàn viên...'
             }
         });
@@ -288,9 +372,22 @@ async function seed() {
             }
         });
 
+        const [feeType1] = await UnionFeeType.findOrCreate({
+            where: { name: 'Đoàn phí' },
+            defaults: { name: 'Đoàn phí', defaultAmount: 20000, isActive: true }
+        });
+
         await UnionFeePayment.findOrCreate({
-            where: { unionMemberId: createdMembers[0].id, period: 'Q1/2026' },
-            defaults: { unionMemberId: createdMembers[0].id, period: 'Q1/2026', amount: 10000, paymentDate: '2026-01-06', unionBranchId: branch1.id, unionCellId: cell1.id }
+            where: { unionMemberId: createdMembers[0].id, period: 'Q1/2026', unionFeeTypeId: feeType1.id },
+            defaults: { 
+                unionMemberId: createdMembers[0].id, 
+                unionFeeTypeId: feeType1.id,
+                period: 'Q1/2026', 
+                amount: 10000, 
+                paidAt: new Date('2026-01-06'), 
+                unionBranchId: branch1.id, 
+                unionCellId: cell1.id 
+            }
         });
 
         // ─── 10. THÔNG BÁO ──────────────────────────────────────────

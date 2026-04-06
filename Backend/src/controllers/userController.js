@@ -173,7 +173,16 @@ const userController = {
     deleteMe: asyncHandler(async (req, res) => {
         const result = await UserService.deleteUser(req.user.id);
         res.status(200).json({ success: true, data: result });
-    })
+    }),
+    /**
+     * @route PATCH /api/users/:id/roles
+     * Gán vai trò cho người dùng (Chỉ Role Admin/Super Admin mới gọi được)
+     */
+    assignRoles: asyncHandler(async (req, res) => {
+        const { roleIds } = req.body;
+        const result = await UserService.assignRoles(req.params.id, roleIds, req.user);
+        res.status(200).json({ success: true, data: result });
+    }),
 };
 
 module.exports = userController;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import {
     ToggleLeft, ToggleRight, Eye, Heart, Share2,
     RotateCcw, History, Newspaper, Tag, Search, Clock, Plus, CheckCircle, Edit2, X, ChevronLeft, ChevronRight, Trash2
@@ -71,6 +72,7 @@ import { useNavigate } from 'react-router-dom';
 export default function NewsPage() {
     const navigate = useNavigate();
     const qc = useQueryClient();
+    const { hasPermission, isSuperAdmin } = useAuth();
     const [tab, setTab] = useState('news'); // 'news' | 'categories'
 
     // ── State bài viết ──────────────────────────────────
@@ -226,17 +228,19 @@ export default function NewsPage() {
                                 <option value="Tỉnh">Cấp Tỉnh</option>
                             </select>
 
-                            <button 
-                                onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                                    ${showTrash 
-                                        ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                            >
-                                <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                            </button>
+                            {hasPermission('news:delete') && (
+                                <button 
+                                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                        ${showTrash 
+                                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                                >
+                                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                                </button>
+                            )}
 
-                            {!showTrash && (
+                            {!showTrash && hasPermission('news:create') && (
                                 <button className={BTN_PRIMARY} onClick={openAddNews}>
                                     <Plus size={16} /> Viết bài mới
                                 </button>
@@ -308,65 +312,73 @@ export default function NewsPage() {
                                                                         className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition"
                                                                         onClick={() => openViewNews(n)}
                                                                     ><Eye size={16} /></button>
-                                                                    <button
-                                                                        title="Sửa"
-                                                                        className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition"
-                                                                        onClick={() => openEditNews(n)}
-                                                                    ><Edit2 size={16} /></button>
-                                                                    {n.status !== 'PUBLISHED'
-                                                                        ? <button 
-                                                                            className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg transition" 
+                                                                    
+                                                                    {hasPermission('news:edit') && (
+                                                                        <button
+                                                                            title="Sửa"
+                                                                            className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition"
+                                                                            onClick={() => openEditNews(n)}
+                                                                        ><Edit2 size={16} /></button>
+                                                                    )}
+
+                                                                    {hasPermission('news:publish') && (
+                                                                        n.status !== 'PUBLISHED'
+                                                                            ? <button 
+                                                                                className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg transition" 
+                                                                                onClick={() => {
+                                                                                    Swal.fire({
+                                                                                        title: 'Xác nhận đăng bài?',
+                                                                                        text: `Bạn có chắc muốn đăng bài viết "${n.title}"?`,
+                                                                                        icon: 'question',
+                                                                                        showCancelButton: true,
+                                                                                        confirmButtonColor: '#15803d',
+                                                                                        cancelButtonColor: '#6b7280',
+                                                                                        confirmButtonText: 'Đăng ngay',
+                                                                                        cancelButtonText: 'Hủy'
+                                                                                    }).then((result) => {
+                                                                                        if (result.isConfirmed) publishNews.mutate(n.id);
+                                                                                    });
+                                                                                }}
+                                                                            >Đăng</button>
+                                                                            : <button 
+                                                                                className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-semibold rounded-lg transition" 
+                                                                                onClick={() => {
+                                                                                    Swal.fire({
+                                                                                        title: 'Thu hồi bài viết?',
+                                                                                        text: 'Bài viết sẽ được chuyển về trạng thái bản nháp.',
+                                                                                        icon: 'warning',
+                                                                                        showCancelButton: true,
+                                                                                        confirmButtonColor: '#ea580c',
+                                                                                        cancelButtonColor: '#6b7280',
+                                                                                        confirmButtonText: 'Thu hồi',
+                                                                                        cancelButtonText: 'Hủy'
+                                                                                    }).then((result) => {
+                                                                                        if (result.isConfirmed) unpublishNews.mutate(n.id);
+                                                                                    });
+                                                                                }}
+                                                                            >Thu hồi</button>
+                                                                    )}
+
+                                                                    {hasPermission('news:delete') && (
+                                                                        <button
+                                                                            title="Xóa"
+                                                                            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
                                                                             onClick={() => {
                                                                                 Swal.fire({
-                                                                                    title: 'Xác nhận đăng bài?',
-                                                                                    text: `Bạn có chắc muốn đăng bài viết "${n.title}"?`,
-                                                                                    icon: 'question',
-                                                                                    showCancelButton: true,
-                                                                                    confirmButtonColor: '#15803d',
-                                                                                    cancelButtonColor: '#6b7280',
-                                                                                    confirmButtonText: 'Đăng ngay',
-                                                                                    cancelButtonText: 'Hủy'
-                                                                                }).then((result) => {
-                                                                                    if (result.isConfirmed) publishNews.mutate(n.id);
-                                                                                });
-                                                                            }}
-                                                                          >Đăng</button>
-                                                                        : <button 
-                                                                            className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-semibold rounded-lg transition" 
-                                                                            onClick={() => {
-                                                                                Swal.fire({
-                                                                                    title: 'Thu hồi bài viết?',
-                                                                                    text: 'Bài viết sẽ được chuyển về trạng thái bản nháp.',
+                                                                                    title: 'Xóa bài viết?',
+                                                                                    text: "Bài viết sẽ bị chuyển vào thùng rác.",
                                                                                     icon: 'warning',
                                                                                     showCancelButton: true,
-                                                                                    confirmButtonColor: '#ea580c',
+                                                                                    confirmButtonColor: '#dc2626',
                                                                                     cancelButtonColor: '#6b7280',
-                                                                                    confirmButtonText: 'Thu hồi',
+                                                                                    confirmButtonText: 'Xóa vào thùng rác',
                                                                                     cancelButtonText: 'Hủy'
                                                                                 }).then((result) => {
-                                                                                    if (result.isConfirmed) unpublishNews.mutate(n.id);
+                                                                                    if (result.isConfirmed) deleteNews.mutate(n.id);
                                                                                 });
                                                                             }}
-                                                                          >Thu hồi</button>
-                                                                    }
-                                                                    <button
-                                                                        title="Xóa"
-                                                                        className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
-                                                                        onClick={() => {
-                                                                            Swal.fire({
-                                                                                title: 'Xóa bài viết?',
-                                                                                text: "Bài viết sẽ bị chuyển vào thùng rác.",
-                                                                                icon: 'warning',
-                                                                                showCancelButton: true,
-                                                                                confirmButtonColor: '#dc2626',
-                                                                                cancelButtonColor: '#6b7280',
-                                                                                confirmButtonText: 'Xóa vào thùng rác',
-                                                                                cancelButtonText: 'Hủy'
-                                                                            }).then((result) => {
-                                                                                if (result.isConfirmed) deleteNews.mutate(n.id);
-                                                                            });
-                                                                        }}
-                                                                    ><Trash2 size={16} /></button>
+                                                                        ><Trash2 size={16} /></button>
+                                                                    )}
                                                                 </>
                                                             ) : (
                                                                 <>
@@ -430,7 +442,9 @@ export default function NewsPage() {
                     <div>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                             <span className="text-xs font-semibold text-gray-500">{categoryList.length} chuyên mục</span>
-                            <button className={BTN_PRIMARY} onClick={openAddCat}><Plus size={16} /> Thêm chuyên mục</button>
+                            {hasPermission('category:write') && (
+                                <button className={BTN_PRIMARY} onClick={openAddCat}><Plus size={16} /> Thêm chuyên mục</button>
+                            )}
                         </div>
                         <div className="overflow-x-auto">
                             {catLoading

@@ -11,12 +11,14 @@ function generateCheckinCode() {
 }
 
 class MeetingService {
-    static async getAll({ unionCellId, unionBranchId, level, status, search, page = 1, limit = 10, type, semester, academicYear, onlyDeleted } = {}) {
+    static async getAll({ user, unionCellId, unionBranchId, level, status, search, page = 1, limit = 10, type, semester, academicYear, onlyDeleted } = {}) {
         const { Op } = require('sequelize');
         const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
+        const { getScopeFilter } = require('../utils/permissionHelper');
         const { offset, limit: l } = getPagination({ page, limit });
 
         const where = {};
+        const visibilityWhere = {};
         if (level) where.level = level;
         if (status) where.status = status;
         if (type) where.type = type;
@@ -25,34 +27,31 @@ class MeetingService {
 
         const searchCondition = buildSearchCondition(search, ['title', 'content', 'academicYear']);
 
-        // Core Visibility Filtering (Phân quyền hiển thị theo cấp độ)
-        const visibilityWhere = {};
-        if (unionBranchId || unionCellId) {
-            const orConditions = [
-                { level: 'SCHOOL' } // Mọi người đều thấy cấp Trường
-            ];
+        // --- NEW: Tự động lọc theo Scope của User ---
+        const scopeFilter = getScopeFilter(user, 'organizerBranchId');
+        const cellScopeFilter = getScopeFilter(user, 'organizerCellId');
 
-            if (unionBranchId) {
-                // Thấy cấp Khoa của chính mình
-                orConditions.push({
+        if (Object.keys(scopeFilter).length > 0) {
+            // Nếu là Admin có phạm vi, chỉ thấy bài của Trường HOẶC bài trong phạm vi mình
+            visibilityWhere[Op.or] = [
+                { level: 'SCHOOL' },
+                { 
                     [Op.and]: [
                         { level: 'BRANCH' },
-                        { organizerBranchId: unionBranchId }
+                        scopeFilter 
                     ]
-                });
-            }
-
-            if (unionCellId) {
-                // Thấy cấp Lớp của chính mình
-                orConditions.push({
+                },
+                {
                     [Op.and]: [
                         { level: 'CELL' },
-                        { organizerCellId: unionCellId }
+                        cellScopeFilter
                     ]
-                });
-            }
-
-            visibilityWhere[Op.or] = orConditions;
+                }
+            ];
+        } else {
+            // Nếu là Super Admin, cho phép lọc thủ công nếu có truyền ID
+            if (unionBranchId) visibilityWhere.organizerBranchId = unionBranchId;
+            if (unionCellId) visibilityWhere.organizerCellId = unionCellId;
         }
 
         const queryOptions = {

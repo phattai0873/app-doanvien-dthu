@@ -1,4 +1,5 @@
-const { User, Role } = require('../models');
+const { User, Role, UnionBranch, UnionCell } = require('../models');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
@@ -11,7 +12,9 @@ class UserService {
      * @description Register a new user
      */
     static async register(userData) {
-        const { username, password, email, phoneNumber } = userData;
+        const username = userData.username?.trim();
+        const password = userData.password?.trim();
+        const { email, phoneNumber } = userData;
 
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
@@ -57,9 +60,19 @@ class UserService {
      * @description Login user - trả về cả access token và refresh token
      */
     static async login(username, password) {
-        const user = await User.findOne({ where: { username } });
+        const uName = username?.trim();
+        const pWord = password?.trim();
+        const user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { username: uName },
+                    { email: uName },
+                    { phoneNumber: uName }
+                ]
+            }
+        });
 
-        if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+        if (!user || !(await bcrypt.compare(pWord, user.passwordHash))) {
             throw new ErrorResponse('Tên đăng nhập hoặc mật khẩu không chính xác', 401);
         }
 
@@ -71,18 +84,42 @@ class UserService {
             throw new ErrorResponse('Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên', 403);
         }
 
-        const accessToken = generateAccessToken(user.id);
+        // Lấy thông tin đầy đủ của user (Roles -> Permissions, UnionMember)
+        const userFull = await this.getUserById(user.id);
+
+        // Chuẩn bị payload cho JWT
+        const permissions = [];
+        let isSuperAdmin = false;
+
+        if (userFull.Roles) {
+            userFull.Roles.forEach(role => {
+                if (role.code === 'SUPER_ADMIN') isSuperAdmin = true;
+                if (role.Permissions) {
+                    role.Permissions.forEach(p => {
+                        if (!permissions.includes(p.code)) permissions.push(p.code);
+                    });
+                }
+            });
+        }
+
+        const scope = {
+            branchId: userFull.UnionMember?.UnionCell?.unionBranchId || null,
+            cellId: userFull.UnionMember?.unionCellId || null
+        };
+
+        const accessToken = generateAccessToken(user.id, {
+            permissions,
+            isSuperAdmin,
+            scope
+        });
         const refreshToken = generateRefreshToken(user.id);
 
         // Lưu hash của refresh token (bảo mật hơn lưu plaintext)
         const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
         await user.update({ refreshTokenHash, lastLogin: new Date() });
 
-        // Lấy thông tin đầy đủ của user (Roles, UnionMember) để Frontend load giao diện đúng quyền
-        const userFull = await this.getUserById(user.id);
-
         return {
-            ...userFull.toJSON(),
+            ...userFull,
             accessToken,
             refreshToken
         };
@@ -114,8 +151,24 @@ class UserService {
             throw new ErrorResponse('Refresh token không hợp lệ', 401);
         }
 
-        // Cấp token mới (Rotation: refresh token cũ bị hủy, cấp mới)
-        const newAccessToken = generateAccessToken(user.id);
+        // Cấp token mới với permissions cập nhật
+        const userFull = await this.getUserById(user.id);
+        const permissions = [];
+        let isSuperAdmin = false;
+        if (userFull.Roles) {
+            userFull.Roles.forEach(role => {
+                if (role.code === 'SUPER_ADMIN') isSuperAdmin = true;
+                role.Permissions?.forEach(p => {
+                    if (!permissions.includes(p.code)) permissions.push(p.code);
+                });
+            });
+        }
+        const scope = {
+            branchId: userFull.UnionMember?.UnionCell?.unionBranchId || null,
+            cellId: userFull.UnionMember?.unionCellId || null
+        };
+
+        const newAccessToken = generateAccessToken(user.id, { permissions, isSuperAdmin, scope });
         const newRefreshToken = generateRefreshToken(user.id);
         const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, 10);
         await user.update({ refreshTokenHash: newRefreshTokenHash });
@@ -143,6 +196,11 @@ class UserService {
     static async getAllUsers({ onlyDeleted = false } = {}) {
         const queryOptions = {
             attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
+            include: [
+                { model: Role, through: { attributes: [] } },
+                { model: UnionBranch, attributes: ['id', 'name'] },
+                { model: UnionCell, attributes: ['id', 'name'] }
+            ],
             order: onlyDeleted ? [['deletedAt', 'DESC']] : [['username', 'ASC']]
         };
 
@@ -163,7 +221,12 @@ class UserService {
             attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
             paranoid: false,
             include: [
-                { model: Role, through: { attributes: [] }, paranoid: false },
+                {
+                    model: Role,
+                    through: { attributes: [] },
+                    paranoid: false,
+                    include: [{ model: require('../models/Permission'), attributes: ['code'] }]
+                },
                 {
                     model: UnionMember,
                     paranoid: false,
@@ -177,17 +240,38 @@ class UserService {
                 }
             ]
         });
-        if (!user) {
-            throw new ErrorResponse('Không tìm thấy người dùng', 404);
+        const permissions = [];
+        let isSuperAdmin = false;
+
+        if (user.Roles) {
+            user.Roles.forEach(role => {
+                if (role.code === 'SUPER_ADMIN') isSuperAdmin = true;
+                if (role.Permissions) {
+                    role.Permissions.forEach(p => {
+                        if (!permissions.includes(p.code)) permissions.push(p.code);
+                    });
+                }
+            });
         }
+
+        const scope = {
+            branchId: user.UnionMember?.UnionCell?.unionBranchId || null,
+            cellId: user.UnionMember?.unionCellId || null
+        };
+
+        // Chuyển sang object thuần để thêm các trường ảo
+        const userData = user.toJSON();
+        userData.permissions = permissions;
+        userData.isSuperAdmin = isSuperAdmin;
+        userData.scope = scope;
 
         // Add statistics if it's a member
         if (user.UnionMember) {
             const stats = await this.getUserStatistics(user.UnionMember.id);
-            user.setDataValue('statistics', stats);
+            userData.statistics = stats;
         }
 
-        return user;
+        return userData;
     }
 
     /**
@@ -289,8 +373,10 @@ class UserService {
     static async resetPassword(userId, newPassword) {
         const user = await User.findByPk(userId);
         if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
+
+        const pw = newPassword?.trim();
         const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(newPassword, salt);
+        const passwordHash = await bcrypt.hash(pw || '', salt);
         await user.update({ passwordHash, refreshTokenHash: null });
         return { message: 'Đã đặt lại mật khẩu thành công' };
     }
@@ -352,6 +438,37 @@ class UserService {
 
         await user.destroy({ force: true });
         return { message: 'Đã xóa vĩnh viễn tài khoản và các tệp đính kèm' };
+    }
+
+    /**
+     * @description Assign roles to a user
+     * @param {string} userId - ID of the user to assign roles to
+     * @param {string[]} roleIds - Array of Role IDs
+     * @param {object} currentUser - The user performing the action (req.user)
+     */
+    static async assignRoles(userId, roleIds, currentUser) {
+        if (!userId || !roleIds || !Array.isArray(roleIds)) {
+            throw new ErrorResponse('Dữ liệu không hợp lệ', 400);
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
+
+        // Bảo mật: Nếu người thực hiện không phải Super Admin, họ không được gán role SUPER_ADMIN cho bất kỳ ai
+        if (!currentUser.isSuperAdmin) {
+            const rolesToAssign = await Role.findAll({ where: { id: roleIds } });
+            const hasSuperAdminRole = rolesToAssign.some(r => r.code === 'SUPER_ADMIN');
+            if (hasSuperAdminRole) {
+                throw new ErrorResponse('Chỉ Quản trị viên cấp cao mới có quyền gán vai trò SUPER_ADMIN', 403);
+            }
+        }
+
+        // Đồng bộ các role
+        await user.setRoles(roleIds);
+
+        // Lấy lại user kèm roles mới để trả về
+        const updatedUser = await this.getUserById(userId);
+        return updatedUser;
     }
 }
 

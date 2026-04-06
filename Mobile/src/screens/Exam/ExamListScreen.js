@@ -85,70 +85,73 @@ export const ExamListScreen = ({ onNavigate }) => {
         const isOngoing = currentStatus === 'ONGOING';
         const isUpcoming = currentStatus === 'UPCOMING';
 
-        if (item.thumbnail) {
-            console.log(`[ExamList] Title: ${item.title}, Thumbnail: ${API_BASE_URL}${item.thumbnail}`);
-        }
-
         return (
             <TouchableOpacity
                 style={styles.card}
                 onPress={() => handleExamPress(item)}
-                activeOpacity={0.9}
+                activeOpacity={0.8}
             >
-                <View style={styles.cardHeader}>
-                    <View style={[styles.statusBadge, { backgroundColor: bg + '20' }]}>
-                        <View style={[styles.statusDot, { backgroundColor: text }]} />
-                        <Text style={[styles.statusText, { color: text }]}>{label}</Text>
-                    </View>
-                    {item.isMandatory && (
-                        <View style={styles.mandatoryBadge}>
-                            <Icon name="AlertCircle" size={12} color="#FFF" />
-                            <Text style={styles.mandatoryText}>Bắt buộc</Text>
-                        </View>
-                    )}
-                </View>
-
-                <View style={styles.cardBody}>
-                    <View style={styles.imagePlaceholder}>
+                <View style={styles.cardTop}>
+                    <View style={styles.imageWrapper}>
                         {item.thumbnail ? (
                             <Image
                                 source={{ uri: `${API_BASE_URL.replace(/\/$/, '')}${item.thumbnail}` }}
                                 style={styles.quizThumbnail}
                                 resizeMode="cover"
-                                onError={(e) => console.log(`[ExamList] Image Load Error: ${e.nativeEvent.error} for ${item.title}`)}
                             />
                         ) : (
-                            <Icon name="Trophy" size={32} color={isOngoing ? COLORS.primary : COLORS.gray400} />
+                            <View style={[styles.fallbackIcon, { backgroundColor: text + '10' }]}>
+                                <Icon name="Trophy" size={32} color={text} />
+                            </View>
                         )}
+                        <View style={[styles.statusTag, { backgroundColor: text }]}>
+                            <Text style={styles.statusTagText}>{label}</Text>
+                        </View>
                     </View>
 
-                    <View style={styles.cardInfo}>
-                        <Text style={styles.examTitle} numberOfLines={2}>{item.title}</Text>
-                        <Text style={styles.examDesc} numberOfLines={1}>{item.description || 'Chưa có mô tả'}</Text>
+                    <View style={styles.cardContent}>
+                        <View style={styles.titleRow}>
+                            <Text style={styles.examTitle} numberOfLines={2}>{item.title}</Text>
+                            {item.isMandatory && (
+                                <View style={styles.mandatoryIndicator}>
+                                    <Icon name="AlertCircle" size={14} color={COLORS.error} />
+                                </View>
+                            )}
+                        </View>
+                        <Text style={styles.examDesc} numberOfLines={1}>
+                            {item.description || 'Tham gia kiểm tra kiến thức ngay'}
+                        </Text>
+
+                        <View style={styles.statsGrid}>
+                            <View style={styles.statContainer}>
+                                <Icon name="Layers" size={14} color={COLORS.gray400} />
+                                <Text style={styles.statLabel}>{item.totalQuestions || 0} câu</Text>
+                            </View>
+                            <View style={styles.statContainer}>
+                                <Icon name="Clock" size={14} color={COLORS.gray400} />
+                                <Text style={styles.statLabel}>{item.timeLimit || 0} phút</Text>
+                            </View>
+                            <View style={styles.statContainer}>
+                                <Icon name="Star" size={14} color={COLORS.warning} />
+                                <Text style={styles.statLabel}>{item.satisfactoryScore || 0} điểm</Text>
+                            </View>
+                        </View>
                     </View>
                 </View>
 
-                <View style={styles.cardFooter}>
-                    <View style={styles.metaGroup}>
-                        <View style={styles.metaItem}>
-                            <Icon name="Layers" size={14} color={COLORS.gray500} />
-                            <Text style={styles.metaValue}>{item.totalQuestions || 0} câu</Text>
-                        </View>
-                        <View style={styles.metaItem}>
-                            <Icon name="Clock" size={14} color={COLORS.gray500} />
-                            <Text style={styles.metaValue}>{item.timeLimit || 0} phút</Text>
-                        </View>
-                        <View style={styles.metaItem}>
-                            <Icon name="Star" size={14} color="#F59E0B" />
-                            <Text style={styles.metaValue}>{item.satisfactoryScore || 0} điểm</Text>
-                        </View>
+                <View style={styles.cardAction}>
+                    <View style={styles.authorBadge}>
+                        <Icon name="User" size={12} color={COLORS.gray500} />
+                        <Text style={styles.authorText}>BTC Đoàn trường</Text>
                     </View>
-
-                    <View style={[styles.actionBtn, { backgroundColor: isOngoing ? COLORS.primary : COLORS.gray100 }]}>
-                        <Icon
-                            name={isOngoing ? "ChevronRight" : (isUpcoming ? "Lock" : "CheckCircle")}
-                            size={18}
-                            color={isOngoing ? "#FFF" : COLORS.gray400}
+                    <View style={[styles.startBtn, { backgroundColor: isOngoing ? COLORS.primary : COLORS.gray200 }]}>
+                        <Text style={[styles.startBtnText, { color: isOngoing ? '#FFF' : COLORS.gray500 }]}>
+                            {isOngoing ? 'Vào thi' : (isUpcoming ? 'Chưa mở' : 'Đã đóng')}
+                        </Text>
+                        <Icon 
+                            name={isOngoing ? "ChevronRight" : "Lock"} 
+                            size={16} 
+                            color={isOngoing ? "#FFF" : COLORS.gray500} 
                         />
                     </View>
                 </View>
@@ -166,10 +169,17 @@ export const ExamListScreen = ({ onNavigate }) => {
 
     return (
         <View style={styles.container}>
+            <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <View>
+                        <Text style={styles.headerTitle}>Hệ thống Thi</Text>
+                        <Text style={styles.headerSubtitle}>Trực tuyến DTHU</Text>
+                    </View>
+                    <TouchableOpacity style={styles.profileBtn}>
+                        <Icon name="BadgeCheck" size={24} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
 
-
-            {/* Content Section */}
-            <View style={styles.contentBody}>
                 <View style={styles.tabContainer}>
                     {TABS.map(tab => (
                         <TouchableOpacity
@@ -183,195 +193,114 @@ export const ExamListScreen = ({ onNavigate }) => {
                         </TouchableOpacity>
                     ))}
                 </View>
-
-                <FlatList
-                    data={exams}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id.toString()}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshing={loading}
-                    onRefresh={fetchData}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <View style={styles.emptyIconCircle}>
-                                <Icon name="Inbox" size={40} color={COLORS.gray300} />
-                            </View>
-                            <Text style={styles.emptyText}>Hiện không có cuộc thi nào trong mục này</Text>
-                            <TouchableOpacity style={styles.refreshBtn} onPress={fetchData}>
-                                <Text style={styles.refreshBtnText}>Tải lại dữ liệu</Text>
-                            </TouchableOpacity>
-                        </View>
-                    }
-                />
             </View>
+
+            <FlatList
+                data={exams}
+                renderItem={renderItem}
+                keyExtractor={item => item.id.toString()}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                refreshing={loading}
+                onRefresh={fetchData}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <View style={styles.emptyIconCircle}>
+                            <Icon name="Database" size={40} color={COLORS.gray300} />
+                        </View>
+                        <Text style={styles.emptyText}>Hiện không có cuộc thi nào trong mục này</Text>
+                    </View>
+                }
+            />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
+    container: { flex: 1, backgroundColor: '#F0F2F5' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-    // Header Styles
     header: {
         backgroundColor: '#FFF',
         paddingHorizontal: 20,
         paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingBottom: 25,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        elevation: 10,
+        paddingBottom: 20,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        elevation: 8,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
-        shadowRadius: 15,
-        zIndex: 10
+        shadowRadius: 10,
     },
-    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
-    greeting: { fontSize: 14, color: COLORS.gray500, fontWeight: '500' },
-    headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.gray900, marginTop: 2 },
-    scoreBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: COLORS.primary + '10',
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.primary + '20'
-    },
-    scoreText: { marginLeft: 8, fontWeight: 'bold', color: COLORS.primary, fontSize: 14 },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    headerTitle: { fontSize: 28, fontWeight: '900', color: COLORS.gray900, letterSpacing: -0.5 },
+    headerSubtitle: { fontSize: 16, color: COLORS.primary, fontWeight: '700', marginTop: -4 },
+    profileBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary + '10', alignItems: 'center', justifyContent: 'center' },
 
-    statsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        backgroundColor: '#F1F5F9',
-        borderRadius: 20,
-        paddingVertical: 15
-    },
-    statItem: { alignItems: 'center', flex: 1 },
-    statValue: { fontSize: 18, fontWeight: 'bold', color: COLORS.gray900 },
-    statLabel: { fontSize: 11, color: COLORS.gray500, marginTop: 4, fontWeight: '600' },
-    statDivider: { height: 25, width: 1, backgroundColor: COLORS.gray300 },
-
-    // Content Styles
-    contentBody: { flex: 1, marginTop: -20, paddingTop: 30 },
-    // Tabs Styles
     tabContainer: {
         flexDirection: 'row',
-        marginHorizontal: 20,
-        marginBottom: 20,
-        backgroundColor: '#F1F5F9',
-        borderRadius: 14,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 16,
         padding: 4,
     },
-    tabButton: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderRadius: 10,
-    },
-    activeTabButton: {
-        backgroundColor: '#FFF',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    tabText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: COLORS.gray500,
-    },
-    activeTabText: {
-        color: COLORS.primary,
-        fontWeight: 'bold',
-    },
+    tabButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
+    activeTabButton: { backgroundColor: '#FFF', elevation: 2, shadowOpacity: 0.1, shadowRadius: 3 },
+    tabText: { fontSize: 13, fontWeight: '700', color: COLORS.gray500 },
+    activeTabText: { color: COLORS.primary },
 
-    listContent: { padding: 20, paddingBottom: 100 },
+    listContent: { padding: 20, paddingBottom: 120 },
     card: {
         backgroundColor: '#FFF',
         borderRadius: 24,
-        padding: 16,
         marginBottom: 20,
-        elevation: 5,
-        shadowColor: '#64748B',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        borderWidth: 1,
-        borderColor: '#F1F5F9'
-    },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20
-    },
-    statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
-    statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-    mandatoryBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#EF4444',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 10,
-        gap: 5
-    },
-    mandatoryText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
-
-    cardBody: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    imagePlaceholder: {
-        width: 60,
-        height: 60,
-        borderRadius: 18,
-        backgroundColor: '#F8FAFC',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#F1F5F9',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
         overflow: 'hidden'
     },
-    quizThumbnail: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 18
-    },
-    cardInfo: { flex: 1, marginLeft: 16 },
-    examTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.gray900, lineHeight: 22 },
-    examDesc: { fontSize: 13, color: COLORS.gray500, marginTop: 4 },
+    cardTop: { flexDirection: 'row', padding: 16 },
+    imageWrapper: { width: 90, height: 90, borderRadius: 20, overflow: 'hidden', position: 'relative' },
+    quizThumbnail: { width: '100%', height: '100%' },
+    fallbackIcon: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+    statusTag: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingVertical: 2, alignItems: 'center' },
+    statusTagText: { color: '#FFF', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
 
-    cardFooter: {
+    cardContent: { flex: 1, marginLeft: 16 },
+    titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    examTitle: { fontSize: 17, fontWeight: '800', color: COLORS.gray900, lineHeight: 22 },
+    mandatoryIndicator: { marginLeft: 8 },
+    examDesc: { fontSize: 13, color: COLORS.gray500, marginTop: 4, fontStyle: 'italic' },
+    
+    statsGrid: { flexDirection: 'row', marginTop: 12, gap: 12 },
+    statContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    statLabel: { fontSize: 11, color: COLORS.gray600, fontWeight: '600' },
+
+    cardAction: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingTop: 15,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#F9FAFB',
         borderTopWidth: 1,
         borderTopColor: '#F1F5F9'
     },
-    metaGroup: { flexDirection: 'row', gap: 15 },
-    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    metaValue: { fontSize: 12, color: COLORS.gray600, fontWeight: '600' },
-    actionBtn: { width: 40, height: 40, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
-
-    // Empty States
-    emptyContainer: { alignItems: 'center', paddingVertical: 50 },
-    emptyIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#F1F5F9',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20
+    authorBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    authorText: { fontSize: 11, color: COLORS.gray500, fontWeight: '600' },
+    startBtn: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: 14, 
+        paddingVertical: 8, 
+        borderRadius: 12,
+        gap: 6
     },
-    emptyText: { fontSize: 14, color: COLORS.gray500, textAlign: 'center', paddingHorizontal: 40, lineHeight: 20 },
-    refreshBtn: { marginTop: 20, paddingHorizontal: 25, paddingVertical: 12, backgroundColor: '#E2E8F0', borderRadius: 15 },
-    refreshBtnText: { color: COLORS.gray700, fontWeight: 'bold', fontSize: 14 }
+    startBtnText: { fontSize: 13, fontWeight: '800' },
+
+    emptyContainer: { alignItems: 'center', paddingVertical: 100 },
+    emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', elevation: 2 },
+    emptyText: { marginTop: 20, color: COLORS.gray400, fontWeight: '600', textAlign: 'center', paddingHorizontal: 40 }
 });

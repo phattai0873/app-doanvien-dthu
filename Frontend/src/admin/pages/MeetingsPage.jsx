@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import { Search, Plus, Pencil, Trash2, Users, QrCode, RotateCw, Download, Copy, MapPin, History, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { meetingApi, cellApi, locationApi } from '../../services/api';
@@ -235,6 +236,7 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
 }
 
 export default function MeetingsPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
@@ -317,15 +319,17 @@ export default function MeetingsPage() {
                     <MapPin size={16} />
                     Quản lý địa điểm
                 </Link>
-                <button 
-                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                        ${showTrash 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                </button>
+                {hasPermission('meeting:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
                 {!showTrash && (
                     <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Lên lịch họp mới</button>
                 )}

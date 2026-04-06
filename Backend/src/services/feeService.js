@@ -2,15 +2,24 @@ const { UnionFeePayment, UnionMember, UnionCell, User, UnionFeeType, PaymentTran
 const { Op } = require('sequelize');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse } = require('../utils/paginate');
+const { getScopeFilter, enforceScope } = require('../utils/permissionHelper');
 
 class FeeService {
-    static async getAll({ period, memberId, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit } = {}) {
+    /**
+     * Lấy danh sách nộp phí (Enterprise Scoping)
+     */
+    static async getAll({ period, memberId, unionCellId, unionBranchId, unionFeeTypeId, search, page, limit, user } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
 
+        // 1. Áp dụng bộ lọc phạm vi tự động (ABAC)
+        const scopeFilter = getScopeFilter(user, 'fee');
+
         const where = {
+            ...scopeFilter,
             ...(period && { period }),
             ...(memberId && { unionMemberId: memberId }),
             ...(unionFeeTypeId && { unionFeeTypeId }),
+            // Ưu tiên lọc cụ thể nếu có quyền
             ...(unionCellId && { unionCellId }),
             ...(unionBranchId && { unionBranchId })
         };
@@ -36,6 +45,9 @@ class FeeService {
         return formatPaginatedResponse(result, p, l);
     }
 
+    /**
+     * Dashboard cá nhân (Mobile)
+     */
     static async getMyFeeDashboard(unionMemberId) {
         const currentYear = new Date().getFullYear().toString();
         const yearsToCheck = [currentYear, (parseInt(currentYear) - 1).toString()];
@@ -62,25 +74,21 @@ class FeeService {
                         unionFeeTypeId: type.id,
                         name: type.name,
                         period: year,
-                        amount: 24000, // Giá trị mặc định hoặc tùy chỉnh sau
-                        deadline: `${year}-12-31`, // Tạm thời
+                        amount: 24000,
+                        deadline: `${year}-12-31`,
                         priority: year === currentYear ? 'NORMAL' : 'OVERDUE'
                     });
                 }
             }
         }
 
-        const totalDebt = unpaidFees.reduce((sum, f) => sum + f.amount, 0);
-        const nearestDeadline = unpaidFees.length > 0 ? unpaidFees.sort((a, b) => new Date(a.deadline) - new Date(b.deadline))[0].deadline : null;
-
         const member = await UnionMember.findByPk(unionMemberId, { attributes: ['id', 'memberCode', 'fullName'] });
 
         return {
             summary: {
-                totalDebt,
+                totalDebt: unpaidFees.reduce((sum, f) => sum + f.amount, 0),
                 unpaidCount: unpaidFees.length,
                 pendingCount: pendingTransactions.length,
-                nearestDeadline,
                 memberCode: member?.memberCode,
                 fullName: member?.fullName
             },
@@ -93,38 +101,41 @@ class FeeService {
         };
     }
 
-    static async create(data) {
+    /**
+     * Tạo bản ghi nộp phí thủ công (Admin)
+     */
+    static async create(data, user) {
         const { unionMemberId, unionFeeTypeId, period, amount, paymentMethod, note } = data;
 
-        // Kiểm tra xem đã đóng chưa
-        const existing = await UnionFeePayment.findOne({
-            where: { unionMemberId, unionFeeTypeId, period }
-        });
-        if (existing) {
-            throw new ErrorResponse('Đoàn viên này đã nộp loại phí này trong kỳ này rồi.', 400);
-        }
-
+        // 1. Kiểm tra phạm vi: Admin chỉ được nộp cho Member trong scope của mình
         const member = await UnionMember.findByPk(unionMemberId, {
             include: [{ model: UnionCell }]
         });
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
+        
+        // Thực thi kiểm tra scope của member
+        enforceScope(user, member);
+
+        // 2. Kiểm tra trùng lặp
+        const existing = await UnionFeePayment.findOne({
+            where: { unionMemberId, unionFeeTypeId, period }
+        });
+        if (existing) throw new ErrorResponse('Đoàn viên này đã nộp loại phí này trong kỳ này rồi.', 400);
 
         const t = await sequelize.transaction();
 
         try {
-            // 1. Tạo Transaction
             const transaction = await PaymentTransaction.create({
                 unionMemberId,
                 unionFeeTypeId,
                 amount,
                 period,
                 paymentProvider: paymentMethod || 'CASH',
-                status: 'SUCCESS', // Hiện tại làm thủ công nên mặc định SUCCESS
+                status: 'SUCCESS',
                 paidAt: new Date(),
-                internalTransactionId: `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+                internalTransactionId: `TXN-MANUAL-${Date.now()}`
             }, { transaction: t });
 
-            // 2. Tạo Payment record
             const payment = await UnionFeePayment.create({
                 unionMemberId,
                 unionFeeTypeId,
@@ -145,24 +156,28 @@ class FeeService {
         }
     }
 
-    static async getUnpaidMembers(period, { unionCellId, unionBranchId, unionFeeTypeId, search, page, limit } = {}) {
+    /**
+     * Danh sách chưa nộp phí (Strict Scoping)
+     */
+    static async getUnpaidMembers(period, { unionCellId, unionBranchId, unionFeeTypeId, search, page, limit, user } = {}) {
         if (!period) throw new ErrorResponse('Vui lòng cung cấp kỳ (period)', 400);
         const { page: p, limit: l, offset } = getPagination({ page, limit });
+
+        // 1. Lọc theo Scope của Admin
+        const scopeFilter = getScopeFilter(user, 'member');
 
         const paidMemberIds = await UnionFeePayment.findAll({
             where: {
                 period,
-                ...(unionFeeTypeId && { unionFeeTypeId })
+                ...(unionFeeTypeId && { unionFeeTypeId }),
+                ...scopeFilter
             },
             attributes: ['unionMemberId']
         }).then(r => r.map(x => x.unionMemberId));
 
-        const whereId = paidMemberIds.length
-            ? { id: { [Op.notIn]: paidMemberIds } }
-            : {};
-
         const memberWhere = {
-            ...whereId,
+            id: { [Op.notIn]: paidMemberIds },
+            ...scopeFilter,
             ...(unionCellId && { unionCellId }),
             ...(search && {
                 [Op.or]: [
@@ -182,9 +197,7 @@ class FeeService {
         }
 
         const result = await UnionMember.findAndCountAll({
-            where: {
-                ...memberWhere
-            },
+            where: memberWhere,
             include: [
                 cellInclude,
                 { model: User, attributes: ['id', 'email', 'phoneNumber'] }
@@ -198,18 +211,23 @@ class FeeService {
         return formatPaginatedResponse(result, p, l);
     }
 
-    static async update(id, data) {
+    static async update(id, data, user) {
         const payment = await UnionFeePayment.findByPk(id);
         if (!payment) throw new ErrorResponse('Không tìm thấy bản ghi', 404);
 
-        // Chỉ cho phép update một số trường nhất định
+        // 1. Kiểm tra scope
+        enforceScope(user, payment);
+
         const { amount, note, paidAt } = data;
         return await payment.update({ amount, note, paidAt });
     }
 
-    static async delete(id) {
+    static async delete(id, user) {
         const payment = await UnionFeePayment.findByPk(id);
         if (!payment) throw new ErrorResponse('Không tìm thấy bản ghi', 404);
+
+        // 1. Kiểm tra scope
+        enforceScope(user, payment);
 
         const t = await sequelize.transaction();
         try {
@@ -225,17 +243,21 @@ class FeeService {
         }
     }
 
-    static async initPayment(data) {
-        const { unionMemberId, unionFeeTypeId, period, amount, paymentProvider, evidenceImageUrl, note } = data;
+    /**
+     * Mobile: Gửi yêu cầu thanh toán (Scoping qua User Session)
+     */
+    static async initPayment(data, user) {
+        const { unionFeeTypeId, period, amount, paymentProvider, evidenceImageUrl, note } = data;
+        const unionMemberId = user.UnionMember?.id || user.unionMemberId;
 
-        // 1. Kiểm tra xem đã đóng hoặc đã có giao dịch PENDING cho kỳ này chưa
+        if (!unionMemberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
+
         const existingPayment = await UnionFeePayment.findOne({ where: { unionMemberId, unionFeeTypeId, period } });
         if (existingPayment) throw new ErrorResponse('Khoản phí này đã được ghi nhận hoàn thành.', 400);
 
         const existingPending = await PaymentTransaction.findOne({ where: { unionMemberId, unionFeeTypeId, period, status: 'PENDING' } });
         if (existingPending) throw new ErrorResponse('Bạn đã gửi yêu cầu thanh toán cho khoản này. Vui lòng đợi Admin duyệt.', 400);
 
-        // 2. Tạo Transaction PENDING
         return await PaymentTransaction.create({
             unionMemberId,
             unionFeeTypeId,
@@ -245,29 +267,30 @@ class FeeService {
             status: 'PENDING',
             evidenceImageUrl,
             note,
-            internalTransactionId: `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+            internalTransactionId: `TXN-${Date.now()}`
         });
     }
 
-    static async approveTransaction(id) {
-        const transaction = await PaymentTransaction.findByPk(id);
+    /**
+     * Admin: Duyệt giao dịch (Strict Scoping)
+     */
+    static async approveTransaction(id, user) {
+        const transaction = await PaymentTransaction.findByPk(id, {
+            include: [{ model: UnionMember, attributes: ['id', 'unionBranchId', 'unionCellId'] }]
+        });
         if (!transaction) throw new ErrorResponse('Không tìm thấy giao dịch', 404);
         if (transaction.status !== 'PENDING') throw new ErrorResponse('Giao dịch này đã được xử lý trước đó', 400);
 
-        const member = await UnionMember.findByPk(transaction.unionMemberId, {
-            include: [{ model: UnionCell }]
-        });
-        if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên gắn với giao dịch này', 404);
+        // 1. Kiểm tra Scope của Member liên quan đến transaction
+        if (!transaction.UnionMember) throw new ErrorResponse('Không tìm thấy hồ sơ đoàn viên gắn với giao dịch', 404);
+        enforceScope(user, transaction.UnionMember);
+
+        const member = await UnionMember.findByPk(transaction.unionMemberId, { include: [{ model: UnionCell }] });
 
         const t = await sequelize.transaction();
         try {
-            // 1. Update Transaction status
-            await transaction.update({
-                status: 'SUCCESS',
-                paidAt: new Date(),
-            }, { transaction: t });
+            await transaction.update({ status: 'SUCCESS', paidAt: new Date() }, { transaction: t });
 
-            // 2. Create Payment record
             const payment = await UnionFeePayment.create({
                 unionMemberId: transaction.unionMemberId,
                 unionFeeTypeId: transaction.unionFeeTypeId,
@@ -288,10 +311,15 @@ class FeeService {
         }
     }
 
-    static async rejectTransaction(id, reason = 'Thông tin thanh toán không hợp lệ') {
-        const transaction = await PaymentTransaction.findByPk(id);
+    static async rejectTransaction(id, reason = 'Thông tin thanh toán không hợp lệ', user) {
+        const transaction = await PaymentTransaction.findByPk(id, {
+            include: [{ model: UnionMember, attributes: ['id', 'unionBranchId', 'unionCellId'] }]
+        });
         if (!transaction) throw new ErrorResponse('Không tìm thấy giao dịch', 404);
         if (transaction.status !== 'PENDING') throw new ErrorResponse('Giao dịch này đã được xử lý trước đó', 400);
+
+        // Kiểm tra scope
+        enforceScope(user, transaction.UnionMember);
 
         return await transaction.update({
             status: 'FAILED',
@@ -299,24 +327,22 @@ class FeeService {
         });
     }
 
-    static async getPendingTransactions(unionBranchId = null) {
-        const where = { status: 'PENDING' };
-
-        const include = [
-            {
-                model: UnionMember,
-                attributes: ['id', 'fullName', 'memberCode', 'unionBranchId']
-            },
-            { model: UnionFeeType, attributes: ['id', 'name'] }
-        ];
-
-        if (unionBranchId) {
-            include[0].where = { unionBranchId };
-        }
+    /**
+     * Admin: Lấy danh sách chờ duyệt (Enterprise Scoping)
+     */
+    static async getPendingTransactions(user) {
+        const scopeFilter = getScopeFilter(user, 'member'); // Lọc Member thuộc scope
 
         return await PaymentTransaction.findAll({
-            where,
-            include,
+            where: { status: 'PENDING' },
+            include: [
+                {
+                    model: UnionMember,
+                    where: scopeFilter,
+                    attributes: ['id', 'fullName', 'memberCode', 'unionBranchId']
+                },
+                { model: UnionFeeType, attributes: ['id', 'name'] }
+            ],
             order: [['createdAt', 'DESC']]
         });
     }
@@ -324,7 +350,6 @@ class FeeService {
     static async getBankSetting() {
         let setting = await BankSetting.findOne({ where: { isDefault: true } });
         if (!setting) {
-            // Tạo bản ghi mặc định nếu chưa có
             setting = await BankSetting.create({
                 bankId: 'MB',
                 bankName: 'MB Bank (Quân Đội)',
@@ -338,11 +363,8 @@ class FeeService {
 
     static async updateBankSetting(data) {
         let setting = await BankSetting.findOne({ where: { isDefault: true } });
-        if (setting) {
-            return await setting.update(data);
-        } else {
-            return await BankSetting.create({ ...data, isDefault: true });
-        }
+        if (setting) return await setting.update(data);
+        return await BankSetting.create({ ...data, isDefault: true });
     }
 }
 

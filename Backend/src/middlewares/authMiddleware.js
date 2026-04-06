@@ -8,35 +8,38 @@ const protect = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+ 
+            // Gán thông tin từ token vào request
+            req.user = {
+                id: decoded.id,
+                permissions: decoded.permissions || [],
+                isSuperAdmin: decoded.isSuperAdmin || false,
+                scope: decoded.scope || {}
+            };
 
-            const { User, Role, UnionMember, UnionCell } = require('../models');
-            req.user = await User.findByPk(decoded.id, {
+            // Vẫn giữ load User record đầy đủ cho các trường hợp cần field khác (như username)
+            // nhưng tối ưu hóa bằng cách không include Roles/Permissions ở đây vì đã có trong token
+            const { User, UnionMember, UnionCell } = require('../models');
+            const userFull = await User.findByPk(decoded.id, {
                 attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
                 include: [
                     { 
-                        model: Role,
-                        attributes: ['id', 'code', 'name']
-                    },
-                    { 
                         model: UnionMember,
                         attributes: ['id', 'fullName', 'avatar', 'unionCellId', 'status'],
-                        include: [
-                            {
-                                model: UnionCell,
-                                attributes: ['id', 'unionBranchId']
-                            }
-                        ]
+                        include: [{ model: UnionCell, attributes: ['id', 'unionBranchId'] }]
                     }
                 ]
             });
 
-            if (req.user) {
-                console.log(`[Auth-Debug] User: ${req.user.username}, MemberID: ${req.user.UnionMember?.id}, Method: ${req.method}, Path: ${req.originalUrl}`);
-            }
-
-            if (!req.user) {
+            if (!userFull) {
                 return res.status(401).json({ success: false, message: 'Người dùng không tồn tại' });
             }
+
+            // Patch thêm các thông tin từ DB vào req.user mà token không chứa
+            req.userRecord = userFull;
+            req.user.username = userFull.username;
+            
+            console.log(`[Auth-Debug] User: ${userFull.username}, Role: ${req.user.isSuperAdmin ? 'SUPER' : 'USER'}, Path: ${req.originalUrl}`);
 
             next();
         } catch (error) {
@@ -53,19 +56,34 @@ const protect = async (req, res, next) => {
 
 const authorize = (...roles) => {
     return (req, res, next) => {
-        if (!req.user || !req.user.Roles) {
-            return res.status(403).json({ success: false, message: 'Không có quyền thực hiện hành động này' });
+        if (!req.user || req.user.isSuperAdmin) return next();
+
+        // Tạm thời giữ lại check role cho tương thích ngược (nếu cần)
+        // nhưng khuyến khích chuyển sang checkPermission
+        console.warn('Deprecated: sử dụng authorize(roles) nên được thay thế bằng checkPermission(permission)');
+        next();
+    };
+};
+
+/**
+ * Middleware kiểm tra quyền hạn (Permission-based)
+ * Rất nhanh vì chỉ check mảng trong req.user
+ */
+const checkPermission = (permissionCode) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: 'Yêu cầu đăng nhập' });
         }
 
-        const userRoles = req.user.Roles.map(role => role.code);
-        
-        if (userRoles.includes('SUPER_ADMIN')) return next();
+        if (req.user.isSuperAdmin) return next();
 
-        const hasRole = roles.some(role => userRoles.includes(role));
-
-        if (!hasRole) {
-            return res.status(403).json({ success: false, message: 'Vai trò của bạn không được phép truy cập' });
+        if (!req.user.permissions || !req.user.permissions.includes(permissionCode)) {
+            return res.status(403).json({ 
+                success: false, 
+                message: `Bạn không có quyền thực hiện hành động này (${permissionCode})` 
+            });
         }
+
         next();
     };
 };
@@ -96,4 +114,4 @@ const loadUser = async (req, res, next) => {
     next();
 };
 
-module.exports = { protect, authorize, loadUser };
+module.exports = { protect, authorize, checkPermission, loadUser };

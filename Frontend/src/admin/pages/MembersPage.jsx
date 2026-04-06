@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { memberApi, positionApi } from '../../services/api';
 import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
@@ -88,21 +89,38 @@ function MemberModal({ member, onClose, onSave }) {
     );
 }
 
-function AppointmentModal({ member, positions, onClose, onAssign }) {
-    const [form, setForm] = useState({ positionId: '', assignedDate: new Date().toISOString().split('T')[0] });
+function AppointmentModal({ member, positions, branches, onClose, onAssign }) {
+    const activePos = member.UnionPositions?.[0];
     
-    // Tìm thông tin chức vụ đang chọn để lấy scopeLevel
-    const selectedPos = positions.find(p => p.id === form.positionId);
+    const [form, setForm] = useState({ 
+        positionId: activePos?.id || '', 
+        branchId: activePos?.UnionMemberPosition?.unionBranchId || member.UnionCell?.unionBranchId || '', 
+        cellId: activePos?.UnionMemberPosition?.unionCellId || member.unionCellId || '', 
+        assignedDate: new Date().toISOString().split('T')[0],
+        moveMember: false
+    });
     
-    // Xác định tên đơn vị sẽ quản lý dựa trên scopeLevel
-    const getTargetEntity = () => {
-        if (!selectedPos) return null;
-        if (selectedPos.scopeLevel === 'CELL') return { type: 'Chi đoàn', name: member.UnionCell?.name };
-        if (selectedPos.scopeLevel === 'BRANCH') return { type: 'Liên chi đoàn', name: member.UnionCell?.UnionBranch?.name };
-        return { type: 'Hệ thống', name: 'Toàn trường' };
+    // Khi chọn chức danh, tự động gợi ý đơn vị hiện tại
+    const handlePositionChange = (posId) => {
+        const pos = positions.find(p => p.id === posId);
+        setForm(f => ({ 
+            ...f, 
+            positionId: posId,
+            branchId: pos?.scopeLevel === 'BRANCH' ? (member.UnionCell?.unionBranchId || '') : '',
+            cellId: pos?.scopeLevel === 'CELL' ? (member.unionCellId || '') : '',
+            // Reset đơn vị nếu chọn chức danh cấp Trường
+        }));
     };
 
-    const target = getTargetEntity();
+    const selectedPos = positions.find(p => p.id === form.positionId);
+    
+    // Lấy danh sách chi đoàn của branch đang chọn (nếu có)
+    const { data: cellsRes } = useQuery({ 
+        queryKey: ['cells-for-appoint', form.branchId], 
+        queryFn: () => memberApi.getCells(form.branchId),
+        enabled: !!form.branchId && selectedPos?.scopeLevel === 'CELL'
+    });
+    const cells = cellsRes?.data?.data || [];
 
     return (
         <ModalPortal onClose={onClose}>
@@ -115,24 +133,24 @@ function AppointmentModal({ member, positions, onClose, onAssign }) {
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-5 space-y-4">
-                    {/* Thông tin nhân sự */}
+                    {/* Header: Thành viên */}
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-primary-700 border border-primary-100 shadow-sm">
                             {member.fullName.charAt(0)}
                         </div>
                         <div>
-                            <p className="text-xs font-black text-gray-400 uppercase tracking-tighter leading-none mb-1">Đoàn viên bổ nhiệm</p>
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-tighter leading-none mb-1">Đoàn viên được bổ nhiệm</p>
                             <p className="text-sm font-bold text-gray-800">{member.fullName}</p>
                         </div>
                     </div>
 
-                    {/* Chọn chức vụ */}
+                    {/* 1. Chọn Chức vụ */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Chức vụ bổ nhiệm *</label>
                         <select 
                             className={SELECT} 
                             value={form.positionId} 
-                            onChange={e => setForm(f => ({ ...f, positionId: e.target.value }))}
+                            onChange={e => handlePositionChange(e.target.value)}
                         >
                             <option value="">-- Chọn chức danh --</option>
                             {positions.map(p => (
@@ -143,23 +161,68 @@ function AppointmentModal({ member, positions, onClose, onAssign }) {
                         </select>
                     </div>
 
-                    {/* Hiển thị phạm vi quản lý (QUAN TRỌNG) */}
-                    {target && (
-                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="mt-0.5 bg-blue-600 text-white p-1 rounded-lg">
-                                {selectedPos.scopeLevel === 'CELL' ? <BookOpen size={14} /> : <Building2 size={14} />}
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Phạm vi quản trị</p>
-                                <p className="text-sm font-bold text-blue-900">
-                                    {target.type}: <span className="underline decoration-blue-300">{target.name || 'Hệ thống'}</span>
-                                </p>
-                                <p className="mt-1 text-[10px] text-blue-500 italic font-medium leading-tight">
-                                    * Sau khi bổ nhiệm, tài khoản sẽ có quyền Admin quản lý dữ liệu của {target.type} này.
-                                </p>
-                            </div>
+                    {/* 2. Chọn Phạm vi (Nếu cấp Khoa) */}
+                    {selectedPos?.scopeLevel === 'BRANCH' && (
+                        <div className="animate-in fade-in slide-in-from-top-2">
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Đơn vị quản lý (Liên chi đoàn) *</label>
+                            <select 
+                                className={SELECT} 
+                                value={form.branchId || ''} 
+                                onChange={e => setForm(f => ({ ...f, branchId: e.target.value }))}
+                            >
+                                <option value="">-- Chọn Liên chi đoàn --</option>
+                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
                         </div>
                     )}
+
+                    {/* 3. Chọn Phạm vi (Nếu cấp Chi đoàn) */}
+                    {selectedPos?.scopeLevel === 'CELL' && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Thuộc Liên chi đoàn *</label>
+                                <select 
+                                    className={SELECT} 
+                                    value={form.branchId || ''} 
+                                    onChange={e => setForm(f => ({ ...f, branchId: e.target.value, cellId: '' }))}
+                                >
+                                    <option value="">-- Chọn Liên chi đoàn --</option>
+                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                            {form.branchId && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Phạm vi quản lý (Chi đoàn) *</label>
+                                    <select 
+                                        className={SELECT} 
+                                        value={form.cellId || ''} 
+                                        onChange={e => setForm(f => ({ ...f, cellId: e.target.value }))}
+                                    >
+                                        <option value="">-- Chọn Chi đoàn --</option>
+                                        {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 4. Cấu hình Option: Chuyển Đoàn viên */}
+                    {(form.cellId && form.cellId !== member.unionCellId) || (form.branchId && form.branchId !== member.UnionCell?.unionBranchId && selectedPos?.scopeLevel === 'BRANCH') ? (
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                    checked={form.moveMember}
+                                    onChange={e => setForm(f => ({ ...f, moveMember: e.target.checked }))}
+                                />
+                                <div>
+                                    <p className="text-xs font-bold text-amber-900 group-hover:text-amber-700 transition">Đồng thời chuyển sinh hoạt Đoàn</p>
+                                    <p className="text-[10px] text-amber-600 italic">Cập nhật hồ sơ gốc của {member.fullName} sang đơn vị mới này.</p>
+                                </div>
+                            </label>
+                        </div>
+                    ) : null}
 
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày bắt đầu nhiệm kỳ</label>
@@ -170,7 +233,7 @@ function AppointmentModal({ member, positions, onClose, onAssign }) {
                     <button className={BTN_SECONDARY} onClick={onClose}>Hủy bỏ</button>
                     <button 
                         className={BTN_PRIMARY} 
-                        disabled={!form.positionId} 
+                        disabled={!form.positionId || (selectedPos?.scopeLevel === 'BRANCH' && !form.branchId) || (selectedPos?.scopeLevel === 'CELL' && !form.cellId)} 
                         onClick={() => onAssign(form)}
                     >
                         Xác nhận Bổ nhiệm
@@ -296,6 +359,7 @@ function Pagination({ pagination, page, setPage }) {
 }
 
 export default function MembersPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [searchParams, setSearchParams] = useSearchParams();
     const unionCellId = searchParams.get('unionCellId') || '';
@@ -414,15 +478,17 @@ export default function MembersPage() {
                     </button>
                 )}
 
-                <button 
-                    onClick={() => { setShowTrash(!showTrash); setPage(1); }}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                        ${showTrash 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
-                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                    <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
-                </button>
+                {hasPermission('member:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
 
                 {!showTrash && (
                     <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
@@ -530,7 +596,7 @@ export default function MembersPage() {
 
             {modal && <MemberModal member={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} />}
             {detailModal && <MemberDetailModal member={detailModal} onClose={() => setDetailModal(null)} onApprove={handleApprove} onReject={handleReject} />}
-            {appointmentModal && <AppointmentModal member={appointmentModal} positions={positions} onClose={() => setAppointmentModal(null)} onAssign={handleAppoint} />}
+            {appointmentModal && <AppointmentModal member={appointmentModal} positions={positions} branches={branchesAll} onClose={() => setAppointmentModal(null)} onAssign={handleAppoint} />}
         </div>
     );
 }
