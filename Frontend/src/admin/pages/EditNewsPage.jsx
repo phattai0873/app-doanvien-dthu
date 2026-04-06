@@ -7,7 +7,7 @@ import { newsApi } from '../../services/api';
 import BannerUpload from '../components/BannerUpload';
 import NewsEditor from '../components/NewsEditor';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 
@@ -16,11 +16,14 @@ export default function EditNewsPage() {
     const navigate = useNavigate();
     const qc = useQueryClient();
 
-    const [form, setForm] = useState({
-        title: '', summary: '', content: '', status: 'DRAFT', categoryId: '', level: 'SCHOOL', bannerUrl: ''
-    });
+    const [form, setForm] = useState(null);
     const [bannerFile, setBannerFile] = useState(null);
     const [removeBanner, setRemoveBanner] = useState(false);
+
+    // Reset form khi chuyển sang bài viết khác
+    useEffect(() => {
+        setForm(null);
+    }, [id]);
 
     // Fetch bài viết hiện tại
     const { data: newsData, isLoading: isFetching } = useQuery({
@@ -37,19 +40,30 @@ export default function EditNewsPage() {
     const categoryList = catData?.data?.data || catData?.data || [];
 
     useEffect(() => {
-        if (newsData?.data?.data) {
-            const n = newsData.data.data;
+        // Lấy dữ liệu bài viết từ phản hồi API
+        const news = newsData?.data?.data || newsData?.data;
+
+        if (news && news.id === id && !form) {
+            // Chuyển đổi timestamp sang định dạng YYYY-MM-DDTHH:mm cho datetime-local (giờ địa phương)
+            const getLocalDatetime = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                const offset = date.getTimezoneOffset() * 60000;
+                return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+            };
+
             setForm({
-                title: n.title,
-                summary: n.summary || '',
-                content: n.content,
-                status: n.status,
-                categoryId: n.categoryId || '',
-                level: n.level || 'SCHOOL',
-                bannerUrl: n.bannerUrl || ''
+                title: news.title || '',
+                summary: news.summary || '',
+                content: news.content || '',
+                status: news.status || 'DRAFT',
+                categoryId: news.categoryId || '',
+                scope: news.scope || 'Trường',
+                bannerUrl: news.bannerUrl || '',
+                publishedAt: getLocalDatetime(news.publishedAt)
             });
         }
-    }, [newsData]);
+    }, [newsData, id, form]);
 
     const updateNews = useMutation({
         mutationFn: (fd) => newsApi.update(id, fd),
@@ -79,7 +93,7 @@ export default function EditNewsPage() {
         updateNews.mutate(fd);
     };
 
-    if (isFetching) {
+    if (isFetching || !form) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
                 <Loader2 size={32} className="animate-spin mb-2" />
@@ -143,7 +157,7 @@ export default function EditNewsPage() {
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nội dung chi tiết <span className="text-red-500">*</span></label>
                             <NewsEditor
-                                value={form.content}
+                                initialContent={form.content}
                                 onChange={(html) => setForm(f => ({ ...f, content: html }))}
                             />
                         </div>
@@ -183,15 +197,14 @@ export default function EditNewsPage() {
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phạm vi hiển thị</label>
                             <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
                                 {[
-                                    { value: 'SCHOOL', label: 'Trường' },
-                                    { value: 'BRANCH', label: 'Khoa' },
-                                    { value: 'CELL', label: 'Lớp' }
+                                    { value: 'Trường', label: 'Cấp Trường' },
+                                    { value: 'Tỉnh', label: 'Cấp Tỉnh' }
                                 ].map(s => (
                                     <button
                                         key={s.value}
                                         type="button"
-                                        onClick={() => setForm(f => ({ ...f, level: s.value }))}
-                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-tighter rounded-md transition ${form.level === s.value ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        onClick={() => setForm(f => ({ ...f, scope: s.value }))}
+                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-tighter rounded-md transition ${form.scope === s.value ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                     >
                                         {s.label}
                                     </button>
@@ -203,8 +216,26 @@ export default function EditNewsPage() {
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Trạng thái xuất bản</label>
                             <select className={INPUT} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                                 <option value="DRAFT">Lưu nháp</option>
-                                <option value="PUBLISHED">Đăng ngay</option>
+                                <option value="PUBLISHED">Xuất bản bài viết</option>
                             </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Thời gian hiển thị (Hẹn giờ đăng)</label>
+                            <input
+                                type="datetime-local"
+                                className={`${INPUT} ${form.status === 'PUBLISHED' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+                                value={form.publishedAt}
+                                onChange={e => setForm(f => ({ ...f, publishedAt: e.target.value }))}
+                                disabled={form.status === 'PUBLISHED'}
+                            />
+                            {form.status === 'PUBLISHED' ? (
+                                <p className="mt-1 text-[10px] text-amber-600 font-medium italic">
+                                    Muốn thay đổi lịch đăng? Vui lòng chuyển trạng thái về "Lưu nháp" trước.
+                                </p>
+                            ) : (
+                                <p className="mt-1 text-[10px] text-gray-500 italic">Để trống nếu muốn bài đăng có hiệu lực ngay lập tức khi Lưu</p>
+                            )}
                         </div>
                     </div>
 

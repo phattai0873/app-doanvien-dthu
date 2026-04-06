@@ -11,6 +11,8 @@ router.get('/:id', meetingController.getMeeting);
 router.put('/:id', meetingController.updateMeeting);
 router.patch('/:id/status', meetingController.updateStatus);
 router.delete('/:id', meetingController.deleteMeeting);
+router.patch('/:id/restore', meetingController.restoreMeeting);
+router.delete('/:id/force', meetingController.forceDeleteMeeting);
 
 // Điểm danh
 router.get('/:id/attendance', meetingController.getAttendance);

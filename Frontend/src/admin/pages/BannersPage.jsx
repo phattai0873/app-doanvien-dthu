@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Image as ImageIcon, RotateCcw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { bannerApi } from '../../services/api';
-import { confirmDelete, confirmAction } from '../../utils/swal';
+import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete } from '../../utils/swal';
 
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_ICON = "p-2 rounded-lg text-base transition";
@@ -13,10 +13,11 @@ const BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://lo
 export default function BannersPage() {
     const qc = useQueryClient();
     const [uploadingSlot, setUploadingSlot] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['banners'],
-        queryFn: () => bannerApi.getAll()
+        queryKey: ['banners', showTrash],
+        queryFn: () => bannerApi.getAll({ onlyDeleted: showTrash })
     });
 
     const banners = data?.data?.data || [];
@@ -36,7 +37,19 @@ export default function BannersPage() {
 
     const deleteMutation = useMutation({
         mutationFn: bannerApi.delete,
-        onSuccess: () => qc.invalidateQueries(['banners']),
+        onSuccess: () => { qc.invalidateQueries(['banners']); toast.success('Đã chuyển banner vào thùng rác!'); },
+        onError: (e) => toast.error(e.response?.data?.message || 'Lỗi!')
+    });
+
+    const restoreMutation = useMutation({
+        mutationFn: bannerApi.restore,
+        onSuccess: () => { qc.invalidateQueries(['banners']); toast.success('Đã khôi phục banner!'); },
+        onError: (e) => toast.error(e.response?.data?.message || 'Lỗi!')
+    });
+
+    const forceDeleteMutation = useMutation({
+        mutationFn: bannerApi.forceDelete,
+        onSuccess: () => { qc.invalidateQueries(['banners']); toast.success('Đã xóa vĩnh viễn!'); },
         onError: (e) => toast.error(e.response?.data?.message || 'Lỗi!')
     });
 
@@ -155,9 +168,20 @@ export default function BannersPage() {
 
             {/* Banner Management List */}
             <div className="mt-10 bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <h2 className="text-sm font-bold text-gray-700">Danh sách dữ liệu Banner trong hệ thống</h2>
-                    <p className="text-xs text-gray-500 mt-1">Dưới đây là tất cả banner hiện có trong database. Bạn có thể xóa các banner dư thừa nếu thấy Mobile bị lặp lại.</p>
+                <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-700">{showTrash ? 'Thùng rác Banner' : 'Danh sách dữ liệu Banner trong hệ thống'}</h2>
+                        <p className="text-xs text-gray-500 mt-1">Dưới đây là tất cả banner hiện có trong database. Bạn có thể xóa các banner dư thừa nếu thấy Mobile bị lặp lại.</p>
+                    </div>
+                    <button 
+                        onClick={() => setShowTrash(!showTrash)}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
@@ -194,15 +218,42 @@ export default function BannersPage() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <button 
-                                                onClick={async () => {
-                                                    const res = await confirmDelete(`banner "${b.title}"`);
-                                                    if (res.isConfirmed) deleteMutation.mutate(b.id);
-                                                }}
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            <div className="flex gap-2">
+                                                {!showTrash ? (
+                                                    <button 
+                                                        onClick={async () => {
+                                                            const res = await confirmDelete(`banner "${b.title}"`);
+                                                            if (res.isConfirmed) deleteMutation.mutate(b.id);
+                                                        }}
+                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const res = await confirmRestore(`banner "${b.title}"`);
+                                                                if (res.isConfirmed) restoreMutation.mutate(b.id);
+                                                            }}
+                                                            className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition"
+                                                            title="Khôi phục"
+                                                        >
+                                                            <RotateCcw size={16} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const res = await confirmForceDelete(`banner "${b.title}"`);
+                                                                if (res.isConfirmed) forceDeleteMutation.mutate(b.id);
+                                                            }}
+                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                                                            title="Xóa vĩnh viễn"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

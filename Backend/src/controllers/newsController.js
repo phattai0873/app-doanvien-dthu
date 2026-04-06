@@ -5,77 +5,134 @@ const newsController = {
     // ==================== BÀI VIẾT ====================
 
     getNews: asyncHandler(async (req, res) => {
-        let { status, categoryId, level, unionBranchId, unionCellId, search, page, limit } = req.query;
+        let { status, categoryId, level, search, page, limit, onlyDeleted } = req.query;
 
-        const roles = req.user?.Roles?.map(r => r.code) || [];
-        const isSuperAdmin = roles.includes('SUPER_ADMIN');
-        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
-        const isCellAdmin = roles.includes('CELL_ADMIN');
-
-        if (!isSuperAdmin) {
-            if (isBranchAdmin && req.user.unionBranchId) {
-                unionBranchId = req.user.unionBranchId;
-            } else if (isCellAdmin && req.user.unionCellId) {
-                unionCellId = req.user.unionCellId;
-            }
+        // Nếu không có quyền quản lý tin tức (news:read), chỉ được xem bài đã xuất bản
+        const { hasPermission } = require('../utils/permissionHelper');
+        if (!hasPermission(req.user, 'news:read')) {
+            status = 'PUBLISHED';
         }
 
-        const result = await NewsService.getAll({ status, categoryId, level, unionBranchId, unionCellId, search, page, limit });
+        const result = await NewsService.getAll({ 
+            status, 
+            categoryId, 
+            level, 
+            search, 
+            page, 
+            limit,
+            userId: req.user?.id,
+            onlyDeleted: onlyDeleted === 'true',
+            user: req.user // Tự động xử lý scope trong Service
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
     getNewsById: asyncHandler(async (req, res) => {
-        const news = await NewsService.getById(req.params.id);
+        // Truyền user vào để check scope nếu là Admin đang xem nháp
+        const news = await NewsService.getById(req.params.id, req.user?.id, req.user);
         res.status(200).json({ success: true, data: news });
     }),
 
     createNews: asyncHandler(async (req, res) => {
-        const data = req.body;
-
-        const roles = req.user?.Roles?.map(r => r.code) || [];
-        const isSuperAdmin = roles.includes('SUPER_ADMIN');
-        const isBranchAdmin = roles.includes('BRANCH_ADMIN');
-        const isCellAdmin = roles.includes('CELL_ADMIN');
-
-        if (!isSuperAdmin) {
-            if (isCellAdmin && req.user.unionCellId) {
-                data.unionCellId = req.user.unionCellId;
-                data.level = 'CELL';
-            } else if (isBranchAdmin && req.user.unionBranchId) {
-                data.unionBranchId = req.user.unionBranchId;
-                data.level = 'BRANCH';
-            }
-        }
-
-        const news = await NewsService.create(data, req.user.id, req.file);
-        res.status(201).json({ success: true, data: news });
+        // Logic gán ID và Level đã được chuyển vào NewsService.injectScope để tập trung bảo mật
+        const result = await NewsService.create(req.body, req.user.id, req.file, req.user);
+        res.status(201).json({ success: true, data: result });
     }),
 
     updateNews: asyncHandler(async (req, res) => {
-        const news = await NewsService.update(req.params.id, req.body, req.file);
-        res.status(200).json({ success: true, data: news });
+        const result = await NewsService.update(req.params.id, req.body, req.file, req.user);
+        res.status(200).json({ success: true, data: result });
     }),
 
     publishNews: asyncHandler(async (req, res) => {
-        const news = await NewsService.publish(req.params.id);
+        const { publishedAt } = req.body;
+        const news = await NewsService.publish(req.params.id, publishedAt, req.user);
         res.status(200).json({ success: true, data: news });
     }),
 
     unpublishNews: asyncHandler(async (req, res) => {
-        const news = await NewsService.unpublish(req.params.id);
+        const news = await NewsService.unpublish(req.params.id, req.user);
         res.status(200).json({ success: true, data: news });
     }),
 
     deleteNews: asyncHandler(async (req, res) => {
-        const result = await NewsService.delete(req.params.id);
+        const result = await NewsService.delete(req.params.id, req.user);
         res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.restore(req.params.id, req.user);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.forceDelete(req.params.id, req.user);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    likeNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.likeNews(req.params.id, req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    unlikeNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.unlikeNews(req.params.id, req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    shareNews: asyncHandler(async (req, res) => {
+        const result = await NewsService.shareNews(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    // ==================== BÌNH LUẬN ====================
+
+    getComments: asyncHandler(async (req, res) => {
+        const { page, limit } = req.query;
+        const result = await NewsService.getComments(req.params.id, {
+            page,
+            limit,
+            userId: req.user?.id
+        });
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    getReplies: asyncHandler(async (req, res) => {
+        const result = await NewsService.getReplies(req.params.commentId, {
+            userId: req.user?.id
+        });
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    createComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.createComment(req.params.id, req.user.id, req.body);
+        res.status(201).json({ success: true, data: result });
+    }),
+
+    likeComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.likeComment(req.params.commentId, req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    reportComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.reportComment(req.params.commentId, req.user.id, req.body);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    deleteComment: asyncHandler(async (req, res) => {
+        const result = await NewsService.deleteComment(req.params.commentId, req.user.id);
+        res.status(200).json({ success: true, ...result });
     }),
 
     // ==================== CHUYÊN MỤC ====================
 
     getCategories: asyncHandler(async (req, res) => {
-        const { search, isActive } = req.query;
-        const categories = await NewsService.getCategories({ search, isActive });
+        const { search, isActive, onlyDeleted } = req.query;
+        const categories = await NewsService.getCategories({ 
+            search, 
+            isActive, 
+            onlyDeleted: onlyDeleted === 'true' 
+        });
         res.status(200).json({ success: true, data: categories });
     }),
 
@@ -96,6 +153,16 @@ const newsController = {
 
     deleteCategory: asyncHandler(async (req, res) => {
         const result = await NewsService.deleteCategory(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    restoreCategory: asyncHandler(async (req, res) => {
+        const result = await NewsService.restoreCategory(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteCategory: asyncHandler(async (req, res) => {
+        const result = await NewsService.forceDeleteCategory(req.params.id);
         res.status(200).json({ success: true, data: result });
     }),
 

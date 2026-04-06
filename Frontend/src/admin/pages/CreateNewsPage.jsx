@@ -7,7 +7,7 @@ import { newsApi } from '../../services/api';
 import BannerUpload from '../components/BannerUpload';
 import NewsEditor from '../components/NewsEditor';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 
@@ -15,7 +15,7 @@ export default function CreateNewsPage() {
     const navigate = useNavigate();
     const qc = useQueryClient();
     const [form, setForm] = useState({
-        title: '', summary: '', content: '', status: 'DRAFT', categoryId: '', level: 'SCHOOL'
+        title: '', summary: '', content: '', status: 'DRAFT', categoryId: '', scope: 'Trường', publishedAt: ''
     });
     const [bannerFile, setBannerFile] = useState(null);
 
@@ -104,7 +104,7 @@ export default function CreateNewsPage() {
                         <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nội dung chi tiết <span className="text-red-500">*</span></label>
                             <NewsEditor
-                                value={form.content}
+                                initialContent={form.content}
                                 onChange={(html) => setForm(f => ({ ...f, content: html }))}
                             />
                         </div>
@@ -138,15 +138,14 @@ export default function CreateNewsPage() {
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Phạm vi hiển thị</label>
                             <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
                                 {[
-                                    { value: 'SCHOOL', label: 'Trường' },
-                                    { value: 'BRANCH', label: 'Khoa' },
-                                    { value: 'CELL', label: 'Lớp' }
+                                    { value: 'Trường', label: 'Cấp Trường' },
+                                    { value: 'Tỉnh', label: 'Cấp Tỉnh' }
                                 ].map(s => (
                                     <button
                                         key={s.value}
                                         type="button"
-                                        onClick={() => setForm(f => ({ ...f, level: s.value }))}
-                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-tighter rounded-md transition ${form.level === s.value ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        onClick={() => setForm(f => ({ ...f, scope: s.value }))}
+                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-tighter rounded-md transition ${form.scope === s.value ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                     >
                                         {s.label}
                                     </button>
@@ -158,8 +157,26 @@ export default function CreateNewsPage() {
                             <label className="block text-xs font-semibold text-gray-600 mb-1.5">Trạng thái xuất bản</label>
                             <select className={INPUT} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                                 <option value="DRAFT">Lưu nháp</option>
-                                <option value="PUBLISHED">Đăng ngay</option>
+                                <option value="PUBLISHED">Xuất bản bài viết</option>
                             </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Thời gian hiển thị (Hẹn giờ đăng)</label>
+                            <input
+                                type="datetime-local"
+                                className={`${INPUT} ${form.status === 'PUBLISHED' ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+                                value={form.publishedAt}
+                                onChange={e => setForm(f => ({ ...f, publishedAt: e.target.value }))}
+                                disabled={form.status === 'PUBLISHED'}
+                            />
+                            {form.status === 'PUBLISHED' ? (
+                                <p className="mt-1 text-[10px] text-amber-600 font-medium italic">
+                                    Muốn thay đổi lịch đăng? Vui lòng chuyển trạng thái về "Lưu nháp" trước.
+                                </p>
+                            ) : (
+                                <p className="mt-1 text-[10px] text-gray-500 italic">Để trống nếu muốn đăng ngay lập tức khi chuyển sang Xuất bản</p>
+                            )}
                         </div>
                     </div>
                 </div>

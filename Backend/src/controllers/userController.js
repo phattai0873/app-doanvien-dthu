@@ -6,7 +6,10 @@ const userController = {
      * @route GET /api/users
      */
     getUsers: asyncHandler(async (req, res) => {
-        const users = await UserService.getAllUsers();
+        const { onlyDeleted } = req.query;
+        const users = await UserService.getAllUsers({ 
+            onlyDeleted: onlyDeleted === 'true' 
+        });
         res.status(200).json({ success: true, count: users.length, data: users });
     }),
 
@@ -80,6 +83,10 @@ const userController = {
             updateData.avatarUrl = null;
         }
 
+        if (req.body.email) updateData.email = req.body.email;
+        if (req.body.phoneNumber) updateData.phoneNumber = req.body.phoneNumber;
+
+
         const user = await UserService.updateUser(req.user.id, updateData);
         res.status(200).json({ success: true, data: user });
     }),
@@ -147,7 +154,35 @@ const userController = {
     deleteUser: asyncHandler(async (req, res) => {
         const result = await UserService.deleteUser(req.params.id);
         res.status(200).json({ success: true, data: result });
-    })
+    }),
+
+    restoreUser: asyncHandler(async (req, res) => {
+        const result = await UserService.restoreUser(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteUser: asyncHandler(async (req, res) => {
+        const result = await UserService.forceDeleteUser(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    /**
+     * @route DELETE /api/users/me
+     * Tự xóa tài khoản của bản thân
+     */
+    deleteMe: asyncHandler(async (req, res) => {
+        const result = await UserService.deleteUser(req.user.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+    /**
+     * @route PATCH /api/users/:id/roles
+     * Gán vai trò cho người dùng (Chỉ Role Admin/Super Admin mới gọi được)
+     */
+    assignRoles: asyncHandler(async (req, res) => {
+        const { roleIds } = req.body;
+        const result = await UserService.assignRoles(req.params.id, roleIds, req.user);
+        res.status(200).json({ success: true, data: result });
+    }),
 };
 
 module.exports = userController;

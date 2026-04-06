@@ -14,6 +14,14 @@ const UnionMemberPosition = sequelize.define('UnionMemberPosition', {
     endedDate: {
         type: DataTypes.DATE
     },
+    unionBranchId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
+    unionCellId: {
+        type: DataTypes.UUID,
+        allowNull: true
+    },
     isActive: {
         type: DataTypes.BOOLEAN,
         defaultValue: true

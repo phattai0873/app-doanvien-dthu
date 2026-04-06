@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Network, User as UserIcon, Users, Filter, CheckCircle2, XCircle, Calendar, MapPin, GraduationCap } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { Search, Plus, Pencil, Trash2, Network, User as UserIcon, Users, Filter, CheckCircle2, XCircle, Calendar, MapPin, GraduationCap, History, RotateCcw, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { cellApi, branchApi, locationApi } from '../../services/api';
-import { confirmDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const SELECT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition bg-white";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
@@ -91,6 +92,7 @@ function CellModal({ cell, branches, locations, onClose, onSave }) {
 }
 
 export default function CellsPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
@@ -98,13 +100,15 @@ export default function CellsPage() {
     const [statusFilter, setStatusFilter] = useState('');
     const [branchFilter, setBranchFilter] = useState('');
     const [modal, setModal] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data: cellRes, isLoading } = useQuery({
-        queryKey: ['cells', search, page, statusFilter, branchFilter],
+        queryKey: ['cells', search, page, statusFilter, branchFilter, showTrash],
         queryFn: () => cellApi.getAll({ 
             search, page, limit: 10,
             status: statusFilter || undefined,
-            unionBranchId: branchFilter || undefined
+            unionBranchId: branchFilter || undefined,
+            onlyDeleted: showTrash
         }),
         keepPreviousData: true,
     });
@@ -131,7 +135,19 @@ export default function CellsPage() {
 
     const deleteMutation = useMutation({
         mutationFn: cellApi.delete,
-        onSuccess: () => { qc.invalidateQueries(['cells']); toast.success('Đã xóa!'); },
+        onSuccess: () => { qc.invalidateQueries(['cells']); toast.success('Đã chuyển chi đoàn vào thùng rác!'); },
+        onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
+    });
+
+    const restoreMutation = useMutation({
+        mutationFn: cellApi.restore,
+        onSuccess: () => { qc.invalidateQueries(['cells']); toast.success('Đã khôi phục chi đoàn!'); },
+        onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
+    });
+
+    const forceDeleteMutation = useMutation({
+        mutationFn: cellApi.forceDelete,
+        onSuccess: () => { qc.invalidateQueries(['cells']); toast.success('Đã xóa vĩnh viễn!'); },
         onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
     });
 
@@ -168,16 +184,31 @@ export default function CellsPage() {
                         {CELL_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                 </div>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
-                    <Plus size={16} /> Thêm Chi đoàn
-                </button>
+                <div className="flex gap-2">
+                    {hasPermission('cell:delete') && (
+                        <button 
+                            onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                                ${showTrash 
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                        >
+                            <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                        </button>
+                    )}
+                    {!showTrash && (
+                        <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
+                            <Plus size={16} /> Thêm Chi đoàn
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
                     <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
                         <Network size={16} className="text-primary-700" />
-                        Cơ cấu Chi đoàn
+                        {showTrash ? 'Thùng rác Chi đoàn' : 'Cơ cấu Chi đoàn'}
                     </h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full">{pagination.total || 0} đơn vị</span>
                 </div>
@@ -257,25 +288,52 @@ export default function CellsPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button 
-                                                        className={`${BTN_ICON} bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-100 shadow-sm`}
-                                                        title="Xem danh sách đoàn viên"
-                                                        onClick={() => navigate(`/admin/members?unionCellId=${c.id}`)}
-                                                    >
-                                                        <Users size={16} />
-                                                    </button>
-                                                    <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(c)}>
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                    <button 
-                                                        className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
-                                                        onClick={async () => {
-                                                            const res = await confirmDelete(c.name);
-                                                            if (res.isConfirmed) deleteMutation.mutate(c.id);
-                                                        }}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                    {!showTrash ? (
+                                                        <>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-100 shadow-sm`}
+                                                                title="Xem danh sách đoàn viên"
+                                                                onClick={() => navigate(`/admin/members?unionCellId=${c.id}`)}
+                                                            >
+                                                                <Users size={16} />
+                                                            </button>
+                                                            <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(c)}>
+                                                                <Pencil size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
+                                                                onClick={async () => {
+                                                                    const res = await confirmDelete(c.name);
+                                                                    if (res.isConfirmed) deleteMutation.mutate(c.id);
+                                                                }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`}
+                                                                onClick={async () => {
+                                                                    const res = await confirmRestore(c.name);
+                                                                    if (res.isConfirmed) restoreMutation.mutate(c.id);
+                                                                }}
+                                                                title="Khôi phục"
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`}
+                                                                onClick={async () => {
+                                                                    const res = await confirmForceDelete(c.name);
+                                                                    if (res.isConfirmed) forceDeleteMutation.mutate(c.id);
+                                                                }}
+                                                                title="Xóa vĩnh viễn"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

@@ -26,15 +26,6 @@ const UnionMember = sequelize.define('UnionMember', {
     identityNumber: {
         type: DataTypes.STRING
     },
-    email: {
-        type: DataTypes.STRING,
-        validate: {
-            isEmail: true
-        }
-    },
-    phoneNumber: {
-        type: DataTypes.STRING
-    },
     permanentAddress: {
         type: DataTypes.TEXT
     },
@@ -94,7 +85,11 @@ const UnionMember = sequelize.define('UnionMember', {
     indexes: [
         { unique: true, fields: ['memberCode'] },
         { unique: true, fields: ['identityNumber'] },
-        { unique: true, fields: ['memberCardNumber'] }
+        { unique: true, fields: ['memberCardNumber'] },
+        { fields: ['unionCellId'] },
+        { fields: ['status'] },
+        { fields: ['activityStatus'] },
+        { fields: ['userId'] }
     ]
 });
 

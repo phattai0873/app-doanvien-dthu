@@ -10,13 +10,16 @@ const meetingController = {
         const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin && userUnionMember) {
+            if (userUnionMember.unionBranchId) unionBranchId = userUnionMember.unionBranchId;
+            if (userUnionMember.unionCellId) unionCellId = userUnionMember.unionCellId;
         }
 
-        const meetings = await MeetingService.getAll({ 
-            unionCellId, unionBranchId, level, status, 
-            search, page, limit, type, semester, academicYear 
+        const meetings = await MeetingService.getAll({
+            unionCellId, unionBranchId, level, status,
+            search, page, limit, type, semester, academicYear,
+            onlyDeleted: req.query.onlyDeleted === 'true',
+            user: req.user
         });
         res.status(200).json({ success: true, ...meetings });
     }),
@@ -47,10 +50,20 @@ const meetingController = {
         res.status(200).json({ success: true, data: result });
     }),
 
+    restoreMeeting: asyncHandler(async (req, res) => {
+        const result = await MeetingService.restoreMeeting(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteMeeting: asyncHandler(async (req, res) => {
+        const result = await MeetingService.forceDeleteMeeting(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
     checkIn: asyncHandler(async (req, res) => {
         const memberId = req.user.UnionMember?.id;
         if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
-        
+
         const { checkinCode } = req.body;
         const attendance = await MeetingService.checkIn(req.params.id, memberId, checkinCode);
         res.status(200).json({ success: true, data: attendance });
@@ -62,7 +75,8 @@ const meetingController = {
     }),
 
     refreshCheckinCode: asyncHandler(async (req, res) => {
-        const result = await MeetingService.refreshCheckinCode(req.params.id);
+        const { checkinTTL } = req.body;
+        const result = await MeetingService.refreshCheckinCode(req.params.id, checkinTTL);
         res.status(200).json({ success: true, data: result });
     })
 };

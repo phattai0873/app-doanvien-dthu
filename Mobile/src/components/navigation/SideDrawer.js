@@ -8,7 +8,7 @@ import {
     Dimensions,
     TouchableWithoutFeedback,
     SafeAreaView,
-    Image,
+    Image as RNImage,
 } from 'react-native';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES, IMAGES } from '../../constants';
@@ -94,7 +94,7 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.avatar}>
-                            <Image 
+                            <RNImage 
                                 source={IMAGES.logo} 
                                 style={styles.logoInDrawer}
                                 resizeMode="contain"
@@ -109,11 +109,12 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
                     {/* Nav Items */}
                     <View style={styles.navSection}>
                         <DrawerItem icon="Grid" label="Bảng điều khiển" id="dashboard" />
-                        <DrawerItem icon="Home" label="Bản tin" id="news" />
+                        <DrawerItem icon="Newspaper" label="Bản tin" id="news" />
                         <DrawerItem icon="Briefcase" label="Công tác Đoàn" id="work" />
                         <DrawerItem icon="List" label="Sinh hoạt" id="meeting_list" />
                         <DrawerItem icon="Award" label="Cuộc thi" id="exam_list" />
                         <DrawerItem icon="FileText" label="Văn bản" id="document_list" />
+                        <DrawerItem icon="Wallet" label="Đoàn phí" id="fee_payment" />
                         <DrawerItem icon="Bell" label="Thông báo" id="notif" />
                         <DrawerItem icon="User" label="Cá nhân" id="profile" />
                     </View>

@@ -51,8 +51,22 @@ export const MemberInfoScreen = () => {
                     <Text style={styles.sectionTitle}>THÔNG TIN CÁ NHÂN (ĐOÀN VIÊN)</Text>
                 </View>
                 <InputReadOnly label="Họ tên" value={user?.ho_ten} />
+                <InputReadOnly label="Mã số Đoàn viên/SV" value={user?.ma_so} />
+                <InputReadOnly label="Giới tính" value={user?.gioi_tinh} />
                 <InputReadOnly label="Ngày sinh" value={user?.ngay_sinh} />
                 <InputReadOnly label="CCCD" value={user?.cccd} />
+                <InputReadOnly label="Quê quán" value={user?.que_quan || 'Chưa cập nhật'} />
+            </View>
+
+            <View style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                    <Icon name="Award" size={18} color={COLORS.primary} />
+                    <Text style={styles.sectionTitle}>THÔNG TIN ĐOÀN TỊCH</Text>
+                </View>
+                <InputReadOnly label="Ngày vào Đoàn" value={user?.ngay_vao_doan || 'Chờ cập nhật'} />
+                <InputReadOnly label="Nơi vào Đoàn" value={user?.noi_vao_doan || 'Chờ cập nhật'} />
+                <InputReadOnly label="Chức vụ" value={user?.chuc_vu_doan} />
+                <InputReadOnly label="Chuyên ngành/Nghề nghiệp" value={user?.nghe_nghiep || 'Chưa cập nhật'} />
             </View>
 
             <View style={styles.sectionCard}>
@@ -62,7 +76,7 @@ export const MemberInfoScreen = () => {
                 </View>
                 <InputReadOnly label="Số điện thoại" value={user?.sdt} />
                 <InputReadOnly label="Email" value={user?.email} />
-                <InputReadOnly label="Địa chỉ" value={user?.dia_chi} />
+                <InputReadOnly label="Địa chỉ thường trú" value={user?.dia_chi} />
             </View>
         </ScrollView>
     );

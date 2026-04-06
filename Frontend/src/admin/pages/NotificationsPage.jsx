@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Send } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { Search, Plus, Pencil, Trash2, Send, History, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { notificationApi } from '../../services/api';
-import { confirmDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 const BTN_ICON = "p-2 rounded-lg text-base transition";
@@ -105,15 +106,17 @@ function NotificationModal({ notif, onClose, onSave }) {
 const TARGET_LABELS = { ALL: 'Tất cả', BRANCH: 'Liên chi đoàn', CELL: 'Chi đoàn', INDIVIDUAL: 'Cá nhân' };
 
 export default function NotificationsPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [page, setPage] = useState(1);
     const [modal, setModal] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data, isLoading } = useQuery({
-        queryKey: ['notifications', search, filterStatus, page],
-        queryFn: () => notificationApi.getAll({ search, status: filterStatus || undefined, page, limit: 10 }),
+        queryKey: ['notifications', search, filterStatus, page, showTrash],
+        queryFn: () => notificationApi.getAll({ search, status: filterStatus || undefined, page, limit: 10, onlyDeleted: showTrash }),
         keepPreviousData: true,
     });
 
@@ -122,7 +125,9 @@ export default function NotificationsPage() {
 
     const createMutation = useMutation({ mutationFn: notificationApi.create, onSuccess: () => { qc.invalidateQueries(['notifications']); setModal(null); toast.success('Đã tạo thông báo!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => notificationApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['notifications']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteMutation = useMutation({ mutationFn: notificationApi.delete, onSuccess: () => { qc.invalidateQueries(['notifications']); toast.success('Đã xóa!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteMutation = useMutation({ mutationFn: notificationApi.delete, onSuccess: () => { qc.invalidateQueries(['notifications']); toast.success('Đã chuyển thông báo vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreMutation = useMutation({ mutationFn: notificationApi.restore, onSuccess: () => { qc.invalidateQueries(['notifications']); toast.success('Đã khôi phục thông báo!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteMutation = useMutation({ mutationFn: notificationApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['notifications']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const sendMutation = useMutation({
         mutationFn: notificationApi.send,
         onSuccess: () => { qc.invalidateQueries(['notifications']); toast.success('📣 Đã gửi thông báo thành công!'); },
@@ -142,13 +147,26 @@ export default function NotificationsPage() {
                     <option value="">Tất cả trạng thái</option>
                     {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo thông báo</button>
+                {hasPermission('notification:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Tạo thông báo</button>
+                )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                    <h2 className="text-sm font-semibold text-gray-800">Danh sách Thông báo</h2>
-                    <span className="text-xs bg-primary-50 text-primary-700 font-semibold px-3 py-1 rounded-full">{pagination.total || 0} thông báo</span>
+                    <h2 className="text-sm font-semibold text-gray-800">{showTrash ? 'Thùng rác Thông báo' : 'Danh sách Thông báo'}</h2>
+                    <span className="text-xs bg-primary-50 text-primary-700 font-semibold px-3 py-1 rounded-full">{pagination.total || 0} {showTrash ? 'đã xóa' : 'thông báo'}</span>
                 </div>
                 <div className="overflow-x-auto">
                     {isLoading ? <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
@@ -176,17 +194,44 @@ export default function NotificationsPage() {
                                                 <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pr.cls}`}>{pr.label}</span></td>
                                                 <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span></td>
                                                 <td className="px-4 py-3"><div className="flex gap-2">
-                                                    <button
-                                                        className={`${BTN_ICON} ${isSent ? 'opacity-40 cursor-not-allowed bg-green-50 text-green-600' : 'bg-green-50 hover:bg-green-100 text-green-600'}`}
-                                                        onClick={() => !isSent && sendMutation.mutate(n.id)}
-                                                        disabled={isSent}
-                                                        title={isSent ? 'Đã gửi' : 'Gửi thông báo'}
-                                                    ><Send size={16} /></button>
-                                                    <button className={`${BTN_ICON} ${isSent ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`} onClick={() => !isSent && setModal(n)} disabled={isSent}><Pencil size={16} /></button>
-                                                    <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600`} onClick={async () => {
-                                                        const result = await confirmDelete(n.title);
-                                                        if (result.isConfirmed) deleteMutation.mutate(n.id);
-                                                    }}><Trash2 size={16} /></button>
+                                                    {!showTrash ? (
+                                                        <>
+                                                            <button
+                                                                className={`${BTN_ICON} ${isSent ? 'opacity-40 cursor-not-allowed bg-green-50 text-green-600' : 'bg-green-50 hover:bg-green-100 text-green-600'}`}
+                                                                onClick={() => !isSent && sendMutation.mutate(n.id)}
+                                                                disabled={isSent}
+                                                                title={isSent ? 'Đã gửi' : 'Gửi thông báo'}
+                                                            ><Send size={16} /></button>
+                                                            <button className={`${BTN_ICON} ${isSent ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`} onClick={() => !isSent && setModal(n)} disabled={isSent}><Pencil size={16} /></button>
+                                                            <button className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600`} onClick={async () => {
+                                                                const result = await confirmDelete(n.title);
+                                                                if (result.isConfirmed) deleteMutation.mutate(n.id);
+                                                            }}><Trash2 size={16} /></button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600`} 
+                                                                onClick={async () => {
+                                                                    const result = await confirmRestore(n.title);
+                                                                    if (result.isConfirmed) restoreMutation.mutate(n.id);
+                                                                }}
+                                                                title="Khôi phục"
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600`} 
+                                                                onClick={async () => {
+                                                                    const result = await confirmForceDelete(n.title);
+                                                                    if (result.isConfirmed) forceDeleteMutation.mutate(n.id);
+                                                                }}
+                                                                title="Xóa vĩnh viễn"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div></td>
                                             </tr>
                                         );

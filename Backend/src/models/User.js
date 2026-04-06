@@ -19,7 +19,13 @@ const User = sequelize.define('User', {
     email: {
         type: DataTypes.STRING,
         allowNull: true,
+        unique: true,
         validate: { isEmail: true }
+    },
+    phoneNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
     },
     tokenDevice: {
         type: DataTypes.STRING
@@ -51,10 +57,23 @@ const User = sequelize.define('User', {
     unionCellId: {
         type: DataTypes.UUID,
         allowNull: true
+    },
+    role: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'MEMBER'
     }
 }, {
     tableName: 'users',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['username'] },
+        { fields: ['email'] },
+        { fields: ['isActive'] },
+        { fields: ['isLocked'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['unionCellId'] }
+    ]
 });
 
 module.exports = User;

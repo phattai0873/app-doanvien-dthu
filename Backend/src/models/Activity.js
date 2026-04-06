@@ -38,7 +38,7 @@ const Activity = sequelize.define('Activity', {
         defaultValue: 'OTHER'
     },
     status: {
-        type: DataTypes.ENUM('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'IN_PROGRESS', 'COMPLETED'),
+        type: DataTypes.ENUM('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'),
         defaultValue: 'DRAFT'
     },
     approvalRole: {
@@ -78,7 +78,14 @@ const Activity = sequelize.define('Activity', {
     }
 }, {
     tableName: 'activities',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['startDate'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['category'] },
+        { fields: ['type'] }
+    ]
 });
 
 module.exports = Activity;

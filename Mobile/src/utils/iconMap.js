@@ -39,11 +39,27 @@ export const ICONS = {
     Book: 'book-outline',
     CreditCard: 'card-outline',
     Heart: 'heart-outline',
+    HeartFilled: 'heart',
+    Share: 'share-outline',
+    Share2: 'share-social-outline',
+    Eye: 'eye-outline',
     Grid: 'grid-outline',
     List: 'list-outline',
     RotateCw: 'refresh',
     X: 'close',
-    Scan: 'scan-outline'
+    Scan: 'scan-outline',
+    Copy: 'copy-outline',
+    Newspaper: 'newspaper-outline',
+    Male: 'male-outline',
+    Female: 'female-outline',
+    Earth: 'earth-outline',
+    School: 'school-outline',
+    Compass: 'compass-outline',
+    Send: 'send',
+    MessageSquare: 'chatbubble-outline',
+    ChevronDown: 'chevron-down',
+    ChevronUp: 'chevron-up',
+    Trophy: 'trophy-outline'
 };
 
 export const Icon = ({ name, size = 24, color = '#000', style }) => (

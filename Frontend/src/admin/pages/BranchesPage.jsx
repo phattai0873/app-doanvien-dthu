@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, Building2, Calendar, Shield, Hash, Layers } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { Search, Plus, Pencil, Trash2, Building2, Calendar, Shield, Hash, Layers, History, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { branchApi } from '../../services/api';
-import { confirmDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const SELECT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition bg-white";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
@@ -92,19 +93,22 @@ function BranchModal({ branch, onClose, onSave }) {
 }
 
 export default function BranchesPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [statusFilter, setStatusFilter] = useState('');
     const [levelFilter, setLevelFilter] = useState('');
     const [modal, setModal] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data: res, isLoading } = useQuery({
-        queryKey: ['branches', search, page, statusFilter, levelFilter],
+        queryKey: ['branches', search, page, statusFilter, levelFilter, showTrash],
         queryFn: () => branchApi.getAll({ 
             search, page, limit: 10, 
             status: statusFilter || undefined,
-            unionLevel: levelFilter || undefined
+            unionLevel: levelFilter || undefined,
+            onlyDeleted: showTrash
         }),
         keepPreviousData: true,
     });
@@ -126,7 +130,19 @@ export default function BranchesPage() {
 
     const deleteMutation = useMutation({
         mutationFn: branchApi.delete,
-        onSuccess: () => { qc.invalidateQueries(['branches']); toast.success('Đã xóa!'); },
+        onSuccess: () => { qc.invalidateQueries(['branches']); toast.success('Đã chuyển liên chi đoàn vào thùng rác!'); },
+        onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
+    });
+
+    const restoreMutation = useMutation({
+        mutationFn: branchApi.restore,
+        onSuccess: () => { qc.invalidateQueries(['branches']); toast.success('Đã khôi phục liên chi đoàn!'); },
+        onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
+    });
+
+    const forceDeleteMutation = useMutation({
+        mutationFn: branchApi.forceDelete,
+        onSuccess: () => { qc.invalidateQueries(['branches']); toast.success('Đã xóa vĩnh viễn sản phẩm!'); },
         onError: (e) => toast.error(e.response?.data?.message || 'Có lỗi xảy ra')
     });
 
@@ -162,16 +178,29 @@ export default function BranchesPage() {
                     <option value="Cấp Khoa">Cấp Khoa</option>
                     <option value="Cấp Trường">Cấp Trường</option>
                 </select>
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
-                    <Plus size={16} /> Thêm Liên chi đoàn
-                </button>
+                {hasPermission('branch:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
+                        <Plus size={16} /> Thêm Liên chi đoàn
+                    </button>
+                )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
                     <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
                         <Layers size={16} className="text-primary-700" />
-                        Hệ thống Liên chi đoàn
+                        {showTrash ? 'Thùng rác Liên chi đoàn' : 'Hệ thống Liên chi đoàn'}
                     </h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest leading-none flex items-center justify-center shadow-sm shadow-primary-200">{pagination.total || 0} Đơn vị</span>
                 </div>
@@ -257,18 +286,45 @@ export default function BranchesPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(b)}>
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                    <button 
-                                                        className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
-                                                        onClick={async () => {
-                                                            const res = await confirmDelete(b.name);
-                                                            if (res.isConfirmed) deleteMutation.mutate(b.id);
-                                                        }}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                    {!showTrash ? (
+                                                        <>
+                                                            <button className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(b)}>
+                                                                <Pencil size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`}
+                                                                onClick={async () => {
+                                                                    const res = await confirmDelete(b.name);
+                                                                    if (res.isConfirmed) deleteMutation.mutate(b.id);
+                                                                }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`}
+                                                                onClick={async () => {
+                                                                    const res = await confirmRestore(b.name);
+                                                                    if (res.isConfirmed) restoreMutation.mutate(b.id);
+                                                                }}
+                                                                title="Khôi phục"
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`}
+                                                                onClick={async () => {
+                                                                    const res = await confirmForceDelete(b.name);
+                                                                    if (res.isConfirmed) forceDeleteMutation.mutate(b.id);
+                                                                }}
+                                                                title="Xóa vĩnh viễn"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

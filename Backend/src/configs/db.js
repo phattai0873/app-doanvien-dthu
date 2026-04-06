@@ -9,12 +9,22 @@ const sequelize = new Sequelize(
         host: process.env.DB_HOST,
         dialect: 'postgres',
         port: process.env.DB_PORT || 5432,
-        logging: false, // Set to true if you want to see SQL queries
+        logging: false,
         pool: {
-            max: 5,
-            min: 0,
+            max: 30,
+            min: 5,
             acquire: 30000,
             idle: 10000
+        },
+        dialectOptions: {
+            keepAlive: true,
+            connectTimeout: 10000
+        },
+        timezone: '+07:00',
+        define: {
+            timestamps: true,
+            paranoid: true,
+            deletedAt: 'deletedAt'
         }
     }
 );
@@ -24,7 +34,16 @@ const connectDB = async () => {
         await sequelize.authenticate();
         console.log('✅ PostgreSQL Connected successfully.');
 
-        // Use sync() only in development. In production, use migrations!
+        // Load models and associations
+        const models = require('../models');
+
+        // Sync models sequentially in development to handle complex dependencies
+        // Sync PaymentTransaction before UnionFeePayment to satisfy foreign key constraint
+        if (models.PaymentTransaction) {
+            await models.PaymentTransaction.sync({ alter: true });
+        }
+        
+        // Use sync({ alter: true }) only in development. 
         await sequelize.sync({ alter: true });
         console.log('✅ Database tables synced.');
 

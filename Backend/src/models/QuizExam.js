@@ -46,12 +46,30 @@ const QuizExam = sequelize.define('QuizExam', {
         allowNull: false
     },
     status: {
-        type: DataTypes.ENUM('DRAFT', 'PUBLISHED', 'CLOSED'),
+        type: DataTypes.ENUM('DRAFT', 'UPCOMING', 'ONGOING', 'FINISHED'),
         defaultValue: 'DRAFT'
+    },
+    computedStatus: {
+        type: DataTypes.VIRTUAL,
+        get() {
+            if (this.status === 'DRAFT') return 'DRAFT';
+            const now = new Date();
+            if (this.startDate && now < new Date(this.startDate)) return 'UPCOMING';
+            if (this.endDate && now > new Date(this.endDate)) return 'FINISHED';
+            return 'ONGOING';
+        }
     }
 }, {
     tableName: 'quiz_exams',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['level'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['unionCellId'] },
+        { fields: ['startDate'] },
+        { fields: ['endDate'] }
+    ]
 });
 
 module.exports = QuizExam;

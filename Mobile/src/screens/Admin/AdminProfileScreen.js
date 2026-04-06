@@ -6,6 +6,7 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
+    Image as RNImage,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, IMAGES } from '../../constants';
@@ -115,7 +116,7 @@ export const AdminProfileScreen = ({ onLogout }) => {
 
             {/* Version info */}
             <View style={styles.versionCard}>
-                <Image source={IMAGES.logo} style={styles.versionLogo} resizeMode="contain" />
+                <RNImage source={IMAGES.logo} style={styles.versionLogo} resizeMode="contain" />
                 <Text style={styles.versionText}>App Đoàn viên — Phiên bản 1.0.0</Text>
                 <Text style={styles.versionSub}>Trường Đại học Đồng Tháp • DTHU</Text>
             </View>

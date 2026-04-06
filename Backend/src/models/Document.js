@@ -15,14 +15,19 @@ const Document = sequelize.define('Document', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    fileType: {
-        type: DataTypes.STRING
-    },
     issuedDate: {
         type: DataTypes.DATE
     },
     issuingAuthority: {
         type: DataTypes.STRING
+    },
+    status: {
+        type: DataTypes.ENUM('PRIVATE', 'PUBLISH'),
+        defaultValue: 'PUBLISH'
+    },
+    categoryId: {
+        type: DataTypes.UUID,
+        allowNull: true
     },
     unionBranchId: {
         type: DataTypes.UUID,
@@ -34,20 +39,18 @@ const Document = sequelize.define('Document', {
     },
     level: {
         type: DataTypes.ENUM('SCHOOL', 'BRANCH', 'CELL'),
-        defaultValue: 'SCHOOL',
-        allowNull: false
-    },
-    status: {
-        type: DataTypes.ENUM('DRAFT', 'PUBLISHED'),
-        defaultValue: 'PUBLISHED'
-    },
-    categoryId: {
-        type: DataTypes.UUID,
-        allowNull: true
+        defaultValue: 'SCHOOL'
     }
 }, {
     tableName: 'documents',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { fields: ['status'] },
+        { fields: ['level'] },
+        { fields: ['categoryId'] },
+        { fields: ['unionBranchId'] },
+        { fields: ['unionCellId'] }
+    ]
 });
 
 module.exports = Document;

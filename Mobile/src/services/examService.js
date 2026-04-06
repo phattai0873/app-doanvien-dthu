@@ -1,4 +1,4 @@
-import { USE_MOCK_API, USE_SUPABASE } from './api';
+import apiClient, { USE_MOCK_API, USE_SUPABASE } from './api';
 import { supabase } from './supabaseClient';
 import { MOCK_DB } from '../constants/mockData';
 
@@ -6,16 +6,19 @@ const SIMULATE_DELAY = 500;
 
 export const examService = {
     // [GET] /api/exams
-    getExams: async () => {
+    getExams: async (params = {}) => {
         if (USE_SUPABASE) {
             const { data, error } = await supabase.from('quiz_exams').select('*').eq('is_active', true);
             if (error) throw error;
             return data;
         }
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.exams), SIMULATE_DELAY));
+        
+        const res = await apiClient.get('/api/quiz', { params });
+        return res;
     },
 
-    // [GET] /api/exams/{id}
+    // [GET] /api/quiz/{id}
     getExamDetail: async (id) => {
         if (USE_SUPABASE) {
             const { data, error } = await supabase.from('quiz_exams').select('*, quiz_questions(*, quiz_options(*))').eq('id', id).single();
@@ -23,25 +26,20 @@ export const examService = {
             return data;
         }
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.exams.find(e => e.id === id)), SIMULATE_DELAY));
+        
+        const res = await apiClient.get(`/api/quiz/${id}`);
+        return res;
     },
 
-    // [POST] /api/quiz-attempts
-    submitAttempt: async (attemptData) => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('quiz_attempts').insert([attemptData]);
-            if (error) throw error;
-            return data;
-        }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r({ success: true, score: 90 }), SIMULATE_DELAY));
+    // [POST] /api/quiz/:id/submit
+    submitAttempt: async (id, attemptData) => {
+        const res = await apiClient.post(`/api/quiz/${id}/submit`, attemptData);
+        return res;
     },
 
     // [GET] /api/quiz-attempts/by-member/{id}
-    getMyAttempts: async (memberId) => {
-        if (USE_SUPABASE) {
-            const { data, error } = await supabase.from('quiz_attempts').select('*').eq('dang_vien_id', memberId);
-            if (error) throw error;
-            return data;
-        }
-        if (USE_MOCK_API) return new Promise(r => setTimeout(() => r([]), SIMULATE_DELAY));
+    getMyAttempts: async (examId) => {
+        const res = await apiClient.get(`/quiz/exams/${examId}/attempts`);
+        return res;
     }
 };

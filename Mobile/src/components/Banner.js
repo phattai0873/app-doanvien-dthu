@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Image, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import { View, Image as RNImage, StyleSheet, Dimensions, ScrollView, Platform } from 'react-native';
 import { COLORS, SIZES } from '../constants';
 
 const { width } = Dimensions.get('window');
+const HORIZONTAL_MARGIN = 16;
+const ITEM_WIDTH = width - (HORIZONTAL_MARGIN * 2);
 
 /**
- * Component Banner carousel
+ * Component Banner carousel với thiết kế Premium
  * @param {array} images - Danh sách URL hình ảnh
  */
 const Banner = ({ images = [] }) => {
@@ -21,11 +23,10 @@ const Banner = ({ images = [] }) => {
                 }
                 
                 scrollViewRef.current?.scrollTo({
-                    x: nextIndex * width,
+                    x: nextIndex * (ITEM_WIDTH + 10), // 10 là khoảng cách giữa các slide (gap)
                     animated: true,
                 });
-                setActiveIndex(nextIndex);
-            }, 3000);
+            }, 5000); // 5s cho đỡ bị lướt nhanh quá
 
             return () => clearInterval(timer);
         }
@@ -33,7 +34,7 @@ const Banner = ({ images = [] }) => {
 
     const handleScroll = (event) => {
         const scrollPosition = event.nativeEvent.contentOffset.x;
-        const index = Math.round(scrollPosition / width);
+        const index = Math.round(scrollPosition / ITEM_WIDTH);
         if (index !== activeIndex) {
             setActiveIndex(index);
         }
@@ -48,24 +49,30 @@ const Banner = ({ images = [] }) => {
     }
 
     return (
-        <View style={styles.container}>
+        <View style={styles.wrapper}>
             <ScrollView
                 ref={scrollViewRef}
                 horizontal
-                pagingEnabled
+                decelerationRate="fast"
+                snapToInterval={ITEM_WIDTH + 10} // Snap theo chiều rộng item + gap
+                snapToAlignment="center"
                 showsHorizontalScrollIndicator={false}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
+                contentContainerStyle={styles.scrollContent}
             >
                 {images.map((image, index) => (
-                    <Image
-                        key={index}
-                        source={{ uri: image }}
-                        style={styles.image}
-                        resizeMode="cover"
-                    />
+                    <View key={index} style={styles.imageContainer}>
+                        <RNImage
+                            source={{ uri: image }}
+                            style={styles.image}
+                            resizeMode="cover"
+                        />
+                    </View>
                 ))}
             </ScrollView>
+            
+            {/* Pagination dots */}
             <View style={styles.pagination}>
                 {images.map((_, index) => (
                     <View
@@ -82,40 +89,66 @@ const Banner = ({ images = [] }) => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        height: 200,
+    wrapper: {
         position: 'relative',
+        marginVertical: 4,
+    },
+    scrollContent: {
+        paddingHorizontal: HORIZONTAL_MARGIN,
+        gap: 10,
+    },
+    imageContainer: {
+        width: ITEM_WIDTH,
+        height: 180,
+        borderRadius: 20,
+        backgroundColor: COLORS.gray200,
+        overflow: 'hidden',
+        // Shadow cho iOS
+        shadowColor: COLORS.black,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        // Elevation cho Android
+        elevation: 5,
     },
     placeholderContainer: {
-        height: 200,
-        backgroundColor: COLORS.lightGray,
+        height: 180,
+        marginHorizontal: HORIZONTAL_MARGIN,
+        borderRadius: 20,
+        backgroundColor: COLORS.gray100,
+        overflow: 'hidden',
     },
     placeholder: {
         flex: 1,
         backgroundColor: COLORS.primary,
-        opacity: 0.1,
+        opacity: 0.05,
     },
     image: {
-        width: width,
-        height: 200,
+        width: '100%',
+        height: '100%',
     },
     pagination: {
         flexDirection: 'row',
         position: 'absolute',
-        bottom: SIZES.md,
-        alignSelf: 'center',
+        bottom: 12,
+        left: 0,
+        right: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
     },
     dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
         backgroundColor: COLORS.white,
-        opacity: 0.5,
-        marginHorizontal: 4,
+        opacity: 0.4,
+        marginHorizontal: 3,
     },
     activeDot: {
         opacity: 1,
-        backgroundColor: COLORS.secondary,
+        width: 18, // Dot dài ra khi active cho hiện đại
+        backgroundColor: COLORS.white,
     },
 });
 

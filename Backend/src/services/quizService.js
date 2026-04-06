@@ -3,39 +3,85 @@ const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 
 class QuizService {
-    static async getAll({ search, level, unionBranchId, unionCellId, page, limit } = {}) {
+    static async getAll({ search, level, status: reqStatus, unionBranchId, unionCellId, page, limit, onlyDeleted } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
         const { Op } = require('sequelize');
-        
+        const now = new Date();
+
         const where = {
             ...buildSearchCondition(search, ['title', 'description']),
             ...(level && { level })
         };
 
-        if (unionCellId) {
-            where.unionCellId = unionCellId;
-        } else if (unionBranchId) {
+        if (reqStatus === 'UPCOMING') {
+            where.startDate = { [Op.gt]: now };
+        } else if (reqStatus === 'FINISHED') {
+            where.endDate = { [Op.lt]: now };
+        } else if (reqStatus === 'ONGOING') {
             where[Op.and] = [
-                { unionBranchId },
-                { level: { [Op.ne]: 'CELL' } }
+                { startDate: { [Op.lte]: now } },
+                { endDate: { [Op.gte]: now } }
             ];
         }
 
-        const result = await QuizExam.findAndCountAll({
+        const scopingConditions = [];
+        // Kỳ thi công khai (không gán khoa hoặc lớp)
+        scopingConditions.push({ [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] });
+        
+        if (unionCellId && unionCellId !== 'undefined') {
+            scopingConditions.push({ unionCellId: unionCellId });
+        }
+        
+        if (unionBranchId && unionBranchId !== 'undefined') {
+            scopingConditions.push({ unionBranchId: unionBranchId });
+            scopingConditions.push({ level: 'SCHOOL' });
+        }
+
+        if (scopingConditions.length > 0) {
+            where[Op.or] = scopingConditions;
+        }
+
+        const { sequelize } = require('../configs/db');
+        const queryOptions = {
             where,
-            order: [['createdAt', 'DESC']],
+            attributes: {
+                include: [
+                    [
+                        sequelize.literal(`(
+                            SELECT COUNT(*)
+                            FROM quiz_questions AS qst
+                            WHERE
+                                qst."examId" = "QuizExam"."id"
+                        )`),
+                        'totalQuestions'
+                    ]
+                ]
+            },
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['createdAt', 'DESC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            where.deletedAt = { [Op.ne]: null };
+        }
+
+        const rows = await QuizExam.findAll(queryOptions);
+        
+        const count = await QuizExam.count({ where });
+        const result = { rows, count };
 
         return formatPaginatedResponse(result, p, l);
     }
 
     static async getById(id) {
         const exam = await QuizExam.findByPk(id, {
+            paranoid: false,
             include: [{
                 model: QuizQuestion,
-                include: [{ model: QuizOption }],
+                paranoid: false,
+                include: [{ model: QuizOption, paranoid: false }],
                 order: [['order', 'ASC']]
             }]
         });
@@ -48,27 +94,86 @@ class QuizService {
         const exam = await QuizExam.create(examData);
 
         if (questions && questions.length) {
-            await Promise.all(questions.map(async (q, idx) => {
-                const question = await QuizQuestion.create({
-                    examId: exam.id,
-                    content: q.content,
-                    questionType: q.questionType || 'SINGLE',
-                    score: q.score || 1,
-                    order: q.order ?? idx
-                });
-                if (q.options && q.options.length) {
-                    await Promise.all(q.options.map(opt =>
-                        QuizOption.create({
-                            questionId: question.id,
-                            content: opt.content,
-                            isCorrect: opt.isCorrect || false
-                        })
-                    ));
-                }
-            }));
+            await this._createQuestions(exam.id, questions);
         }
 
         return this.getById(exam.id);
+    }
+
+    static async update(id, data) {
+        const exam = await QuizExam.findByPk(id);
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
+
+        const { questions, ...examData } = data;
+        await exam.update(examData);
+
+        if (questions) {
+            // Simple approach: delete existing questions and re-create
+            // 1. Get question ids to delete options first (or use cascade if set up)
+            const existingQs = await QuizQuestion.findAll({ where: { examId: id }, paranoid: false });
+            const qIds = existingQs.map(q => q.id);
+            
+            // Dùng force: true để xóa thật khi cập nhật (clean up)
+            await QuizOption.destroy({ where: { questionId: qIds }, force: true });
+            await QuizQuestion.destroy({ where: { examId: id }, force: true });
+
+            if (questions.length) {
+                await this._createQuestions(id, questions);
+            }
+        }
+
+        return this.getById(id);
+    }
+
+    static async delete(id) {
+        const exam = await QuizExam.findByPk(id);
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
+        await exam.destroy();
+        return { message: 'Đã chuyển kỳ thi vào thùng rác' };
+    }
+
+    static async restoreQuiz(id) {
+        const exam = await QuizExam.findByPk(id, { paranoid: false });
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi trong thùng rác', 404);
+        if (!exam.deletedAt) throw new ErrorResponse('Kỳ thi này chưa bị xóa', 400);
+
+        await exam.restore();
+        return exam;
+    }
+
+    static async forceDeleteQuiz(id) {
+        const exam = await QuizExam.findByPk(id, { paranoid: false });
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
+
+        // Xóa thật questions và options kèm theo (nếu chưa cascade ở tầng DB)
+        const qIds = (await QuizQuestion.findAll({ where: { examId: id }, paranoid: false })).map(q => q.id);
+        await QuizOption.destroy({ where: { questionId: qIds }, force: true });
+        await QuizQuestion.destroy({ where: { examId: id }, force: true });
+
+        await exam.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn kỳ thi và dữ liệu liên quan' };
+    }
+
+    static async _createQuestions(examId, questions) {
+        for (let idx = 0; idx < questions.length; idx++) {
+            const q = questions[idx];
+            const question = await QuizQuestion.create({
+                examId,
+                content: q.content,
+                questionType: q.questionType || 'SINGLE',
+                score: q.score || 1,
+                order: q.order ?? idx
+            });
+            if (q.options && q.options.length) {
+                await Promise.all(q.options.map(opt =>
+                    QuizOption.create({
+                        questionId: question.id,
+                        content: opt.content,
+                        isCorrect: opt.isCorrect || false
+                    })
+                ));
+            }
+        }
     }
 
     static async submitAttempt(examId, memberId, answers) {
@@ -79,6 +184,15 @@ class QuizService {
 
         const member = await UnionMember.findByPk(memberId);
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
+
+        // Kiểm tra thời gian
+        const now = new Date();
+        if (exam.startDate && now < new Date(exam.startDate)) {
+            throw new ErrorResponse('Kỳ thi chưa bắt đầu', 400);
+        }
+        if (exam.endDate && now > new Date(exam.endDate)) {
+            throw new ErrorResponse('Kỳ thi đã kết thúc', 400);
+        }
 
         let totalScore = 0;
         let correctCount = 0;
@@ -111,17 +225,31 @@ class QuizService {
 
     static async getAttempts(examId, { search, unionBranchId, page, limit } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
+        const { UnionCell } = require('../models');
+
+        const memberWhere = {};
+        if (search) {
+            const { buildSearchCondition } = require('../utils/paginate');
+            Object.assign(memberWhere, buildSearchCondition(search, ['fullName', 'memberCode']));
+        }
+
+        const cellInclude = {
+            model: UnionCell,
+            attributes: ['id', 'name', 'unionBranchId'],
+            required: !!unionBranchId
+        };
+        if (unionBranchId) {
+            cellInclude.where = { unionBranchId };
+        }
 
         const result = await QuizAttempt.findAndCountAll({
             where: { examId },
             include: [{
                 model: UnionMember,
-                attributes: ['id', 'fullName', 'memberCode', 'unionBranchId'],
-                where: {
-                    ...(search && buildSearchCondition(search, ['fullName', 'memberCode'])),
-                    ...(unionBranchId && { unionBranchId })
-                },
-                required: true // Bắt buộc phải khớp filter member
+                attributes: ['id', 'fullName', 'memberCode'],
+                where: memberWhere,
+                required: true,
+                include: [cellInclude]
             }],
             order: [['score', 'DESC']],
             limit: l,

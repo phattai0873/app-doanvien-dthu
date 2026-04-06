@@ -1,23 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image as RNImage, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { API_BASE_URL } from '../../services/api';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
 import { newsService } from '../../services/newsService';
+import { formatViews } from '../../utils/helpers';
 
-export const NewsFeedScreen = () => {
+export const NewsFeedScreen = ({ onNavigate }) => {
     const [activeCat, setActiveCat] = useState('all');
     const [activeScope, setActiveScope] = useState('Trường'); // Default to Trường
     const [categories, setCategories] = useState([]);
     const [news, setNews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState(null);
 
-    const fetchData = async (isRefreshing = false) => {
+    const formatThumbnail = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        return `${API_BASE_URL}${url}`;
+    };
+
+    const fetchData = useCallback(async (isRefreshing = false) => {
         if (!isRefreshing) setLoading(true);
+        setError(null);
         try {
             const [catsRes, newsRes] = await Promise.all([
-                newsService.getCategories(),
+                newsService.getCategories().catch(e => {
+                    console.error("Cats load error:", e);
+                    return [];
+                }),
                 newsService.getNews('all', activeScope)
             ]);
 
@@ -29,23 +41,22 @@ export const NewsFeedScreen = () => {
             const rawNews = newsRes.data || (Array.isArray(newsRes) ? newsRes : []);
             const processedNews = rawNews.map(item => ({
                 ...item,
-                thumbnailUrl: (item.bannerUrl || item.thumbnailUrl)
-                    ? `${API_BASE_URL}${item.bannerUrl || item.thumbnailUrl}?t=${Date.now()}`
-                    : null,
-                publishedAt: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '—'
+                thumbnailUrl: formatThumbnail(item.bannerUrl || item.thumbnailUrl),
+                publishedAtDisplay: item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('vi-VN') : '—'
             }));
             setNews(processedNews);
         } catch (error) {
             console.error("Failed to fetch news:", error);
+            setError("Không thể tải tin tức. Vui lòng kiểm tra kết nối mạng.");
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [activeScope]);
 
     useEffect(() => {
         fetchData();
-    }, [activeScope]);
+    }, [fetchData]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -59,10 +70,23 @@ export const NewsFeedScreen = () => {
     const heroNews = filteredNews.length > 0 ? filteredNews[0] : null;
     const listNews = filteredNews.length > 1 ? filteredNews.slice(1) : [];
 
-    if (loading) {
+    if (loading && !refreshing) {
         return (
-            <View style={styles.centerLoading}>
+            <View style={styles.centerMode}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Đang tải bản tin...</Text>
+            </View>
+        );
+    }
+
+    if (error && news.length === 0) {
+        return (
+            <View style={styles.centerMode}>
+                <Icon name="WifiOff" size={48} color={COLORS.gray300} />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={() => fetchData()}>
+                    <Text style={styles.retryText}>Thử lại</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -89,25 +113,36 @@ export const NewsFeedScreen = () => {
             </View>
 
             {/* Categories */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-                {categories.map(cat => (
-                    <TouchableOpacity
-                        key={cat.id}
-                        style={[styles.catPill, activeCat === cat.id && styles.catPillActive]}
-                        onPress={() => setActiveCat(cat.id)}
-                    >
-                        <Text style={[styles.catText, activeCat === cat.id && styles.catTextActive]}>
-                            {cat.name}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+            <View style={styles.catWrapper}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
+                    {categories.map(cat => (
+                        <TouchableOpacity
+                            key={cat.id}
+                            style={[styles.catPill, activeCat === cat.id && styles.catPillActive]}
+                            onPress={() => setActiveCat(cat.id)}
+                        >
+                            <Text style={[styles.catText, activeCat === cat.id && styles.catTextActive]}>
+                                {cat.name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
             {/* Hero News */}
             {heroNews && (
-                <View style={styles.heroCard}>
+                <TouchableOpacity 
+                    style={styles.heroCard}
+                    onPress={() => onNavigate && onNavigate('news_detail', { id: heroNews.id })}
+                >
                     <View style={styles.heroImageContainer}>
-                        <Image source={{ uri: heroNews.thumbnailUrl }} style={styles.heroImage} />
+                        {heroNews.thumbnailUrl ? (
+                            <RNImage source={{ uri: heroNews.thumbnailUrl }} style={styles.heroImage} />
+                        ) : (
+                            <View style={[styles.heroImage, { backgroundColor: COLORS.gray100, justifyContent: 'center', alignItems: 'center' }]}>
+                                <Icon name="Image" size={40} color={COLORS.gray200} />
+                            </View>
+                        )}
                         <View style={styles.badgeContainer}>
                             <Text style={styles.badgeText}>NỔI BẬT</Text>
                         </View>
@@ -117,10 +152,24 @@ export const NewsFeedScreen = () => {
                     <View style={styles.metaRow}>
                         <View style={styles.metaItem}>
                             <Icon name="Clock" size={12} color="#6B7280" />
-                            <Text style={styles.metaText}>{heroNews.publishedAt}</Text>
+                            <Text style={styles.metaText}>{heroNews.publishedAtDisplay}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <View style={styles.metaItem}>
+                                <Icon name={heroNews.isLiked ? "HeartFilled" : "Heart"} size={12} color={heroNews.isLiked ? COLORS.error : "#6B7280"} />
+                                <Text style={[styles.metaText, heroNews.isLiked && { color: COLORS.error }]}>{heroNews.likesCount || 0}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Icon name="Share2" size={12} color="#6B7280" />
+                                <Text style={styles.metaText}>{heroNews.sharesCount || 0}</Text>
+                            </View>
+                            <View style={styles.metaItem}>
+                                <Icon name="Eye" size={12} color="#6B7280" />
+                                <Text style={styles.metaText}>{formatViews(heroNews.viewsCount || 0)}</Text>
+                            </View>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
             )}
 
             <View style={styles.divider} />
@@ -128,18 +177,41 @@ export const NewsFeedScreen = () => {
             {/* List News */}
             <View style={styles.listContainer}>
                 {listNews.map(item => (
-                    <TouchableOpacity key={item.id} style={styles.newsItem}>
+                    <TouchableOpacity 
+                        key={item.id} 
+                        style={styles.newsItem}
+                        onPress={() => onNavigate && onNavigate('news_detail', { id: item.id })}
+                    >
                         <View style={styles.newsThumb}>
-                            <Image source={{ uri: item.thumbnailUrl }} style={styles.imgCover} />
+                            {item.thumbnailUrl ? (
+                                <RNImage source={{ uri: item.thumbnailUrl }} style={styles.imgCover} />
+                            ) : (
+                                <View style={[styles.imgCover, { justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Icon name="Image" size={24} color={COLORS.gray200} />
+                                </View>
+                            )}
                         </View>
                         <View style={styles.newsContent}>
                             <Text style={styles.newsTitle} numberOfLines={2}>{item.title}</Text>
                             <Text style={styles.newsSummary} numberOfLines={2}>{item.summary}</Text>
                             <View style={styles.newsFooter}>
-                                <Text style={styles.newsCat}>{item.NewsCategory?.name || 'Tin tức'}</Text>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <View style={styles.metaItem}>
+                                        <Icon name={item.isLiked ? "HeartFilled" : "Heart"} size={10} color={item.isLiked ? COLORS.error : "#9CA3AF"} />
+                                        <Text style={[styles.metaTextSm, item.isLiked && { color: COLORS.error }]}>{item.likesCount || 0}</Text>
+                                    </View>
+                                    <View style={styles.metaItem}>
+                                        <Icon name="Share2" size={10} color="#9CA3AF" />
+                                        <Text style={styles.metaTextSm}>{item.sharesCount || 0}</Text>
+                                    </View>
+                                    <View style={styles.metaItem}>
+                                        <Icon name="Eye" size={10} color="#9CA3AF" />
+                                        <Text style={styles.metaTextSm}>{formatViews(item.viewsCount || 0)}</Text>
+                                    </View>
+                                </View>
                                 <View style={styles.metaItem}>
                                     <Icon name="Clock" size={10} color="#9CA3AF" />
-                                    <Text style={styles.metaTextSm}>{item.publishedAt}</Text>
+                                    <Text style={styles.metaTextSm}>{item.publishedAtDisplay}</Text>
                                 </View>
                             </View>
                         </View>
@@ -158,7 +230,11 @@ export const NewsFeedScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.backgroundColor },
+    centerMode: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 20 },
+    loadingText: { marginTop: 10, color: COLORS.gray500 },
+    errorText: { marginTop: 15, color: COLORS.gray500, textAlign: 'center', lineHeight: 20 },
+    retryBtn: { marginTop: 20, paddingHorizontal: 30, paddingVertical: 12, backgroundColor: COLORS.primary, borderRadius: SIZES.radiusMd },
+    retryText: { color: '#FFF', fontWeight: '800' },
     scrollContainer: { flex: 1, backgroundColor: COLORS.background },
     scrollContent: { padding: 16, paddingBottom: 100 },
     scopeSwitcher: {
@@ -191,30 +267,27 @@ const styles = StyleSheet.create({
     scopeBtnTextActive: {
         color: COLORS.primary,
     },
-    catScroll: { marginBottom: 16, paddingVertical: 4 },
+    catWrapper: { marginBottom: 15 },
+    catScroll: { paddingHorizontal: 20, gap: 10 },
     catPill: {
-        paddingHorizontal: 18,
+        paddingHorizontal: 20,
         paddingVertical: 10,
-        borderRadius: SIZES.radiusFull,
-        borderWidth: 1.5,
-        borderColor: COLORS.gray200,
-        backgroundColor: COLORS.white,
-        marginRight: 10,
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderRadius: 25,
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
-    catPillActive: {
-        backgroundColor: COLORS.primary,
-        borderColor: COLORS.primary,
+    catPillActive: { 
+        backgroundColor: COLORS.primary, 
+        borderColor: COLORS.primary, 
+        elevation: 4,
         shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
+        shadowRadius: 8,
     },
-    catText: { fontSize: 13, fontWeight: '600', color: COLORS.gray500 },
-    catTextActive: { color: COLORS.white },
-    sourceNote: { fontSize: 9, color: COLORS.gray300, fontStyle: 'italic', textAlign: 'right', marginBottom: 10, opacity: 0.5 },
+    catText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+    catTextActive: { color: '#FFF', fontWeight: 'bold' },
     heroCard: {
         backgroundColor: COLORS.white,
         borderRadius: SIZES.radiusLg,

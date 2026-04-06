@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { memberApi, positionApi } from '../../services/api';
-import { confirmDelete, confirmAction } from '../../utils/swal';
+import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const SELECT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition bg-white";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
@@ -28,7 +29,11 @@ const ROLES_IN_UNION = [
 ];
 
 function MemberModal({ member, onClose, onSave }) {
-    const [form, setForm] = useState(member || { 
+    const [form, setForm] = useState(member ? {
+        ...member,
+        email: member.User?.email || member.email || '',
+        phoneNumber: member.User?.phoneNumber || member.phoneNumber || ''
+    } : { 
         memberCode: '', fullName: '', dateOfBirth: '', gender: 'male', 
         email: '', phoneNumber: '', permanentAddress: '', hometown: '', 
         joinedDate: '', activityStatus: 'active', roleInUnion: 'member' 
@@ -84,21 +89,38 @@ function MemberModal({ member, onClose, onSave }) {
     );
 }
 
-function AppointmentModal({ member, positions, onClose, onAssign }) {
-    const [form, setForm] = useState({ positionId: '', assignedDate: new Date().toISOString().split('T')[0] });
+function AppointmentModal({ member, positions, branches, onClose, onAssign }) {
+    const activePos = member.UnionPositions?.[0];
     
-    // Tìm thông tin chức vụ đang chọn để lấy scopeLevel
-    const selectedPos = positions.find(p => p.id === form.positionId);
+    const [form, setForm] = useState({ 
+        positionId: activePos?.id || '', 
+        branchId: activePos?.UnionMemberPosition?.unionBranchId || member.UnionCell?.unionBranchId || '', 
+        cellId: activePos?.UnionMemberPosition?.unionCellId || member.unionCellId || '', 
+        assignedDate: new Date().toISOString().split('T')[0],
+        moveMember: false
+    });
     
-    // Xác định tên đơn vị sẽ quản lý dựa trên scopeLevel
-    const getTargetEntity = () => {
-        if (!selectedPos) return null;
-        if (selectedPos.scopeLevel === 'CELL') return { type: 'Chi đoàn', name: member.UnionCell?.name };
-        if (selectedPos.scopeLevel === 'BRANCH') return { type: 'Liên chi đoàn', name: member.UnionCell?.UnionBranch?.name };
-        return { type: 'Hệ thống', name: 'Toàn trường' };
+    // Khi chọn chức danh, tự động gợi ý đơn vị hiện tại
+    const handlePositionChange = (posId) => {
+        const pos = positions.find(p => p.id === posId);
+        setForm(f => ({ 
+            ...f, 
+            positionId: posId,
+            branchId: pos?.scopeLevel === 'BRANCH' ? (member.UnionCell?.unionBranchId || '') : '',
+            cellId: pos?.scopeLevel === 'CELL' ? (member.unionCellId || '') : '',
+            // Reset đơn vị nếu chọn chức danh cấp Trường
+        }));
     };
 
-    const target = getTargetEntity();
+    const selectedPos = positions.find(p => p.id === form.positionId);
+    
+    // Lấy danh sách chi đoàn của branch đang chọn (nếu có)
+    const { data: cellsRes } = useQuery({ 
+        queryKey: ['cells-for-appoint', form.branchId], 
+        queryFn: () => memberApi.getCells(form.branchId),
+        enabled: !!form.branchId && selectedPos?.scopeLevel === 'CELL'
+    });
+    const cells = cellsRes?.data?.data || [];
 
     return (
         <ModalPortal onClose={onClose}>
@@ -111,24 +133,24 @@ function AppointmentModal({ member, positions, onClose, onAssign }) {
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-5 space-y-4">
-                    {/* Thông tin nhân sự */}
+                    {/* Header: Thành viên */}
                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-primary-700 border border-primary-100 shadow-sm">
                             {member.fullName.charAt(0)}
                         </div>
                         <div>
-                            <p className="text-xs font-black text-gray-400 uppercase tracking-tighter leading-none mb-1">Đoàn viên bổ nhiệm</p>
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-tighter leading-none mb-1">Đoàn viên được bổ nhiệm</p>
                             <p className="text-sm font-bold text-gray-800">{member.fullName}</p>
                         </div>
                     </div>
 
-                    {/* Chọn chức vụ */}
+                    {/* 1. Chọn Chức vụ */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Chức vụ bổ nhiệm *</label>
                         <select 
                             className={SELECT} 
                             value={form.positionId} 
-                            onChange={e => setForm(f => ({ ...f, positionId: e.target.value }))}
+                            onChange={e => handlePositionChange(e.target.value)}
                         >
                             <option value="">-- Chọn chức danh --</option>
                             {positions.map(p => (
@@ -139,23 +161,68 @@ function AppointmentModal({ member, positions, onClose, onAssign }) {
                         </select>
                     </div>
 
-                    {/* Hiển thị phạm vi quản lý (QUAN TRỌNG) */}
-                    {target && (
-                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="mt-0.5 bg-blue-600 text-white p-1 rounded-lg">
-                                {selectedPos.scopeLevel === 'CELL' ? <BookOpen size={14} /> : <Building2 size={14} />}
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-blue-600 font-black uppercase tracking-widest">Phạm vi quản trị</p>
-                                <p className="text-sm font-bold text-blue-900">
-                                    {target.type}: <span className="underline decoration-blue-300">{target.name || 'Hệ thống'}</span>
-                                </p>
-                                <p className="mt-1 text-[10px] text-blue-500 italic font-medium leading-tight">
-                                    * Sau khi bổ nhiệm, tài khoản sẽ có quyền Admin quản lý dữ liệu của {target.type} này.
-                                </p>
-                            </div>
+                    {/* 2. Chọn Phạm vi (Nếu cấp Khoa) */}
+                    {selectedPos?.scopeLevel === 'BRANCH' && (
+                        <div className="animate-in fade-in slide-in-from-top-2">
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Đơn vị quản lý (Liên chi đoàn) *</label>
+                            <select 
+                                className={SELECT} 
+                                value={form.branchId || ''} 
+                                onChange={e => setForm(f => ({ ...f, branchId: e.target.value }))}
+                            >
+                                <option value="">-- Chọn Liên chi đoàn --</option>
+                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
                         </div>
                     )}
+
+                    {/* 3. Chọn Phạm vi (Nếu cấp Chi đoàn) */}
+                    {selectedPos?.scopeLevel === 'CELL' && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Thuộc Liên chi đoàn *</label>
+                                <select 
+                                    className={SELECT} 
+                                    value={form.branchId || ''} 
+                                    onChange={e => setForm(f => ({ ...f, branchId: e.target.value, cellId: '' }))}
+                                >
+                                    <option value="">-- Chọn Liên chi đoàn --</option>
+                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                            {form.branchId && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Phạm vi quản lý (Chi đoàn) *</label>
+                                    <select 
+                                        className={SELECT} 
+                                        value={form.cellId || ''} 
+                                        onChange={e => setForm(f => ({ ...f, cellId: e.target.value }))}
+                                    >
+                                        <option value="">-- Chọn Chi đoàn --</option>
+                                        {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 4. Cấu hình Option: Chuyển Đoàn viên */}
+                    {(form.cellId && form.cellId !== member.unionCellId) || (form.branchId && form.branchId !== member.UnionCell?.unionBranchId && selectedPos?.scopeLevel === 'BRANCH') ? (
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                    checked={form.moveMember}
+                                    onChange={e => setForm(f => ({ ...f, moveMember: e.target.checked }))}
+                                />
+                                <div>
+                                    <p className="text-xs font-bold text-amber-900 group-hover:text-amber-700 transition">Đồng thời chuyển sinh hoạt Đoàn</p>
+                                    <p className="text-[10px] text-amber-600 italic">Cập nhật hồ sơ gốc của {member.fullName} sang đơn vị mới này.</p>
+                                </div>
+                            </label>
+                        </div>
+                    ) : null}
 
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày bắt đầu nhiệm kỳ</label>
@@ -166,7 +233,7 @@ function AppointmentModal({ member, positions, onClose, onAssign }) {
                     <button className={BTN_SECONDARY} onClick={onClose}>Hủy bỏ</button>
                     <button 
                         className={BTN_PRIMARY} 
-                        disabled={!form.positionId} 
+                        disabled={!form.positionId || (selectedPos?.scopeLevel === 'BRANCH' && !form.branchId) || (selectedPos?.scopeLevel === 'CELL' && !form.cellId)} 
                         onClick={() => onAssign(form)}
                     >
                         Xác nhận Bổ nhiệm
@@ -199,30 +266,16 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                        {/* Avatar & Basic */}
-                        <div className="flex flex-col items-center gap-4 min-w-[160px]">
-                            <div className="relative group">
-                                {member.avatar ? (
-                                    <img src={getAvatarUrl(member.avatar)} className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg ring-1 ring-gray-100" alt="" />
-                                ) : (
-                                    <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center text-primary-700 font-black text-4xl border-4 border-white shadow-lg ring-1 ring-gray-100 uppercase">
-                                        {member.fullName.charAt(0)}
-                                    </div>
-                                )}
-                                {!isPending && (
-                                    <div className="absolute -bottom-2 -right-2 bg-white p-1.5 rounded-xl shadow-md border border-gray-100 text-primary-700" title={roleInfo.label}>
-                                        <Shield size={16} fill="currentColor" className="opacity-20" />
-                                    </div>
-                                )}
+                    <div className="flex flex-col gap-6">
+                        {/* Basic Info */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                            <div>
+                                <h4 className="text-xl font-black text-gray-800 tracking-tight">{member.fullName}</h4>
+                                <p className="text-xs text-primary-700 font-mono font-black uppercase tracking-tighter mt-1">{member.memberCode}</p>
                             </div>
-                            <div className="text-center">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusInfo.color}`}>
-                                    {statusInfo.label}
-                                </span>
-                                <h4 className="mt-2 text-lg font-bold text-gray-800 leading-tight">{member.fullName}</h4>
-                                <p className="text-xs text-gray-400 font-mono mt-1 font-bold">{member.memberCode}</p>
-                            </div>
+                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${statusInfo.color}`}>
+                                {statusInfo.label}
+                            </span>
                         </div>
 
                         {/* Details */}
@@ -244,8 +297,8 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
                                 </div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày sinh</label><p className="text-sm text-gray-700">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</p></div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Giới tính</label><p className="text-sm text-gray-700">{member.gender === 'female' ? 'Nữ' : 'Nam'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Số điện thoại</label><p className="text-sm text-gray-700 font-medium">{member.phoneNumber || '—'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Email</label><p className="text-sm text-gray-700 font-medium">{member.email || '—'}</p></div>
+                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Số điện thoại</label><p className="text-sm text-gray-700 font-medium">{member.User?.phoneNumber || member.phoneNumber || '—'}</p></div>
+                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Email</label><p className="text-sm text-gray-700 font-medium">{member.User?.email || member.email || '—'}</p></div>
                                 <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Quê quán</label><p className="text-sm text-gray-700">{member.hometown || '—'}</p></div>
                                 <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Thường trú</label><p className="text-sm text-gray-700">{member.permanentAddress || '—'}</p></div>
                                 <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày gia nhập Đoàn</label><p className="text-sm text-gray-700">{member.joinedDate ? new Date(member.joinedDate).toLocaleDateString('vi-VN') : '—'}</p></div>
@@ -306,6 +359,7 @@ function Pagination({ pagination, page, setPage }) {
 }
 
 export default function MembersPage() {
+    const { hasPermission } = useAuth();
     const qc = useQueryClient();
     const [searchParams, setSearchParams] = useSearchParams();
     const unionCellId = searchParams.get('unionCellId') || '';
@@ -320,6 +374,7 @@ export default function MembersPage() {
     const [modal, setModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [appointmentModal, setAppointmentModal] = useState(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const { data: posRes } = useQuery({ queryKey: ['positions'], queryFn: positionApi.getAll });
     const positions = posRes?.data?.data || [];
@@ -335,14 +390,15 @@ export default function MembersPage() {
     const cellsByBranch = cellsRes?.data?.data || [];
 
     const { data, isLoading } = useQuery({
-        queryKey: ['members', search, page, unionCellId, roleFilter, activityStatusFilter, approvalStatusFilter, branchFilter, cellFilter],
+        queryKey: ['members', search, page, unionCellId, roleFilter, activityStatusFilter, approvalStatusFilter, branchFilter, cellFilter, showTrash],
         queryFn: () => memberApi.getAll({ 
             search, page, limit: 10, 
             unionCellId: cellFilter || unionCellId || undefined,
             roleInUnion: roleFilter || undefined,
             activityStatus: activityStatusFilter || undefined,
             status: approvalStatusFilter || undefined,
-            unionBranchId: branchFilter || undefined
+            unionBranchId: branchFilter || undefined,
+            onlyDeleted: showTrash
         }),
         keepPreviousData: true,
     });
@@ -352,7 +408,9 @@ export default function MembersPage() {
 
     const createMutation = useMutation({ mutationFn: memberApi.create, onSuccess: () => { qc.invalidateQueries(['members']); setModal(null); toast.success('Đã thêm đoàn viên!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const updateMutation = useMutation({ mutationFn: ({ id, data }) => memberApi.update(id, data), onSuccess: () => { qc.invalidateQueries(['members']); setModal(null); toast.success('Đã cập nhật!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const deleteMutation = useMutation({ mutationFn: memberApi.delete, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã xóa!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const deleteMutation = useMutation({ mutationFn: memberApi.delete, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã chuyển đoàn viên vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const restoreMutation = useMutation({ mutationFn: memberApi.restore, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã khôi phục đoàn viên!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const forceDeleteMutation = useMutation({ mutationFn: memberApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['members']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const approveMutation = useMutation({ mutationFn: memberApi.approve, onSuccess: () => { qc.invalidateQueries(['members']); setDetailModal(null); toast.success('Đã duyệt!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const rejectMutation = useMutation({ mutationFn: memberApi.reject, onSuccess: () => { qc.invalidateQueries(['members']); setDetailModal(null); toast.success('Đã từ chối!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const appointMutation = useMutation({ mutationFn: ({ id, data }) => memberApi.assignPosition(id, data), onSuccess: () => { qc.invalidateQueries(['members']); setAppointmentModal(null); toast.success('Bổ nhiệm thành công! Tài khoản đã được đồng bộ quyền Admin.'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
@@ -419,7 +477,22 @@ export default function MembersPage() {
                         <FilterX size={14} /> Xóa lọc Chi đoàn
                     </button>
                 )}
-                <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
+
+                {hasPermission('member:delete') && (
+                    <button 
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
+                            ${showTrash 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                        <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
+                    </button>
+                )}
+
+                {!showTrash && (
+                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
+                )}
             </div>
 
             {/* Table card */}
@@ -427,7 +500,7 @@ export default function MembersPage() {
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                     <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 uppercase tracking-wide">
                         <Shield size={16} className="text-primary-700" />
-                        Danh sách Đoàn viên
+                        {showTrash ? 'Thùng rác Đoàn viên' : 'Danh sách Đoàn viên'}
                     </h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest leading-none flex items-center justify-center min-w-[40px] shadow-sm shadow-primary-200">{pagination.total || 0}</span>
                 </div>
@@ -448,19 +521,14 @@ export default function MembersPage() {
                                     return (
                                         <tr key={m.id} className="hover:bg-gray-50/50 transition">
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center font-black text-sm border border-primary-100 shadow-sm uppercase group-hover:scale-110 transition">
-                                                        {m.fullName.charAt(0)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-mono text-[10px] font-black text-primary-700 uppercase tracking-tight">{m.memberCode}</p>
-                                                        <p className="font-bold text-gray-800">{m.fullName}</p>
-                                                    </div>
+                                                <div>
+                                                    <p className="font-mono text-[10px] font-black text-primary-700 uppercase tracking-tight">{m.memberCode}</p>
+                                                    <p className="font-bold text-gray-800">{m.fullName}</p>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <p className="text-xs text-gray-600 font-medium">{m.email || '—'}</p>
-                                                <p className="text-xs text-gray-400">{m.phoneNumber || '—'}</p>
+                                                <p className="text-xs text-gray-600 font-medium">{m.User?.email || m.email || '—'}</p>
+                                                <p className="text-xs text-gray-400">{m.User?.phoneNumber || m.phoneNumber || '—'}</p>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-1.5 flex-wrap">
@@ -480,25 +548,40 @@ export default function MembersPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex gap-2 flex-wrap min-w-[120px]">
-                                                    {m.status === 'pending' ? (
-                                                        <button title="Xét duyệt hồ sơ" className={`${BTN_ICON} bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100 shadow-sm`} onClick={() => setDetailModal(m)}>
-                                                            <CheckCircle size={16} />
-                                                        </button>
+                                                    {!showTrash ? (
+                                                        <>
+                                                            {m.status === 'pending' ? (
+                                                                <button title="Xét duyệt hồ sơ" className={`${BTN_ICON} bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-100 shadow-sm`} onClick={() => setDetailModal(m)}>
+                                                                    <CheckCircle size={16} />
+                                                                </button>
+                                                            ) : (
+                                                                <>
+                                                                    <button title="Xem chi tiết" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`} onClick={() => setDetailModal(m)}>
+                                                                        <Eye size={16} />
+                                                                    </button>
+                                                                    <button title="Bổ nhiệm chức vụ" className={`${BTN_ICON} bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-100 shadow-sm`} onClick={() => setAppointmentModal(m)}>
+                                                                        <UserPlus size={16} />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                            <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(m)}><Pencil size={16} /></button>
+                                                            <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
+                                                                const result = await confirmDelete(m.fullName);
+                                                                if (result.isConfirmed) deleteMutation.mutate(m.id);
+                                                            }}><Trash2 size={16} /></button>
+                                                        </>
                                                     ) : (
                                                         <>
-                                                            <button title="Xem chi tiết" className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`} onClick={() => setDetailModal(m)}>
-                                                                <Eye size={16} />
-                                                            </button>
-                                                            <button title="Bổ nhiệm chức vụ" className={`${BTN_ICON} bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-100 shadow-sm`} onClick={() => setAppointmentModal(m)}>
-                                                                <UserPlus size={16} />
-                                                            </button>
+                                                            <button title="Khôi phục" className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`} onClick={async () => {
+                                                                const result = await confirmRestore(m.fullName);
+                                                                if (result.isConfirmed) restoreMutation.mutate(m.id);
+                                                            }}><RotateCcw size={16} /></button>
+                                                            <button title="Xóa vĩnh viễn" className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`} onClick={async () => {
+                                                                const result = await confirmForceDelete(m.fullName);
+                                                                if (result.isConfirmed) forceDeleteMutation.mutate(m.id);
+                                                            }}><Trash2 size={16} /></button>
                                                         </>
                                                     )}
-                                                    <button title="Sửa" className={`${BTN_ICON} bg-gray-50 hover:bg-gray-200/50 text-gray-600 border border-gray-100 shadow-sm`} onClick={() => setModal(m)}><Pencil size={16} /></button>
-                                                    <button title="Xóa" className={`${BTN_ICON} bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 shadow-sm`} onClick={async () => {
-                                                        const result = await confirmDelete(m.fullName);
-                                                        if (result.isConfirmed) deleteMutation.mutate(m.id);
-                                                    }}><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -513,7 +596,7 @@ export default function MembersPage() {
 
             {modal && <MemberModal member={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} />}
             {detailModal && <MemberDetailModal member={detailModal} onClose={() => setDetailModal(null)} onApprove={handleApprove} onReject={handleReject} />}
-            {appointmentModal && <AppointmentModal member={appointmentModal} positions={positions} onClose={() => setAppointmentModal(null)} onAssign={handleAppoint} />}
+            {appointmentModal && <AppointmentModal member={appointmentModal} positions={positions} branches={branchesAll} onClose={() => setAppointmentModal(null)} onAssign={handleAppoint} />}
         </div>
     );
 }

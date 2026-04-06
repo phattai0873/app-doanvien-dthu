@@ -1,4 +1,4 @@
 export const IMAGES = {
     logo: require('../assets/logodthu.png'),
-    // Add other images here as needed
+    user_fallback: require('../../assets/iconset/user_fall_back.png'),
 };

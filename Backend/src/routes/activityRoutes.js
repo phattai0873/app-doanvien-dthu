@@ -7,16 +7,20 @@ router.use(protect);
 
 router.get('/', activityController.getActivities);
 router.get('/summary', activityController.getSummary);
+router.get('/history', activityController.getHistory);
 router.post('/', activityController.createActivity);
 router.get('/:id', activityController.getActivity);
 router.put('/:id', activityController.updateActivity);
 router.delete('/:id', activityController.deleteActivity);
+router.patch('/:id/restore', activityController.restoreActivity);
+router.delete('/:id/force', activityController.forceDeleteActivity);
 
 // Phê duyệt
 router.patch('/:id/approve', activityController.approveActivity);
 
 // Đăng ký tham gia
 router.post('/:id/register', activityController.registerParticipant);
+router.delete('/:id/register', activityController.unregisterParticipant);
 router.patch('/:id/participants/:memberId', activityController.updateParticipant);
 
 // Điểm danh (Tương thích ngược hoặc bổ sung)

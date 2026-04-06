@@ -88,6 +88,19 @@ const documentStorage = multer.diskStorage({
     }
 });
 
+// Storage cho ảnh minh chứng đóng phí (Bill)
+const feeEvidenceStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadPath = path.join(__dirname, '../../uploads/fees');
+        ensureUploadDir(uploadPath);
+        cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `fee_${uuidv4()}${ext}`);
+    }
+});
+
 // Bộ lọc file - chỉ nhận ảnh
 const imageFileFilter = (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -103,13 +116,13 @@ const imageFileFilter = (req, file, cb) => {
 
 // Bộ lọc file - cho phép văn bản
 const documentFileFilter = (req, file, cb) => {
-    const allowedExtensions = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt/;
+    const allowedExtensions = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|txt|jpg|jpeg|png|webp/;
     const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
     
     if (extname) {
         cb(null, true);
     } else {
-        cb(new Error('Chỉ chấp nhận file văn bản (pdf, doc, docx, xls, xlsx, ppt, pptx, zip, rar, txt)'));
+        cb(new Error('Chỉ chấp nhận file văn bản và hình ảnh (pdf, doc, docx, xls, xlsx, ppt, pptx, zip, rar, txt, jpg, jpeg, png, webp)'));
     }
 };
 
@@ -150,6 +163,12 @@ const uploadDocument = multer({
     fileFilter: documentFileFilter
 }).single('file');
 
+const uploadFeeEvidence = multer({
+    storage: feeEvidenceStorage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: imageFileFilter
+}).single('evidence');
+
 
 // Middleware wrapper để bắt lỗi multer
 const handleUpload = (uploadFn) => (req, res, next) => {
@@ -172,5 +191,6 @@ module.exports = {
     uploadBanner: handleUpload(uploadBanner),
     uploadAvatar: handleUpload(uploadAvatar),
     uploadQuizThumbnail: handleUpload(uploadQuizThumbnail),
-    uploadDocument: handleUpload(uploadDocument)
+    uploadDocument: handleUpload(uploadDocument),
+    uploadFeeEvidence: handleUpload(uploadFeeEvidence)
 };

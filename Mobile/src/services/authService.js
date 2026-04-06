@@ -1,4 +1,4 @@
-import apiClient, { USE_MOCK_API, USE_SUPABASE, setAuthToken, loadAuthToken } from './api';
+import apiClient, { USE_MOCK_API, USE_SUPABASE, setAuthTokens, loadAuthToken } from './api';
 import { supabase } from './supabaseClient';
 
 /**
@@ -12,39 +12,32 @@ export const authService = {
                 password: password,
             });
             if (error) throw error;
-            setAuthToken(data.session?.access_token);
+            await setAuthTokens(data.session?.access_token);
             return { token: data.session?.access_token, user: data.user, role: 'user' };
         }
 
         if (USE_MOCK_API) {
-            setAuthToken('mock-token');
+            await setAuthTokens('mock-token', 'mock-refresh-token');
             return new Promise(r => setTimeout(() => r({ success: true, token: 'mock-token', role: username === 'admin' ? 'admin' : 'user' }), 1000));
         }
 
         // --- GỌI API THỰC ---
         try {
             const response = await apiClient.post('/api/users/login', { username, password });
-            // response là response.data do interceptor. { success: true, data: { accessToken, id, username } }
-            const { accessToken, id } = response.data;
+            // response là response.data do interceptor: { success: true, data: { accessToken, refreshToken, id, username, Roles, UnionMember } }
+            const { accessToken, refreshToken, id, Roles, UnionMember } = response.data;
             
-            // Lưu token vào AsyncStorage (bền vững qua các lần restart) - hàm async
-            await setAuthToken(accessToken);
+            // Lưu cả 2 token
+            await setAuthTokens(accessToken, refreshToken);
 
-            // Lấy thông tin Role từ API /me ngay sau khi đăng nhập
             let role = 'user';
-            try {
-                const meResponse = await apiClient.get('/api/users/me');
-                const meData = meResponse.data || meResponse;
-                if (meData.Roles && Array.isArray(meData.Roles) && meData.Roles.length > 0) {
-                    role = meData.Roles[0].code || meData.Roles[0].name || 'user';
-                }
-            } catch (meError) {
-                console.log('Could not fetch user roles:', meError.message);
+            if (Roles && Array.isArray(Roles) && Roles.length > 0) {
+                role = Roles[0].code || Roles[0].name || 'user';
             }
 
             return {
                 token: accessToken,
-                user: { id, username },
+                user: { ...response.data, role },
                 role
             };
         } catch (error) {
@@ -53,23 +46,17 @@ export const authService = {
     },
 
     logout: async () => {
-        if (USE_SUPABASE) {
-            await supabase.auth.signOut();
-            setAuthToken(null);
-            return true;
-        }
-
-        if (USE_MOCK_API) {
-            setAuthToken(null);
+        if (USE_SUPABASE || USE_MOCK_API) {
+            await setAuthTokens(null, null);
             return true;
         }
 
         try {
             await apiClient.post('/api/users/logout');
-            setAuthToken(null);
+            await setAuthTokens(null, null);
             return true;
         } catch (error) {
-            setAuthToken(null);
+            await setAuthTokens(null, null);
             return true; 
         }
     },
@@ -86,7 +73,7 @@ export const authService = {
 
         try {
             const response = await apiClient.post('/api/users/register', userData);
-            return response.data; // should contain { success, data }
+            return response; // response là response.data từ interceptor (đã chứa {success, data})
         } catch (error) {
             throw error;
         }
@@ -117,12 +104,36 @@ export const authService = {
             if (!token) return null; // Chưa đăng nhập
 
             const response = await apiClient.get('/api/users/me');
-            // response đã được interceptor unwrap thành response.data = { success, data }
-            const userData = response.data || response;
-            return userData;
+            // response.data chứa User + Roles + UnionMember (đã include Cell & Branch)
+            const userData = response.data;
+            
+            let role = 'user';
+            if (userData.Roles && userData.Roles.length > 0) {
+                role = userData.Roles[0].code;
+            }
+
+            return {
+                ...userData,
+                role
+            };
         } catch (error) {
             console.log('GetCurrentUser error:', error.message);
             return null;
+        }
+    },
+
+    deleteAccount: async () => {
+        if (USE_SUPABASE || USE_MOCK_API) {
+            await setAuthTokens(null, null);
+            return { success: true };
+        }
+
+        try {
+            const response = await apiClient.delete('/api/users/me');
+            await setAuthTokens(null, null);
+            return response;
+        } catch (error) {
+            throw error;
         }
     }
 };

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     LayoutDashboard, Users, Building2, Network,
     Calendar, Newspaper, BookOpen, Wallet, LogOut, Shield,
-    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2
+    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2, MapPin
 } from 'lucide-react';
 import { authApi } from '../../services/api';
 import ModalPortal from '../../components/ModalPortal';
@@ -14,20 +14,22 @@ import logoDthu from '../../assets/logodthu.png';
 const NAV = [
     { label: 'Tổng quan', icon: LayoutDashboard, to: '/admin' },
     { section: 'Tổ chức' },
-    { label: 'Đoàn viên', icon: Users, to: '/admin/members' },
-    { label: 'Liên chi đoàn', icon: Building2, to: '/admin/branches' },
-    { label: 'Chi đoàn', icon: Network, to: '/admin/cells' },
+    { label: 'Đoàn viên', icon: Users, to: '/admin/members', permission: 'member:read' },
+    { label: 'Liên chi đoàn', icon: Building2, to: '/admin/branches', permission: 'branch:read' },
+    { label: 'Chi đoàn', icon: Network, to: '/admin/cells', permission: 'cell:read' },
     { section: 'Nghiệp vụ' },
-    { label: 'Hoạt động', icon: Calendar, to: '/admin/activities' },
-    { label: 'Sinh hoạt', icon: CalendarClock, to: '/admin/meetings' },
-    { label: 'Tin tức', icon: Newspaper, to: '/admin/news' },
-    { label: 'Thi & Khảo sát', icon: BookOpen, to: '/admin/quiz' },
-    { label: 'Văn bản', icon: FileText, to: '/admin/documents' },
-    { label: 'Thông báo', icon: Bell, to: '/admin/notifications' },
+    { label: 'Hoạt động', icon: Calendar, to: '/admin/activities', permission: 'activity:read' },
+    { label: 'Sinh hoạt', icon: CalendarClock, to: '/admin/meetings', permission: 'meeting:read' },
+    { label: 'Tin tức', icon: Newspaper, to: '/admin/news', permission: 'news:read' },
+    { label: 'Thi & Khảo sát', icon: BookOpen, to: '/admin/quiz', permission: 'quiz:read' },
+    { label: 'Văn bản', icon: FileText, to: '/admin/documents', permission: 'document:read' },
+    { label: 'Đoàn phí', icon: Wallet, to: '/admin/fees', permission: 'fee:read' },
+    { label: 'Thông báo', icon: Bell, to: '/admin/notifications', permission: 'notification:read' },
     { section: 'Hệ thống' },
-    { label: 'Tài khoản', icon: UserCog, to: '/admin/users' },
-    { label: 'Banner Trang chủ', icon: ImageIcon, to: '/admin/banners' },
-    { label: 'Trang Landing Page', icon: MousePointer2, to: '/admin/landing' },
+    { label: 'Tài khoản', icon: UserCog, to: '/admin/users', permission: 'user:read' },
+    { label: 'Phân quyền', icon: Shield, to: '/admin/roles', permission: 'system:config' },
+    { label: 'Banner Trang chủ', icon: ImageIcon, to: '/admin/banners', permission: 'banner:read' },
+    { label: 'Trang Landing Page', icon: MousePointer2, to: '/admin/landing', permission: 'landing:read' },
 ];
 
 const PAGE_TITLES = {
@@ -40,14 +42,17 @@ const PAGE_TITLES = {
     '/admin/news': 'Quản lý Tin tức',
     '/admin/quiz': 'Thi & Khảo sát',
     '/admin/documents': 'Kho Văn bản',
+    '/admin/fees': 'Quản lý Đoàn phí',
     '/admin/notifications': 'Quản lý Thông báo',
     '/admin/users': 'Quản lý Tài khoản',
+    '/admin/roles': 'Quản lý Phân quyền',
     '/admin/banners': 'Quản lý Banner',
     '/admin/landing': 'Quản lý Trang Landing',
+    '/admin/locations': 'Quản lý Địa điểm',
 };
 
 export default function AdminLayout() {
-    const { user, setUser, logout } = useAuth();
+    const { user, setUser, logout, hasPermission } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const pageTitle = PAGE_TITLES[location.pathname] || 'Admin';
@@ -75,7 +80,7 @@ export default function AdminLayout() {
     const handleSaveProfile = async () => {
         try {
             setPwLoading(true);
-            
+
             let updated = false;
 
             // 1. Upload Avatar
@@ -83,7 +88,7 @@ export default function AdminLayout() {
                 const formData = new FormData();
                 formData.append('avatar', file);
                 const res = await authApi.updateMe(formData);
-                if(setUser) setUser(res.data.data);
+                if (setUser) setUser(res.data.data);
                 updated = true;
             }
 
@@ -142,20 +147,23 @@ export default function AdminLayout() {
                 {/* Nav */}
                 <nav className="flex-1 py-4 overflow-y-auto scrollbar-hide">
                     {NAV.map((item, i) => {
-                        // Quyền Super Admin xem tất cả
-                        const isSuperAdmin = user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
-                        
-                        // Nếu không phải Super Admin, ẩn các mục quản lý Liên chi đoàn và hệ thống
-                        if (!isSuperAdmin) {
-                            if (item.to === '/admin/branches') return null;
-                            if (item.to === '/admin/users' || item.to === '/admin/banners' || item.section === 'Hệ thống') return null;
+                        if (item.permission && !hasPermission(item.permission)) return null;
+
+                        if (item.section) {
+                            const nextItems = NAV.slice(i + 1);
+                            const sectionHasVisibleItem = nextItems.some(sub => {
+                                if (sub.section) return false;
+                                return !sub.permission || hasPermission(sub.permission);
+                            });
+                            if (item.section === 'Hệ thống' && !sectionHasVisibleItem) return null;
+
+                            return (
+                                <p key={i} className="text-[10px] font-bold uppercase tracking-[0.2em] text-white px-6 pt-6 pb-2 opacity-50">
+                                    {item.section}
+                                </p>
+                            );
                         }
 
-                        if (item.section) return (
-                            <p key={i} className="text-[10px] font-bold uppercase tracking-[0.2em] text-white px-6 pt-6 pb-2">
-                                {item.section}
-                            </p>
-                        );
                         const Icon = item.icon;
                         return (
                             <NavLink
@@ -188,7 +196,7 @@ export default function AdminLayout() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-white text-sm font-bold truncate">{user?.username || 'Admin'}</p>
-                            <p className="text-white text-[10px] uppercase font-bold">Quản trị viên</p>
+                            <p className="text-white text-[10px] uppercase font-bold">{user?.Roles?.[0]?.name || 'Quản trị viên'}</p>
                         </div>
                         <div className="flex gap-1">
                             <button
@@ -257,38 +265,38 @@ export default function AdminLayout() {
 
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu hiện tại</label>
-                                <input 
-                                    type="password" 
-                                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700" 
+                                <input
+                                    type="password"
+                                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     placeholder="Bỏ trống nếu không đổi"
-                                    value={pwForm.oldPassword} 
-                                    onChange={e => setPwForm(prev => ({ ...prev, oldPassword: e.target.value }))} 
+                                    value={pwForm.oldPassword}
+                                    onChange={e => setPwForm(prev => ({ ...prev, oldPassword: e.target.value }))}
                                 />
                             </div>
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu mới</label>
-                                <input 
-                                    type="password" 
-                                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700" 
+                                <input
+                                    type="password"
+                                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     placeholder="Ít nhất 6 ký tự"
-                                    value={pwForm.newPassword} 
-                                    onChange={e => setPwForm(prev => ({ ...prev, newPassword: e.target.value }))} 
+                                    value={pwForm.newPassword}
+                                    onChange={e => setPwForm(prev => ({ ...prev, newPassword: e.target.value }))}
                                 />
                             </div>
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
-                                <input 
-                                    type="password" 
-                                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700" 
-                                    value={pwForm.confirm} 
-                                    onChange={e => setPwForm(prev => ({ ...prev, confirm: e.target.value }))} 
+                                <input
+                                    type="password"
+                                    className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
+                                    value={pwForm.confirm}
+                                    onChange={e => setPwForm(prev => ({ ...prev, confirm: e.target.value }))}
                                 />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
                             <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition" onClick={() => setPwModal(false)}>Hủy</button>
-                            <button 
-                                className="px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60" 
+                            <button
+                                className="px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60"
                                 onClick={handleSaveProfile}
                                 disabled={pwLoading}
                             >

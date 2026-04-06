@@ -9,16 +9,34 @@ const quizController = {
         const isSuperAdmin = roles.includes('SUPER_ADMIN');
         const isBranchAdmin = roles.includes('BRANCH_ADMIN');
         const isCellAdmin = roles.includes('CELL_ADMIN');
+        const isAdmin = isSuperAdmin || isBranchAdmin || isCellAdmin;
+        
+        let status = req.query.status;
 
         if (!isSuperAdmin) {
-            if (isBranchAdmin && req.user.unionBranchId) {
-                unionBranchId = req.user.unionBranchId;
-            } else if (isCellAdmin && req.user.unionCellId) {
-                unionCellId = req.user.unionCellId;
+            const member = req.user?.UnionMember;
+            if (member) {
+                if (member.unionCellId) {
+                    unionCellId = member.unionCellId;
+                }
+                const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                if (branchId) {
+                    unionBranchId = branchId;
+                }
+            }
+
+            // Nếu không phải Admin, chỉ được xem kỳ thi đã đăng
+            if (!isAdmin) {
+                status = 'PUBLISHED';
             }
         }
 
-        const result = await QuizService.getAll({ search, level, unionBranchId, unionCellId, page, limit });
+        const result = await QuizService.getAll({ 
+            search, level, status, 
+            unionBranchId, unionCellId, page, limit,
+            onlyDeleted: req.query.onlyDeleted === 'true',
+            user: req.user
+        });
         res.status(200).json({ success: true, ...result });
     }),
 
@@ -28,7 +46,7 @@ const quizController = {
     }),
 
     createExam: asyncHandler(async (req, res) => {
-        let { title, description, timeLimit, satisfactoryScore, startDate, endDate, questions } = req.body;
+        let { title, description, timeLimit, satisfactoryScore, startDate, endDate, status, questions } = req.body;
         
         let parsedQuestions = [];
         if (typeof questions === 'string') {
@@ -38,7 +56,7 @@ const quizController = {
         }
 
         const examData = {
-            title, description, timeLimit, satisfactoryScore, startDate, endDate,
+            title, description, timeLimit, satisfactoryScore, startDate, endDate, status,
             questions: parsedQuestions
         };
 
@@ -49,12 +67,20 @@ const quizController = {
         const isCellAdmin = roles.includes('CELL_ADMIN');
 
         if (!isSuperAdmin) {
-            if (isCellAdmin && req.user.unionCellId) {
-                examData.unionCellId = req.user.unionCellId;
-                examData.level = 'CELL';
-            } else if (isBranchAdmin && req.user.unionBranchId) {
-                examData.unionBranchId = req.user.unionBranchId;
-                examData.level = 'BRANCH';
+            const member = req.user?.UnionMember;
+            if (member) {
+                if (isCellAdmin && member.unionCellId) {
+                    examData.unionCellId = member.unionCellId;
+                    examData.level = 'CELL';
+                    const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                    if (branchId) examData.unionBranchId = branchId;
+                } else {
+                    const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+                    if (branchId) {
+                        examData.unionBranchId = branchId;
+                        examData.level = 'BRANCH';
+                    }
+                }
             }
         }
 
@@ -67,7 +93,17 @@ const quizController = {
     }),
 
     submitAttempt: asyncHandler(async (req, res) => {
-        const { memberId, answers } = req.body;
+        let { memberId, answers } = req.body;
+        
+        // Nếu không gửi memberId, tự lấy từ user đã đăng nhập
+        if (!memberId) {
+            memberId = req.user?.UnionMember?.id;
+        }
+        
+        if (!memberId) {
+            throw new ErrorResponse('Không xác định được thông tin đoàn viên thực hiện bài thi', 400);
+        }
+
         const result = await QuizService.submitAttempt(req.params.id, memberId, answers);
         res.status(200).json({ success: true, data: result });
     }),
@@ -79,11 +115,51 @@ const quizController = {
         const isSuperAdmin = req.user?.Roles?.some(r => r.code === 'SUPER_ADMIN');
         const userUnionMember = req.user?.UnionMember;
 
-        if (!isSuperAdmin && userUnionMember?.unionBranchId) {
-            unionBranchId = userUnionMember.unionBranchId;
+        if (!isSuperAdmin && userUnionMember) {
+            const branchId = userUnionMember.unionBranchId || userUnionMember.UnionCell?.unionBranchId;
+            if (branchId) unionBranchId = branchId;
         }
 
         const result = await QuizService.getAttempts(req.params.id, { search, unionBranchId, page, limit });
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    updateExam: asyncHandler(async (req, res) => {
+        let { title, description, timeLimit, satisfactoryScore, startDate, endDate, status, questions } = req.body;
+        
+        const exam = await QuizService.getById(req.params.id);
+        if (!exam) throw new ErrorResponse('Không tìm thấy kỳ thi', 404);
+
+        let parsedQuestions = questions;
+        if (typeof questions === 'string') {
+            try { parsedQuestions = JSON.parse(questions); } catch(e) {}
+        }
+
+        const examData = {
+            title, description, timeLimit, satisfactoryScore, startDate, endDate, status,
+            questions: parsedQuestions
+        };
+
+        if (req.file) {
+            examData.thumbnail = `/uploads/quiz/thumbnails/${req.file.filename}`;
+        }
+
+        const updated = await QuizService.update(req.params.id, examData);
+        res.status(200).json({ success: true, data: updated });
+    }),
+
+    deleteExam: asyncHandler(async (req, res) => {
+        const result = await QuizService.delete(req.params.id);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    restoreQuiz: asyncHandler(async (req, res) => {
+        const result = await QuizService.restoreQuiz(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    forceDeleteQuiz: asyncHandler(async (req, res) => {
+        const result = await QuizService.forceDeleteQuiz(req.params.id);
         res.status(200).json({ success: true, ...result });
     })
 };

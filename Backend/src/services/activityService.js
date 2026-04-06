@@ -1,7 +1,10 @@
-const { Activity, Attendance, UnionMember, UnionCell, UnionBranch } = require('../models');
+const { Activity, Attendance, UnionMember, UnionCell, UnionBranch, ActivityParticipant, User } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
+const { getScopeFilter, enforceScope, injectScope } = require('../utils/permissionHelper');
 const { sanitizeUUID } = require('../utils/sanitize');
+const { safeDate } = require('../utils/dateUtils');
+const { Op } = require('sequelize');
 const crypto = require('crypto');
 
 function generateCheckinCode() {
@@ -9,81 +12,153 @@ function generateCheckinCode() {
 }
 
 class ActivityService {
-    static async getAll({ upcoming, level, status, unionBranchId, search, page, limit } = {}) {
+    /**
+     * Lấy danh sách hoạt động (Enterprise Scoping)
+     */
+    static async getAll({ upcoming, level, status, unionBranchId, unionCellId, search, page, limit, onlyDeleted, user } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
-        const { Op } = require('sequelize');
+
+        // 1. Áp dụng bộ lọc phạm vi tự động (ABAC)
+        const scopeFilter = getScopeFilter(user, 'activity');
 
         const where = {
             ...buildSearchCondition(search, ['title', 'description', 'location'])
         };
-        
-        if (level) where.level = level;
-        if (status) where.status = status;
-        
-        if (unionBranchId) {
+
+        // Nếu admin, cho phép xem các hoạt động trong scope của mình HOẶC hoạt động cấp Trường (Public)
+        if (Object.keys(scopeFilter).length > 0) {
             where[Op.or] = [
-                { unionBranchId: unionBranchId },
-                { level: 'SCHOOL' }
+                { level: 'SCHOOL' }, // Luôn cho phép xem hoạt động cấp trường
+                scopeFilter
             ];
         }
+
+        if (level) where.level = level;
+
+        // Mặc định chỉ hiển thị các hoạt động đã duyệt/đang diễn ra/hoàn thành cho user thường
+        if (status) {
+            where.status = status;
+        } else if (!user || !user.isSuperAdmin) {
+            where.status = { [Op.in]: ['APPROVED', 'IN_PROGRESS', 'COMPLETED'] };
+        }
+
+        // Lọc bổ sung (Super Admin hoặc lọc thủ công trong scope)
+        if (unionBranchId) where.unionBranchId = unionBranchId;
+        if (unionCellId) where.organizedByCellId = unionCellId;
 
         if (upcoming === 'true') {
             where.startDate = { [Op.gte]: new Date() };
         }
 
-        const result = await Activity.findAndCountAll({
+        const queryOptions = {
             where,
             include: [
-                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] }
+                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'], paranoid: false },
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'], paranoid: false },
+                { model: ActivityParticipant, attributes: ['id', 'memberId', 'registrationStatus', 'attendanceStatus'] }
             ],
-            order: [['startDate', 'DESC']],
+            order: onlyDeleted ? [['deletedAt', 'DESC']] : [['startDate', 'DESC']],
             limit: l,
             offset
-        });
+        };
+
+        if (onlyDeleted) {
+            queryOptions.paranoid = false;
+            where.deletedAt = { [Op.ne]: null };
+        }
+
+        const result = await Activity.findAndCountAll(queryOptions);
 
         return formatPaginatedResponse(result, p, l);
     }
 
-    static async getById(id) {
+    /**
+     * Lấy chi tiết hoạt động (Strict Scoping)
+     */
+    static async getById(id, user = null) {
         const activity = await Activity.findByPk(id, {
+            paranoid: false,
             include: [
-                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'] },
-                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'] },
+                { model: UnionBranch, as: 'OrganizerBranch', attributes: ['id', 'name'], paranoid: false },
+                { model: UnionCell, as: 'OrganizerCell', attributes: ['id', 'name'], paranoid: false },
                 {
-                    model: require('../models').ActivityParticipant,
-                    include: [{ model: UnionMember, attributes: ['id', 'fullName', 'memberCode', 'avatar'] }]
+                    model: ActivityParticipant,
+                    include: [{
+                        model: UnionMember,
+                        paranoid: false,
+                        attributes: ['id', 'fullName', 'memberCode', 'avatar'],
+                        include: [
+                            { model: User, attributes: ['phoneNumber', 'email'], paranoid: false },
+                            { model: UnionCell, attributes: ['id', 'name'], paranoid: false }
+                        ]
+                    }]
                 }
             ]
         });
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
+
+        // 1. Kiểm tra phạm vi truy cập (Admin context)
+        if (user && activity.level !== 'SCHOOL') {
+            enforceScope(user, activity);
+        }
+
         return activity;
     }
 
-    static async create(data) {
-        const sanitizedData = sanitizeUUID(data);
-        if (!sanitizedData.checkinCode) {
-            sanitizedData.checkinCode = generateCheckinCode();
-            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    /**
+     * Tạo hoạt động (ID Injection Protected)
+     */
+    static async create(data, user) {
+        // 1. NGĂN CHẶN ID INJECTION: Xóa ID cũ, gán ID theo User Session
+        injectScope(data, user, 'activity');
+
+        // 2. Ép buộc 'level' phù hợp với quyền hạn quản lý
+        if (user && !user.isSuperAdmin) {
+            if (user.unionCellId) data.level = 'CELL';
+            else if (user.unionBranchId) data.level = 'BRANCH';
         }
+
+        if (data.startDate) data.startDate = safeDate(data.startDate);
+        if (data.endDate) data.endDate = safeDate(data.endDate);
+
+        if (!data.checkinCode) {
+            data.checkinCode = generateCheckinCode();
+            const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
+            data.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
+        }
+
         // Tự động xác định approvalRole dựa trên level
-        if (sanitizedData.level === 'CELL') sanitizedData.approvalRole = 'BRANCH_ADMIN';
-        else if (sanitizedData.level === 'BRANCH') sanitizedData.approvalRole = 'SUPER_ADMIN';
-        else sanitizedData.status = 'APPROVED'; // School activities by super admin are auto-approved
+        if (data.level === 'CELL') data.approvalRole = 'BRANCH_ADMIN';
+        else if (data.level === 'BRANCH') data.approvalRole = 'SUPER_ADMIN';
+        else data.status = 'APPROVED'; // School activities by super admin are auto-approved
 
-        const activity = await Activity.create(sanitizedData);
-        
-        if (activity.status === 'PENDING_APPROVAL') {
-            // Notify approvers (Optional but recommended)
+        return await Activity.create(data);
+    }
+
+    /**
+     * Cập nhật hoạt động (Safe Scope Overrides)
+     */
+    static async update(id, data, user) {
+        const activity = await this.getById(id, user);
+
+        // 1. Chống thay đổi đơn vị tổ chức trái phép
+        injectScope(data, user, 'activity');
+
+        if (data.startDate) data.startDate = safeDate(data.startDate);
+        if (data.endDate) data.endDate = safeDate(data.endDate);
+
+        if (data.status === 'IN_PROGRESS' && !activity.checkinCode) {
+            data.checkinCode = generateCheckinCode();
+            const ttl = data.checkinTTL ? parseInt(data.checkinTTL) : 15;
+            data.checkinCodeExpiresAt = new Date(Date.now() + ttl * 60 * 1000);
         }
 
+        await activity.update(data);
         return activity;
     }
 
-    static async approveActivity(id) {
-        const activity = await Activity.findByPk(id);
-        if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        
+    static async approveActivity(id, user) {
+        const activity = await this.getById(id, user);
         await activity.update({ status: 'APPROVED' });
 
         // Notification Hook: Notify target audience
@@ -101,73 +176,118 @@ class ActivityService {
         return activity;
     }
 
+    static async delete(id, user) {
+        const activity = await this.getById(id, user);
+        await activity.destroy();
+        return { message: 'Đã chuyển hoạt động vào thùng rác' };
+    }
+
+    static async restoreActivity(id, user) {
+        const activity = await this.getById(id, user); // Đã check paranoid: false
+        if (!activity.deletedAt) throw new ErrorResponse('Hoạt động này chưa bị xóa', 400);
+
+        // Kiểm tra xem đơn vị tổ chức có bị xóa không
+        if (activity.level === 'CELL' && activity.organizedByCellId) {
+            const cell = await UnionCell.findByPk(activity.organizedByCellId, { paranoid: false });
+            if (cell && cell.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Chi đoàn tổ chức đang bị xóa.', 400);
+        } else if (activity.level === 'BRANCH' && activity.organizedByBranchId) {
+            const branch = await UnionBranch.findByPk(activity.organizedByBranchId, { paranoid: false });
+            if (branch && branch.deletedAt) throw new ErrorResponse('Không thể khôi phục vì Đoàn khoa tổ chức đang bị xóa.', 400);
+        }
+
+        await activity.restore();
+        return activity;
+    }
+
+    static async forceDeleteActivity(id, user) {
+        const activity = await this.getById(id, user);
+        await activity.destroy({ force: true });
+        return { message: 'Đã xóa vĩnh viễn hoạt động' };
+    }
+
+    /**
+     * Điểm danh (Strict check participant scope)
+     */
     static async registerParticipant(activityId, memberId) {
-        const activity = await Activity.findByPk(activityId);
+        const member = await UnionMember.findByPk(memberId, {
+            include: [{ model: UnionCell }]
+        });
+        if (!member) throw new ErrorResponse('Không tìm thấy thông tin đoàn viên', 404);
+
+        const activity = await Activity.findByPk(activityId, {
+            include: [{ model: ActivityParticipant, attributes: ['id', 'memberId'] }]
+        });
         if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        if (activity.status !== 'APPROVED' && activity.status !== 'IN_PROGRESS') {
+
+        // 1. Kiểm tra trạng thái hoạt động
+        if (activity.status !== 'APPROVED' && activity.status !== 'IN_PROGRESS' && activity.status !== 'COMPLETED') {
             throw new ErrorResponse('Hoạt động này hiện không nhận đăng ký', 400);
         }
 
-        const { ActivityParticipant } = require('../models');
+        // 2. Kiểm tra giới hạn số lượng (Slots)
+        if (activity.maxParticipants && activity.ActivityParticipants && activity.ActivityParticipants.length >= activity.maxParticipants) {
+            throw new ErrorResponse('Hoạt động này đã đủ số lượng người đăng ký (Hết chỗ)', 400);
+        }
+
+        // 3. Kiểm tra phân quyền đăng ký (Registration ABAC)
+        if (activity.level === 'BRANCH') {
+            const userBranchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+            if (activity.unionBranchId !== userBranchId && activity.organizedByBranchId !== userBranchId) {
+                throw new ErrorResponse('Hoạt động này chỉ dành cho đoàn viên thuộc Liên chi đoàn tổ chức', 403);
+            }
+        } else if (activity.level === 'CELL') {
+            if (activity.organizedByCellId !== member.unionCellId) {
+                throw new ErrorResponse('Hoạt động này chỉ dành cho đoàn viên thuộc Chi đoàn tổ chức', 403);
+            }
+        }
+
         const [participant, created] = await ActivityParticipant.findOrCreate({
             where: { activityId, memberId },
-            defaults: { registrationStatus: 'REGISTERED' }
+            defaults: { registrationStatus: 'APPROVED' }
         });
 
-        if (!created) throw new ErrorResponse('Bạn đã đăng ký hoạt động này rồi', 400);
+        if (!created) throw new ErrorResponse('Đồng chí đã đăng ký hoạt động này rồi', 400);
         return participant;
     }
 
-    static async updateParticipantStatus(activityId, memberId, { registrationStatus, attendanceStatus, scoreAwarded, remarks }) {
-        const { ActivityParticipant } = require('../models');
+    static async unregisterParticipant(activityId, memberId) {
+        const participant = await ActivityParticipant.findOne({ where: { activityId, memberId } });
+        if (!participant) throw new ErrorResponse('Bạn chưa đăng ký hoạt động này', 404);
+
+        if (participant.attendanceStatus === 'PRESENT') {
+            throw new ErrorResponse('Không thể hủy đăng ký sau khi đã điểm danh', 400);
+        }
+
+        await participant.destroy();
+        return { message: 'Đã hủy đăng ký thành công' };
+    }
+
+    static async updateParticipantStatus(activityId, memberId, { registrationStatus, attendanceStatus, scoreAwarded, remarks }, user) {
+        const activity = await this.getById(activityId, user); // Check authority to manage this activity
+        
         const participant = await ActivityParticipant.findOne({ where: { activityId, memberId } });
         if (!participant) throw new ErrorResponse('Dữ liệu đăng ký không tồn tại', 404);
 
         const oldRegStatus = participant.registrationStatus;
         await participant.update({ registrationStatus, attendanceStatus, scoreAwarded, remarks });
 
-        // Notify if approved
         if (registrationStatus === 'APPROVED' && oldRegStatus !== 'APPROVED') {
             const NotificationService = require('./notificationService');
             await NotificationService.createSystemNotification({
                 title: 'Đăng ký đã được duyệt',
-                content: `Hồ sơ đăng ký tham gia hoạt động "${activityId}" của bạn đã được chấp nhận.`,
-                category: 'SYSTEM',
-                targetType: 'INDIVIDUAL',
-                targetId: memberId,
-                entityType: 'activity',
-                entityId: activityId
+                content: `Hồ sơ đăng ký tham gia hoạt động "${activity.title}" của bạn đã được chấp nhận.`,
+                category: 'SYSTEM', targetType: 'INDIVIDUAL', targetId: memberId,
+                entityType: 'activity', entityId: activityId
             });
         }
 
         return participant;
     }
 
-    static async update(id, data) {
-        const activity = await Activity.findByPk(id);
-        if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        
-        const sanitizedData = sanitizeUUID(data);
-        if (data.status === 'IN_PROGRESS' && !activity.checkinCode) {
-            sanitizedData.checkinCode = generateCheckinCode();
-            sanitizedData.checkinCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-        }
-        await activity.update(sanitizedData);
-        return activity;
-    }
-
-    static async delete(id) {
-        const activity = await Activity.findByPk(id);
-        if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        await activity.destroy();
-        return { message: 'Đã xóa hoạt động thành công' };
-    }
-
-    static async markAttendance(activityId, memberId, status, remarks) {
-        const { ActivityParticipant } = require('../models');
+    static async markAttendance(activityId, memberId, status, remarks, user) {
+        await this.getById(activityId, user); // check scope
         const participant = await ActivityParticipant.findOne({ where: { activityId, memberId } });
         if (!participant) throw new ErrorResponse('Dữ liệu đăng ký không tồn tại', 404);
-        
         await participant.update({ attendanceStatus: status, remarks });
         return participant;
     }
@@ -184,36 +304,34 @@ class ActivityService {
         }
 
         if (activity.checkinCodeExpiresAt && new Date() > new Date(activity.checkinCodeExpiresAt)) {
-            throw new ErrorResponse('Mã điểm danh đã hết hạn. Vui lòng liên hệ người tổ chức để làm mới mã.', 400);
+            throw new ErrorResponse('Mã điểm danh đã hết hạn.', 400);
         }
 
-        const { ActivityParticipant } = require('../models');
         const [participant, created] = await ActivityParticipant.findOrCreate({
             where: { activityId, memberId },
-            defaults: { registrationStatus: 'APPROVED' } // Auto approve if they are there and have the code
+            defaults: { registrationStatus: 'APPROVED' }
         });
 
         await participant.update({ attendanceStatus: 'PRESENT' });
         return participant;
     }
 
-    static async refreshCheckinCode(id) {
-        const activity = await Activity.findByPk(id);
-        if (!activity) throw new ErrorResponse('Không tìm thấy hoạt động', 404);
-        
+    static async refreshCheckinCode(id, customTTL, user) {
+        const activity = await this.getById(id, user);
         const newCode = generateCheckinCode();
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-        
-        await activity.update({ 
-            checkinCode: newCode, 
-            checkinCodeExpiresAt: expiresAt 
+        const ttl = customTTL ? parseInt(customTTL) : 15;
+        const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
+
+        await activity.update({
+            checkinCode: newCode,
+            checkinCodeExpiresAt: expiresAt
         });
-        
+
         return { checkinCode: newCode, checkinCodeExpiresAt: expiresAt };
     }
 
-    static async bulkAttendance(activityId, attendanceList) {
-        const { ActivityParticipant } = require('../models');
+    static async bulkAttendance(activityId, attendanceList, user) {
+        await this.getById(activityId, user);
         const results = [];
         for (const item of attendanceList) {
             const participant = await ActivityParticipant.findOne({ where: { activityId, memberId: item.memberId } });
@@ -226,7 +344,6 @@ class ActivityService {
     }
 
     static async getMemberAttendance(memberId) {
-        const { ActivityParticipant, Activity } = require('../models');
         return await ActivityParticipant.findAll({
             where: { memberId },
             include: [{ model: Activity }]
@@ -234,10 +351,7 @@ class ActivityService {
     }
 
     static async getSummary(user) {
-        const { Meeting, UnionFeePayment } = require('../models');
-        const { Op } = require('sequelize');
-        
-        // Lấy cuộc họp sắp tới
+        const { Meeting } = require('../models');
         const nextMeeting = await Meeting.findOne({
             where: {
                 status: { [Op.in]: ['SCHEDULED', 'IN_PROGRESS'] },
@@ -246,10 +360,9 @@ class ActivityService {
             order: [['meetingTime', 'ASC']]
         });
 
-        // Tạm thời mock unpaid_fee vì logic đoàn phí phức tạp
         return {
             next_meeting: nextMeeting ? `${new Date(nextMeeting.meetingTime).toLocaleString('vi-VN')}` : 'Chưa có lịch',
-            unpaid_fee: 'Đã hoàn thành' 
+            unpaid_fee: 'Đã hoàn thành'
         };
     }
 }

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { quizApi } from '../../services/api';
 
-const INPUT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition";
+const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-50 shadow-sm";
 
 export default function CreateQuizPage() {
@@ -17,6 +17,7 @@ export default function CreateQuizPage() {
     const [preview, setPreview] = useState(null);
     const [form, setForm] = useState({
         title: '', description: '', timeLimit: 15, satisfactoryScore: 50, level: 'SCHOOL',
+        startDate: '', endDate: '', status: 'UPCOMING',
         questions: [{ content: '', score: 10, options: [{ content: '', isCorrect: true }, { content: '', isCorrect: false }] }]
     });
 
@@ -61,6 +62,9 @@ export default function CreateQuizPage() {
         finalForm.append('timeLimit', form.timeLimit);
         finalForm.append('satisfactoryScore', form.satisfactoryScore);
         finalForm.append('level', form.level);
+        if (form.startDate) finalForm.append('startDate', form.startDate);
+        if (form.endDate) finalForm.append('endDate', form.endDate);
+        finalForm.append('status', form.status);
         finalForm.append('questions', JSON.stringify(form.questions));
         if (file) {
             finalForm.append('thumbnail', file);
@@ -125,7 +129,7 @@ export default function CreateQuizPage() {
                                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mô tả ngắn</label>
                                         <textarea className={INPUT} rows={4} value={form.description} onChange={e => updateForm('description', e.target.value)} placeholder="Viết mô tả hoặc hướng dẫn làm bài..." />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-5">
+                                    <div className="grid grid-cols-3 gap-5">
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phạm vi hiển thị *</label>
                                             <select className={INPUT} value={form.level} onChange={e => updateForm('level', e.target.value)}>
@@ -135,18 +139,43 @@ export default function CreateQuizPage() {
                                             </select>
                                         </div>
                                         <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Điểm đạt *</label>
+                                            <input type="number" className={INPUT} value={form.satisfactoryScore} onChange={e => updateForm('satisfactoryScore', Number(e.target.value))} />
+                                        </div>
+                                        <div>
                                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thời gian (phút) *</label>
                                             <input type="number" className={INPUT} value={form.timeLimit} onChange={e => updateForm('timeLimit', Number(e.target.value))} />
                                         </div>
                                     </div>
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Ngày bắt đầu *</label>
+                                            <input type="datetime-local" className={INPUT} value={form.startDate} onChange={e => updateForm('startDate', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Ngày kết thúc *</label>
+                                            <input type="datetime-local" className={INPUT} value={form.endDate} onChange={e => updateForm('endDate', e.target.value)} />
+                                        </div>
+                                    </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Điểm đạt (để vượt qua) *</label>
-                                        <input type="number" className={INPUT} value={form.satisfactoryScore} onChange={e => updateForm('satisfactoryScore', Number(e.target.value))} />
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái kỳ thi *</label>
+                                        <select className={INPUT} value={form.status} onChange={e => updateForm('status', e.target.value)}>
+                                            <option value="DRAFT">Bản nháp (Chưa cho phép thi)</option>
+                                            <option value="UPCOMING">Đã xuất bản (Tự động theo lịch)</option>
+                                            <option value="FINISHED">Đóng kỳ thi (Kết thúc sớm)</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-6 border-t border-gray-100 flex justify-end">
+                            <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
+                                <button 
+                                    className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition"
+                                    onClick={handleSave}
+                                    disabled={createMutation.isLoading}
+                                >
+                                    {createMutation.isLoading ? 'Đang lưu...' : 'Lưu bản nháp'}
+                                </button>
                                 <button className={BTN_PRIMARY} onClick={() => setStep(2)}>Tiếp tục: Cập nhật Câu hỏi <ArrowRight size={16} /></button>
                             </div>
                         </div>

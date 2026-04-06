@@ -10,14 +10,50 @@ const PRIMARY = '#1d4ed8'; // blue-700
 export const confirmDelete = (name) =>
     Swal.fire({
         title: 'Xác nhận xóa?',
-        html: `Bạn có chắc muốn xóa <strong>"${name}"</strong>?<br/><span style="color:#ef4444;font-size:13px">Hành động này không thể hoàn tác!</span>`,
+        html: `Bạn có chắc muốn xóa <strong>"${name}"</strong>?<br/><span style="color:#f59e0b;font-size:13px">Mục này sẽ được chuyển vào thùng rác.</span>`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: '<i class="fa"></i> Xóa',
+        confirmButtonText: 'Xóa vào thùng rác',
         cancelButtonText: 'Hủy',
         reverseButtons: true,
+        focusCancel: true,
+    });
+
+/**
+ * Xác nhận khôi phục — hộp thoại màu xanh lá
+ * @param {string} name 
+ */
+export const confirmRestore = (name) =>
+    Swal.fire({
+        title: 'Khôi phục dữ liệu?',
+        html: `Bạn muốn đưa <strong>"${name}"</strong> quay trở lại danh sách hoạt động?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Khôi phục ngay',
+        cancelButtonText: 'Hủy',
+        reverseButtons: true,
+    });
+
+/**
+ * Xác nhận xóa vĩnh viễn — hộp thoại màu đỏ rực
+ * @param {string} name 
+ */
+export const confirmForceDelete = (name) =>
+    Swal.fire({
+        title: 'XÓA VĨNH VIỄN?',
+        html: `<strong>"${name}"</strong> và các dữ liệu liên quan (bao gồm tệp tin) sẽ bị xóa hoàn toàn.<br/><span style="color:#ef4444;font-weight:bold;font-size:14px uppercase">HÀNH ĐỘNG NÀY KHÔNG THỂ HOÀN TÁC!</span>`,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'XÓA VĨNH VIỄN',
+        cancelButtonText: 'Hủy',
+        reverseButtons: true,
+        focusConfirm: false,
         focusCancel: true,
     });
 
