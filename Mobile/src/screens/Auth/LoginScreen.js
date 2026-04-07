@@ -66,7 +66,9 @@ const LoginScreen = ({ navigation }) => {
 
         setLoading(true);
         try {
-            const response = await authService.login(username, password);
+            // Sử dụng hàm login từ useAuth để xử lý toàn bộ luồng
+            const response = await login(username, password);
+            
             if (response && (response.token || response.success)) {
                 // Save or clear credentials
                 if (rememberMe) {
@@ -78,13 +80,15 @@ const LoginScreen = ({ navigation }) => {
                     await AsyncStorage.removeItem('saved_password');
                     await AsyncStorage.setItem('remember_me', 'false');
                 }
-
-                if (login) await login(response);
+                // Sau khi login(username, password) trong AuthContext thành công,
+                // nó đã tự gọi checkAuth() để cập nhật trạng thái isLoggedIn.
             } else {
-                Alert.alert('Lỗi', 'Đăng nhập thất bại');
+                Alert.alert('Lỗi', 'Tên đăng nhập hoặc mật khẩu không đúng');
             }
         } catch (error) {
-            Alert.alert('Lỗi', 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+            console.error('Login error:', error);
+            const errorMsg = error?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.';
+            Alert.alert('Lỗi', errorMsg);
         } finally {
             setLoading(false);
         }

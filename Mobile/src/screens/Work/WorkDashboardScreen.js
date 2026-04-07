@@ -7,7 +7,8 @@ import {
     ActivityIndicator, 
     TouchableOpacity, 
     Dimensions,
-    RefreshControl
+    RefreshControl,
+    Image as RNImage
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +16,7 @@ import { WorkCard } from '../../components/cards/WorkCard';
 import { COLORS, SIZES } from '../../constants';
 import { workService } from '../../services/workService';
 import CommonHeader from '../../components/CommonHeader';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Load old PNG icons
 const ICON_SET = {
@@ -31,9 +33,13 @@ const ICON_SET = {
 const { width } = Dimensions.get('window');
 
 export const WorkDashboardScreen = ({ navigation }) => {
+    const { user } = useAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Kiểm tra quyền Cán bộ - Bạn có thể tùy chỉnh vai trò ở đây
+    const isOfficer = user?.role === 'ADMIN' || user?.role === 'SECRETARY' || user?.role === 'VICE_SECRETARY' || user?.isSuperAdmin;
 
     const fetchData = async () => {
         try {
@@ -123,6 +129,58 @@ export const WorkDashboardScreen = ({ navigation }) => {
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
+
+                {/* Admin/Officer Section */}
+                {isOfficer && (
+                    <>
+                        <Text style={styles.sectionHeader}>Quản lý & Nghiệp vụ</Text>
+                        <View style={styles.gridContainer}>
+                            <View style={styles.gridRow}>
+                                <WorkCard
+                                    iconName="people"
+                                    title="Quản lý Đoàn viên"
+                                    desc="Duyệt hồ sơ & Thông tin"
+                                    onPress={() => navigation.navigate('MemberMgmt')}
+                                />
+                                <WorkCard
+                                    iconName="calendar"
+                                    title="Tổ chức sinh hoạt"
+                                    desc="Tạo lịch & Điểm danh"
+                                    onPress={() => navigation.navigate('MeetingCreate')}
+                                />
+                            </View>
+                            <View style={styles.gridRow}>
+                                <WorkCard
+                                    iconName="stats-chart"
+                                    title="Thống kê"
+                                    desc="Báo cáo số liệu"
+                                    onPress={() => navigation.navigate('StatisticsMgmt')}
+                                />
+                                <WorkCard
+                                    iconName="card"
+                                    title="Quản lý Đoàn phí"
+                                    desc="Kiểm tra đóng phí"
+                                    onPress={() => navigation.navigate('FeeMgmt')}
+                                />
+                            </View>
+                            <View style={styles.gridRow}>
+                                <WorkCard
+                                    iconName="business"
+                                    title="Quản lý Chi đoàn"
+                                    desc="Thông tin tổ chức"
+                                    onPress={() => navigation.navigate('CellMgmt')}
+                                />
+                                <WorkCard
+                                    iconName="megaphone"
+                                    title="Đăng tin tức"
+                                    desc="Tạo & Duyệt tin"
+                                    onPress={() => navigation.navigate('NewsMgmt')}
+                                />
+                            </View>
+                        </View>
+                        <View style={{ height: 24 }} />
+                    </>
+                )}
 
                 {/* Main Tasks Section */}
                 <Text style={styles.sectionHeader}>Nhiệm vụ trọng tâm</Text>

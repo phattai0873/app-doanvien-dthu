@@ -29,6 +29,9 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     async (config) => {
         console.log(`[API-Request] ${config.method?.toUpperCase()} ${config.url}`);
+        if (config.data) {
+            console.log(`[API-Body]`, JSON.stringify(config.data));
+        }
         return config;
     },
     (error) => {

@@ -23,6 +23,7 @@ import { meetingService } from '../../services/meetingService';
 import { notificationService } from '../../services/notificationService';
 import { API_BASE_URL } from '../../services/api';
 import Banner from '../../components/Banner';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -66,13 +67,17 @@ const NewsCard = ({ item, onPress }) => (
 
 export const DashboardScreen = ({ navigation }) => {
     const insets = useSafeAreaInsets();
+    const { user: authUser } = useAuth();
     const [news, setNews] = useState([]);
     const [banners, setBanners] = useState([]);
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(authUser);
     const [nextMeeting, setNextMeeting] = useState(null);
     const [hasUnreadNotif, setHasUnreadNotif] = useState(false);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Quyền cán bộ
+    const isOfficer = authUser?.role === 'ADMIN' || authUser?.role === 'SECRETARY' || authUser?.role === 'VICE_SECRETARY' || authUser?.isSuperAdmin;
 
     useEffect(() => {
         loadData();
@@ -154,13 +159,24 @@ export const DashboardScreen = ({ navigation }) => {
                         <Text style={styles.userName}>{user?.UnionMember?.fullName || user?.username || 'Đoàn viên DThU'} 👋</Text>
                     </View>
 
-                    <TouchableOpacity 
-                        style={styles.notificationBtn} 
-                        onPress={() => navigation.navigate('Notification')}
-                    >
-                        <Ionicons name="notifications" size={24} color={COLORS.gray900} />
-                        {hasUnreadNotif && <View style={styles.notifBadge} />}
-                    </TouchableOpacity>
+                    <View style={styles.headerActions}>
+                        {isOfficer && (
+                            <TouchableOpacity 
+                                style={[styles.actionBtn, { marginRight: 12 }]} 
+                                onPress={() => navigation.navigate('AdminDashboard')}
+                            >
+                                <Ionicons name="shield-checkmark" size={24} color={COLORS.primary} />
+                            </TouchableOpacity>
+                        )}
+                        
+                        <TouchableOpacity 
+                            style={styles.actionBtn} 
+                            onPress={() => navigation.navigate('Notification')}
+                        >
+                            <Ionicons name="notifications" size={24} color={COLORS.gray900} />
+                            {hasUnreadNotif && <View style={styles.notifBadge} />}
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Banner Section */}
@@ -268,16 +284,11 @@ const styles = StyleSheet.create({
     greeting: { fontSize: 13, color: COLORS.gray500, fontWeight: '500' },
     userName: { fontSize: 24, color: COLORS.gray900, fontWeight: '900', marginTop: 2 },
     welcomeInfo: { flex: 1, marginLeft: 16 },
-    menuBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: COLORS.white,
+    headerActions: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        ...COLORS.shadow,
     },
-    notificationBtn: {
+    actionBtn: {
         width: 44,
         height: 44,
         borderRadius: 22,
