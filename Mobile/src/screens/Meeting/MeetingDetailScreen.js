@@ -22,7 +22,7 @@ import QRScannerModal from '../../components/QRScannerModal';
 
 const { width } = Dimensions.get('window');
 
-export const MeetingDetailScreen = ({ route, onNavigate }) => {
+export const MeetingDetailScreen = ({ route, navigation }) => {
     const { id } = route?.params || {};
     const [meeting, setMeeting] = useState(null);
     const [loading, setLoading] = useState(true);

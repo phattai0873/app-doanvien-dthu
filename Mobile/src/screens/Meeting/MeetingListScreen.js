@@ -14,7 +14,7 @@ import { SIZES } from '../../constants/sizes';
 import { meetingService } from '../../services/meetingService';
 import { authService } from '../../services/authService';
 
-export const MeetingListScreen = ({ onNavigate }) => {
+export const MeetingListScreen = ({ navigation }) => {
     const [meetings, setMeetings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -25,16 +25,10 @@ export const MeetingListScreen = ({ onNavigate }) => {
             const currentUser = await authService.getCurrentUser();
             
             // Define fetch parameters based on user's affiliation
+            // Backend now handles scoping automatically based on user token
             const fetchParams = {};
-            if (currentUser && currentUser.UnionMember) {
-                const member = currentUser.UnionMember;
-                if (member.unionCellId) fetchParams.unionCellId = member.unionCellId;
-                
-                const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
-                if (branchId) fetchParams.unionBranchId = branchId;
-            }
-
-            const rawData = await meetingService.getMeetings(fetchParams);
+            const response = await meetingService.getMeetings(fetchParams);
+            const rawData = Array.isArray(response) ? response : (response.data || []);
             
             const mappedData = rawData.map(m => {
                 const date = new Date(m.meetingTime);
@@ -97,7 +91,7 @@ export const MeetingListScreen = ({ onNavigate }) => {
     const renderItem = ({ item }) => (
         <TouchableOpacity
             style={styles.card}
-            onPress={() => onNavigate && onNavigate('meeting_detail', { id: item.id })}
+        onPress={() => navigation.navigate('MeetingDetail', { id: item.id })}
         >
             <View style={styles.cardHeader}>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>

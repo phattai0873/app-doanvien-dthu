@@ -16,7 +16,10 @@ import { COLORS, SIZES, IMAGES } from '../../constants';
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
 
+import { useAuth } from '../../contexts/AuthContext';
+
 export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout }) => {
+    const { user, hasPermission, hasAnyPermission } = useAuth();
     const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -81,6 +84,11 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
 
     if (!isOpen && slideAnim._value === -DRAWER_WIDTH) return null;
 
+    // Kiểm tra các quyền quản lý
+    const canManageMembers = hasAnyPermission(['member:approve', 'member:create', 'member:update', 'member:delete']);
+    const canManageActivities = hasAnyPermission(['activity:approve', 'activity:attendance', 'activity:create', 'activity:update']);
+    const canViewStats = hasPermission('system:config') || user?.isSuperAdmin;
+
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? 'auto' : 'none'}>
             {/* Backdrop */}
@@ -94,29 +102,60 @@ export const SideDrawer = ({ isOpen, onClose, onNavigate, activeTab, onLogout })
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.avatar}>
-                            <RNImage 
-                                source={IMAGES.logo} 
-                                style={styles.logoInDrawer}
-                                resizeMode="contain"
-                            />
+                            {user?.avatar ? (
+                                <RNImage 
+                                    source={{ uri: `http://172.20.157.19:5000${user.avatar}` }} 
+                                    style={styles.avatarImage} 
+                                />
+                            ) : (
+                                <RNImage 
+                                    source={IMAGES.logo} 
+                                    style={styles.logoInDrawer}
+                                    resizeMode="contain"
+                                />
+                            )}
                         </View>
-                        <View>
-                            <Text style={styles.name}>Đoàn viên DThU</Text>
-                            <Text style={styles.role}>Chi đoàn CNTT</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.name} numberOfLines={1}>{user?.username || 'Đoàn viên'}</Text>
+                            <Text style={styles.role} numberOfLines={1}>
+                                {user?.Roles?.[0]?.name || 'Đoàn viên'}
+                            </Text>
+                            <Text style={styles.unit} numberOfLines={1}>
+                                {user?.UnionMember?.UnionCell?.name || 'ĐH Đồng Tháp'}
+                            </Text>
                         </View>
                     </View>
 
                     {/* Nav Items */}
                     <View style={styles.navSection}>
-                        <DrawerItem icon="Grid" label="Bảng điều khiển" id="dashboard" />
-                        <DrawerItem icon="Newspaper" label="Bản tin" id="news" />
-                        <DrawerItem icon="Briefcase" label="Công tác Đoàn" id="work" />
-                        <DrawerItem icon="List" label="Sinh hoạt" id="meeting_list" />
-                        <DrawerItem icon="Award" label="Cuộc thi" id="exam_list" />
-                        <DrawerItem icon="FileText" label="Văn bản" id="document_list" />
-                        <DrawerItem icon="Wallet" label="Đoàn phí" id="fee_payment" />
-                        <DrawerItem icon="Bell" label="Thông báo" id="notif" />
-                        <DrawerItem icon="User" label="Cá nhân" id="profile" />
+                        <View style={styles.menuSection}>
+                            <Text style={styles.sectionTitle}>Chung</Text>
+                            <DrawerItem icon="Grid" label="Bảng điều khiển" id="dashboard" />
+                            <DrawerItem icon="Newspaper" label="Bản tin" id="news" />
+                            <DrawerItem icon="Briefcase" label="Công tác Đoàn" id="work" />
+                            <DrawerItem icon="Bell" label="Thông báo" id="notif" />
+                        </View>
+
+                        {(canManageMembers || canManageActivities || canViewStats) && (
+                            <View style={styles.menuSection}>
+                                <Text style={styles.sectionTitle}>Nghiệp vụ quản lý</Text>
+                                {canManageMembers && (
+                                    <DrawerItem icon="Users" label="Quản lý Đoàn viên" id="member_mgmt" />
+                                )}
+                                {canManageActivities && (
+                                    <DrawerItem icon="Calendar" label="Quản lý hoạt động" id="attendance_mgmt" />
+                                )}
+                                {canViewStats && (
+                                    <DrawerItem icon="BarChart" label="Thống kê đơn vị" id="statistics_mgmt" />
+                                )}
+                            </View>
+                        )}
+
+                        <View style={styles.menuSection}>
+                            <Text style={styles.sectionTitle}>Cá nhân</Text>
+                            <DrawerItem icon="User" label="Hồ sơ cá nhân" id="profile" />
+                            <DrawerItem icon="Settings" label="Cài đặt" id="settings" />
+                        </View>
                     </View>
 
                     {/* Footer */}
@@ -171,9 +210,27 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
     },
+    avatarImage: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+    },
     name: { fontSize: 18, fontWeight: '700', color: COLORS.gray900 },
     role: { fontSize: 13, color: COLORS.gray500, marginTop: 2 },
+    unit: { fontSize: 11, color: COLORS.gray400, marginTop: 2 },
     navSection: { flex: 1, padding: 12, paddingTop: 20 },
+    menuSection: {
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: COLORS.gray400,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginLeft: 16,
+        marginBottom: 8,
+    },
     drawerItem: {
         flexDirection: 'row',
         alignItems: 'center',

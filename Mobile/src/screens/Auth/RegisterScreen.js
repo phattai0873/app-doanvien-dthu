@@ -16,7 +16,7 @@ import TextInput from '../../components/common/TextInput';
 import StatusModal from '../../components/common/StatusModal';
 import { authService } from '../../services/authService';
 
-const RegisterScreen = ({ onNavigateBack }) => {
+const RegisterScreen = ({ navigation }) => {
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -85,7 +85,7 @@ const RegisterScreen = ({ onNavigateBack }) => {
                     message: 'Tài khoản của bạn đã được tạo. Quay lại màn hình đăng nhập để tiếp tục hoàn thiện hồ sơ.',
                     onClose: () => {
                         setModalConfig(prev => ({ ...prev, visible: false }));
-                        onNavigateBack && onNavigateBack();
+                        navigation.goBack();
                     }
                 });
             } else {
@@ -123,7 +123,7 @@ const RegisterScreen = ({ onNavigateBack }) => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.gray700} />
                     </TouchableOpacity>
                     <Text style={styles.title}>Đăng Ký Tài Khoản</Text>
@@ -193,7 +193,7 @@ const RegisterScreen = ({ onNavigateBack }) => {
                         style={styles.nextButton}
                     />
                     
-                    <TouchableOpacity onPress={onNavigateBack} style={styles.loginLink}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.loginLink}>
                         <Text style={styles.loginText}>Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập ngay</Text></Text>
                     </TouchableOpacity>
                 </View>

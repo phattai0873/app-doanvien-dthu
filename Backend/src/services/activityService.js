@@ -18,32 +18,34 @@ class ActivityService {
     static async getAll({ upcoming, level, status, unionBranchId, unionCellId, search, page, limit, onlyDeleted, user } = {}) {
         const { page: p, limit: l, offset } = getPagination({ page, limit });
 
+        const where = {};
+
         // 1. Áp dụng bộ lọc phạm vi tự động (ABAC)
-        const scopeFilter = getScopeFilter(user, 'activity');
-
-        const where = {
-            ...buildSearchCondition(search, ['title', 'description', 'location'])
-        };
-
-        // Nếu admin, cho phép xem các hoạt động trong scope của mình HOẶC hoạt động cấp Trường (Public)
-        if (Object.keys(scopeFilter).length > 0) {
-            where[Op.or] = [
-                { level: 'SCHOOL' }, // Luôn cho phép xem hoạt động cấp trường
-                scopeFilter
-            ];
+        if (user && !user.isSuperAdmin) {
+            const scopeFilter = getScopeFilter(user, 'activity');
+            if (Object.keys(scopeFilter).length > 0) {
+                where[Op.or] = [
+                    scopeFilter,
+                    { level: 'SCHOOL' }
+                ];
+            }
         }
 
         if (level) where.level = level;
 
         // Mặc định chỉ hiển thị các hoạt động đã duyệt/đang diễn ra/hoàn thành cho user thường
         if (status) {
-            where.status = status;
+            if (typeof status === 'string' && status.includes(',')) {
+                where.status = { [Op.in]: status.split(',').map(s => s.trim().toUpperCase()) };
+            } else {
+                where.status = status.toUpperCase();
+            }
         } else if (!user || !user.isSuperAdmin) {
             where.status = { [Op.in]: ['APPROVED', 'IN_PROGRESS', 'COMPLETED'] };
         }
 
         // Lọc bổ sung (Super Admin hoặc lọc thủ công trong scope)
-        if (unionBranchId) where.unionBranchId = unionBranchId;
+        if (unionBranchId) where.organizedByBranchId = unionBranchId;
         if (unionCellId) where.organizedByCellId = unionCellId;
 
         if (upcoming === 'true') {

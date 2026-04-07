@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity
 import { Icon } from '../../utils/iconMap';
 import { COLORS } from '../../constants/colors';
 import { notificationService } from '../../services/notificationService';
+import CommonHeader from '../../components/CommonHeader';
 
 const getCategoryIcon = (category) => {
     switch (category) {
@@ -15,7 +16,7 @@ const getCategoryIcon = (category) => {
     }
 };
 
-export const NotificationScreen = ({ onNavigate }) => {
+export const NotificationScreen = ({ navigation }) => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -57,22 +58,22 @@ export const NotificationScreen = ({ onNavigate }) => {
         const { entityType, entityId, category } = item;
 
         if (entityType === 'meeting' || category === 'MEETING') {
-            onNavigate('meeting_list');
+            navigation.navigate('MeetingList');
         } else if (entityType === 'fee' || category === 'FEE') {
-            onNavigate('fee_payment');
+            navigation.navigate('FeePayment');
         } else if (entityType === 'document' || category === 'DOCUMENT') {
-            onNavigate('document_list');
+            navigation.navigate('DocumentList');
         } else if (entityType === 'exam') {
-            onNavigate('exam_list');
+            navigation.navigate('ExamList');
         } else if (entityType === 'member' || entityType === 'approval') {
-            onNavigate('member_info');
+            navigation.navigate('MemberInfo');
         } else if (category === 'ACTIVITY') {
             // Có thể navigate tới danh sách hoạt động nếu có
-            onNavigate('Dashboard'); 
+            navigation.navigate('Dashboard'); 
         }
     };
 
-    if (loading) {
+    if (loading && !refreshing) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -81,67 +82,70 @@ export const NotificationScreen = ({ onNavigate }) => {
     }
 
     return (
-        <ScrollView
-            style={styles.scrollContainer}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-        >
-            <View style={styles.infoBox}>
-                <Icon name="Info" size={20} color="#2563EB" />
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.infoTitle}>Bảng tin</Text>
-                    <Text style={styles.infoText}>Theo dõi các cập nhật mới nhất từ Đoàn trường và đơn vị của bạn.</Text>
+        <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+            <CommonHeader title="Thông báo" />
+            <ScrollView
+                style={styles.scrollContainer}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+            >
+                <View style={styles.infoBox}>
+                    <Icon name="Info" size={20} color="#2563EB" />
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                        <Text style={styles.infoTitle}>Bảng tin</Text>
+                        <Text style={styles.infoText}>Theo dõi các cập nhật mới nhất từ Đoàn trường và đơn vị của bạn.</Text>
+                    </View>
                 </View>
-            </View>
 
-            {notifications.length === 0 ? (
-                <View style={styles.emptyState}>
-                    <Icon name="BellOff" size={48} color={COLORS.gray400} />
-                    <Text style={styles.emptyText}>Hộp thư của bạn đang trống</Text>
-                </View>
-            ) : notifications.map(item => {
-                const icon = getCategoryIcon(item.category);
-                return (
-                    <TouchableOpacity
-                        key={item.id}
-                        onPress={() => handleNotifPress(item)}
-                        style={[styles.notifCard, !item.isRead && styles.notifUnread]}
-                    >
-                        {!item.isRead && <View style={styles.dotUnread} />}
-                        <View style={styles.notifRow}>
-                            <View style={[styles.notifIcon, { backgroundColor: icon.bg }]}>
-                                <Icon name={icon.name} size={20} color={icon.color} />
-                            </View>
-                            <View style={styles.notifContent}>
-                                <View style={styles.notifHeader}>
-                                    <Text style={styles.notifTitle} numberOfLines={1}>{item.title}</Text>
-                                    {item.priority === 'High' && (
-                                        <View style={styles.priorityBadge}>
-                                            <Text style={styles.priorityText}>Quan trọng</Text>
-                                        </View>
-                                    )}
+                {notifications.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Icon name="BellOff" size={48} color={COLORS.gray400} />
+                        <Text style={styles.emptyText}>Hộp thư của bạn đang trống</Text>
+                    </View>
+                ) : notifications.map(item => {
+                    const icon = getCategoryIcon(item.category);
+                    return (
+                        <TouchableOpacity
+                            key={item.id}
+                            onPress={() => handleNotifPress(item)}
+                            style={[styles.notifCard, !item.isRead && styles.notifUnread]}
+                        >
+                            {!item.isRead && <View style={styles.dotUnread} />}
+                            <View style={styles.notifRow}>
+                                <View style={[styles.notifIcon, { backgroundColor: icon.bg }]}>
+                                    <Icon name={icon.name} size={20} color={icon.color} />
                                 </View>
-                                <Text style={styles.notifBody} numberOfLines={2}>{item.content}</Text>
-                                <View style={styles.notifMeta}>
-                                    <Text style={styles.notifTime}>
-                                        {new Date(item.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                                    </Text>
-                                    {item.expiresAt && (
-                                        <Text style={styles.expiresText}> • Hết hạn: {new Date(item.expiresAt).toLocaleDateString('vi-VN')}</Text>
-                                    )}
+                                <View style={styles.notifContent}>
+                                    <View style={styles.notifHeader}>
+                                        <Text style={styles.notifTitle} numberOfLines={1}>{item.title}</Text>
+                                        {item.priority === 'High' && (
+                                            <View style={styles.priorityBadge}>
+                                                <Text style={styles.priorityText}>Quan trọng</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={styles.notifBody} numberOfLines={2}>{item.content}</Text>
+                                    <View style={styles.notifMeta}>
+                                        <Text style={styles.notifTime}>
+                                            {new Date(item.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                                        </Text>
+                                        {item.expiresAt && (
+                                            <Text style={styles.expiresText}> • Hết hạn: {new Date(item.expiresAt).toLocaleDateString('vi-VN')}</Text>
+                                        )}
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-                    </TouchableOpacity>
-                );
-            })}
-        </ScrollView>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    scrollContainer: { flex: 1, backgroundColor: '#F8FAFC' },
+    scrollContainer: { flex: 1 },
     scrollContent: { padding: 16, paddingBottom: 100 },
     infoBox: {
         flexDirection: 'row',

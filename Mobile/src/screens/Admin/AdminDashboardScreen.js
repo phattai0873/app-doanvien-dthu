@@ -33,7 +33,7 @@ const QuickAction = ({ title, icon, color, onPress }) => (
     </TouchableOpacity>
 );
 
-export const AdminDashboardScreen = ({ onNavigate }) => {
+export const AdminDashboardScreen = ({ navigation }) => {
     const [stats, setStats] = React.useState({
         members: 0,
         cells: 0,
@@ -106,37 +106,37 @@ export const AdminDashboardScreen = ({ onNavigate }) => {
                         title="Đoàn viên"
                         icon="people"
                         color="#3182CE"
-                        onPress={() => onNavigate('member_mgmt')}
+                        onPress={() => navigation.navigate('MemberMgmt')}
                     />
                     <QuickAction
                         title="Chi đoàn"
                         icon="business"
                         color="#38A169"
-                        onPress={() => onNavigate('cell_mgmt')}
+                        onPress={() => navigation.navigate('CellMgmt')}
                     />
                     <QuickAction
                         title="Lịch họp"
                         icon="calendar"
                         color="#D69E2E"
-                        onPress={() => onNavigate('meeting_create')}
+                        onPress={() => navigation.navigate('MeetingCreate')}
                     />
                     <QuickAction
                         title="Điểm danh QR"
                         icon="qr-code"
                         color="#805AD5"
-                        onPress={() => onNavigate('attendance_mgmt')}
+                        onPress={() => navigation.navigate('AttendanceMgmt')}
                     />
                     <QuickAction
                         title="Đoàn phí"
                         icon="wallet"
                         color="#ED8936"
-                        onPress={() => onNavigate('fee_mgmt')}
+                        onPress={() => navigation.navigate('FeeMgmt')}
                     />
                     <QuickAction
                         title="Thống kê"
                         icon="bar-chart"
                         color="#48BB78"
-                        onPress={() => { }}
+                        onPress={() => navigation.navigate('StatisticsMgmt')}
                     />
                 </View>
             </View>

@@ -27,13 +27,13 @@ const ENTITY_CONFIG = {
         allowPublic: true // Cho phép xem bài viết cấp Trường (null)
     },
     activity: {
-        branchField: 'unionBranchId',
-        cellField: 'unionCellId',
+        branchField: 'organizedByBranchId',
+        cellField: 'organizedByCellId',
         allowPublic: true
     },
     meeting: {
-        branchField: null,
-        cellField: 'unionCellId',
+        branchField: 'organizerBranchId',
+        cellField: 'organizerCellId',
         allowPublic: true
     }
 };
@@ -135,7 +135,9 @@ const getScopeFilter = (user, entityType) => {
 
         if (userCellId && config.cellField) {
             conditions.push({ [config.cellField]: userCellId });
-        } else if (userBranchId && config.branchField) {
+        }
+        
+        if (userBranchId && config.branchField) {
             conditions.push({ [config.branchField]: userBranchId });
         }
 

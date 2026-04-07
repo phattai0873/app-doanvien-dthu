@@ -33,11 +33,13 @@ export const AdminAttendanceScreen = ({ onBack }) => {
         try {
             let data = [];
             if (type === 'meeting') {
-                data = await meetingService.getMeetings({ status: 'active,scheduled' });
+                const response = await meetingService.getMeetings({ status: 'IN_PROGRESS,SCHEDULED' });
+                data = Array.isArray(response) ? response : (response.data || []);
             } else {
-                data = await volunteerService.getActivities({ status: 'in_progress,approved' });
+                const response = await volunteerService.getActivities({ status: 'IN_PROGRESS,APPROVED' });
+                data = Array.isArray(response) ? response : (response.data || []);
             }
-            setItems(data || []);
+            setItems(data);
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {

@@ -14,10 +14,10 @@ const validate = (schema) => (req, res, next) => {
         return res.status(400).json({
             success: false,
             message: 'Dữ liệu không hợp lệ',
-            errors: error.errors.map(err => ({
+            errors: (error.errors && Array.isArray(error.errors)) ? error.errors.map(err => ({
                 field: err.path.slice(1).join('.'),
                 message: err.message
-            }))
+            })) : []
         });
     }
 };

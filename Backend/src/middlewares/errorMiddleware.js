@@ -15,7 +15,7 @@ const errorHandler = (err, req, res, next) => {
 
     // Sequelize validation error
     if (err.name === 'SequelizeValidationError') {
-        const message = Object.values(err.errors).map(val => val.message);
+        const message = err.errors ? Object.values(err.errors).map(val => val.message) : ['Dữ liệu không hợp lệ'];
         error = new ErrorResponse(message, 400);
     }
 

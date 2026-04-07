@@ -385,20 +385,23 @@ class UserService {
      * @description Change password for current user
      */
     static async changePassword(userId, oldPassword, newPassword) {
-        if (!oldPassword || !newPassword) {
+        const oldPw = oldPassword?.trim();
+        const newPw = newPassword?.trim();
+
+        if (!oldPw || !newPw) {
             throw new ErrorResponse('Vui lòng cung cấp mật khẩu cũ và mật khẩu mới', 400);
         }
 
         const user = await User.findByPk(userId);
         if (!user) throw new ErrorResponse('Không tìm thấy người dùng', 404);
 
-        const isMatch = await bcrypt.compare(oldPassword, user.passwordHash);
+        const isMatch = await bcrypt.compare(oldPw, user.passwordHash);
         if (!isMatch) {
             throw new ErrorResponse('Mật khẩu cũ không chính xác', 401);
         }
 
         const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(newPassword, salt);
+        const passwordHash = await bcrypt.hash(newPw, salt);
         await user.update({ passwordHash, refreshTokenHash: null });
         return { message: 'Thay đổi mật khẩu thành công' };
     }

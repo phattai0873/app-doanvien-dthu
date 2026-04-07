@@ -18,7 +18,7 @@ import { examService } from '../../services/examService';
 import { authService } from '../../services/authService';
 import { API_BASE_URL } from '../../services/api';
 
-export const ExamListScreen = ({ onNavigate }) => {
+export const ExamListScreen = ({ navigation }) => {
     const [exams, setExams] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('ONGOING');
@@ -71,7 +71,7 @@ export const ExamListScreen = ({ onNavigate }) => {
     const handleExamPress = (item) => {
         const currentStatus = item.computedStatus || item.status;
         if (currentStatus === 'ONGOING') {
-            onNavigate && onNavigate('exam_detail', { id: item.id });
+            navigation.navigate('ExamDetail', { id: item.id });
         } else if (currentStatus === 'UPCOMING') {
             Alert.alert("Thông báo", "Kỳ thi này chưa bắt đầu.");
         } else {

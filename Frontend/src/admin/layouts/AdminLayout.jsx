@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     LayoutDashboard, Users, Building2, Network,
     Calendar, Newspaper, BookOpen, Wallet, LogOut, Shield,
-    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2, MapPin
+    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2, MapPin, Eye, EyeOff
 } from 'lucide-react';
 import { authApi } from '../../services/api';
 import ModalPortal from '../../components/ModalPortal';
@@ -66,6 +66,7 @@ export default function AdminLayout() {
     const [pwModal, setPwModal] = useState(false);
     const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
     const [pwLoading, setPwLoading] = useState(false);
+    const [showPasswords, setShowPasswords] = useState(false);
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
 
@@ -104,12 +105,15 @@ export default function AdminLayout() {
                     setPwLoading(false);
                     return;
                 }
-                if (pwForm.newPassword.length < 6) {
+                const oldPw = pwForm.oldPassword.trim();
+                const newPw = pwForm.newPassword.trim();
+
+                if (newPw.length < 6) {
                     toast.error('Mật khẩu mới phải có ít nhất 6 ký tự');
                     setPwLoading(false);
                     return;
                 }
-                await authApi.changeMyPassword({ oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
+                await authApi.changeMyPassword({ oldPassword: oldPw, newPassword: newPw });
                 updated = true;
             }
 
@@ -263,10 +267,22 @@ export default function AdminLayout() {
 
                             <hr className="border-gray-100" />
 
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Thiết lập mật khẩu</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPasswords(!showPasswords)}
+                                    className="text-[10px] font-bold text-primary-600 hover:text-primary-700 uppercase tracking-widest flex items-center gap-1"
+                                >
+                                    {showPasswords ? <EyeOff size={12} /> : <Eye size={12} />}
+                                    {showPasswords ? 'Ẩn' : 'Hiện'} mật khẩu
+                                </button>
+                            </div>
+                            
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu hiện tại</label>
                                 <input
-                                    type="password"
+                                    type={showPasswords ? "text" : "password"}
                                     className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     placeholder="Bỏ trống nếu không đổi"
                                     value={pwForm.oldPassword}
@@ -276,7 +292,7 @@ export default function AdminLayout() {
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu mới</label>
                                 <input
-                                    type="password"
+                                    type={showPasswords ? "text" : "password"}
                                     className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     placeholder="Ít nhất 6 ký tự"
                                     value={pwForm.newPassword}
@@ -286,7 +302,7 @@ export default function AdminLayout() {
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
                                 <input
-                                    type="password"
+                                    type={showPasswords ? "text" : "password"}
                                     className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     value={pwForm.confirm}
                                     onChange={e => setPwForm(prev => ({ ...prev, confirm: e.target.value }))}
