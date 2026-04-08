@@ -33,6 +33,7 @@ const LandingConfig = require('./LandingConfig');
 const UnionFeeType = require('./UnionFeeType');
 const PaymentTransaction = require('./PaymentTransaction');
 const BankSetting = require('./BankSetting');
+const ProfileUpdateRequest = require('./profileUpdateRequest');
 
 // Associations
 
@@ -230,6 +231,12 @@ PaymentTransaction.belongsTo(UnionFeeType, { foreignKey: 'unionFeeTypeId' });
 PaymentTransaction.hasOne(UnionFeePayment, { foreignKey: 'paymentTransactionId' });
 UnionFeePayment.belongsTo(PaymentTransaction, { foreignKey: 'paymentTransactionId' });
 
+// ProfileUpdateRequest
+UnionMember.hasMany(ProfileUpdateRequest, { foreignKey: 'unionMemberId' });
+ProfileUpdateRequest.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+ProfileUpdateRequest.belongsTo(User, { as: 'Approver', foreignKey: 'approvedBy' });
+User.hasMany(ProfileUpdateRequest, { foreignKey: 'approvedBy' });
+
 module.exports = {
     User, Role, Permission, AuditLog,
     UnionBranch, UnionCell, UnionMember, UnionMemberHistory,
@@ -239,5 +246,6 @@ module.exports = {
     Document, DocumentCategory,
     Notification, NotificationReadStatus,
     QuizExam, QuizQuestion, QuizOption, QuizAttempt,
-    UnionFeePayment, UnionFeeType, PaymentTransaction, CellMeetingLocation, Banner, LandingConfig, BankSetting
+    UnionFeePayment, UnionFeeType, PaymentTransaction, CellMeetingLocation, Banner, LandingConfig, BankSetting,
+    ProfileUpdateRequest
 };

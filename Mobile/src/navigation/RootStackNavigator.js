@@ -29,6 +29,7 @@ import { AdminAttendanceScreen } from '../screens/Admin/AdminAttendanceScreen';
 import { AdminFeeManagementScreen } from '../screens/Admin/AdminFeeManagementScreen';
 import { AdminNewsScreen } from '../screens/Admin/AdminNewsScreen';
 import { AdminStatisticsScreen } from '../screens/Admin/AdminStatisticsScreen';
+import { UpdateApprovalScreen } from '../screens/Admin/UpdateApprovalScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -87,6 +88,7 @@ export const RootStackNavigator = () => {
             <Stack.Screen name="FeeMgmt" component={AdminFeeManagementScreen} options={{ title: 'Quản lý Đoàn phí' }} />
             <Stack.Screen name="NewsMgmt" component={AdminNewsScreen} options={{ title: 'Quản lý Tin tức' }} />
             <Stack.Screen name="StatisticsMgmt" component={AdminStatisticsScreen} options={{ title: 'Thống kê & Báo cáo' }} />
+            <Stack.Screen name="UpdateApproval" component={UpdateApprovalScreen} options={{ title: 'Duyệt cập nhật hồ sơ' }} />
         </Stack.Navigator>
     );
 };

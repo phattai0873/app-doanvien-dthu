@@ -21,7 +21,18 @@ const feeController = {
      */
     getMyFeeDashboard: asyncHandler(async (req, res) => {
         const memberId = req.user?.UnionMember?.id || req.user.unionMemberId;
-        if (!memberId) throw new ErrorResponse('Tài khoản này chưa liên kết với hồ sơ đoàn viên', 400);
+        
+        if (!memberId) {
+            return res.status(200).json({ 
+                success: true, 
+                data: {
+                    summary: { totalDebt: 0, unpaidCount: 0, pendingCount: 0, memberCode: 'N/A', fullName: req.user.username },
+                    unpaidFees: [],
+                    pendingTransactions: [],
+                    history: []
+                } 
+            });
+        }
 
         const dashboard = await FeeService.getMyFeeDashboard(memberId);
         res.status(200).json({ success: true, data: dashboard });

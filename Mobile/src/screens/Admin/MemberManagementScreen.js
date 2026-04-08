@@ -12,8 +12,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants';
 import { partyService } from '../../services/partyService';
+import { useAuth } from '../../contexts/AuthContext';
 
-export const MemberManagementScreen = () => {
+export const MemberManagementScreen = ({ navigation, route }) => {
+    const { cellId: paramCellId, cellName } = route.params || {};
+    const { user: authUser } = useAuth();
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +28,25 @@ export const MemberManagementScreen = () => {
     const loadMembers = async () => {
         setLoading(true);
         try {
-            const data = await partyService.getMembers();
+            const params = {};
+            
+            // Xử lý bộ lọc theo quyền
+            const member = authUser?.UnionMember;
+            const role = authUser?.role;
+            
+            // Ưu tiên lọc theo cellId truyền từ màn hình quản lý Chi đoàn
+            if (paramCellId) {
+                params.unionCellId = paramCellId;
+            } else if (role === 'CELL_ADMIN') {
+                // Bí thư Chi đoàn -> Lọc theo Chi đoàn mình quản lý
+                if (member?.unionCellId) params.unionCellId = member.unionCellId;
+            } else if (role === 'BRANCH_ADMIN') {
+                // Bí thư Liên chi đoàn -> Lọc theo Liên chi đoàn mình quản lý
+                if (member?.UnionCell?.unionBranchId) params.unionBranchId = member.UnionCell.unionBranchId;
+            }
+            // Admin (ADMIN/SUPERADMIN) -> Không gửi params để lấy tất cả
+
+            const data = await partyService.getMembers(params);
             setMembers(data || []);
         } catch (error) {
             console.error('Error loading members:', error);
@@ -35,7 +56,7 @@ export const MemberManagementScreen = () => {
         }
     };
 
-    const filteredMembers = members.filter(m =>
+    const filteredMembers = (members || []).filter(m =>
         m.ho_ten?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.ma_dang_vien?.toLowerCase().includes(searchQuery.toLowerCase())
     );

@@ -1,4 +1,4 @@
-const { UnionMember, UnionCell, UnionBranch, UnionPosition, UnionMemberPosition, User, UnionMemberHistory, Role } = require('../models');
+const { UnionMember, UnionCell, UnionBranch, UnionPosition, UnionMemberPosition, User, UnionMemberHistory, Role, ProfileUpdateRequest } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { safeDate } = require('../utils/dateUtils');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
@@ -188,11 +188,45 @@ class UnionMemberService {
             if (data[field]) data[field] = safeDate(data[field]);
         });
 
+        // QUY TRÌNH PHÊ DUYỆT:
+        const isSelfUpdate = member.userId && user.id && String(member.userId) === String(user.id);
+        const canUpdateDirectly = hasPermission(user, 'member:update');
+
+        console.log(`[Approval-Debug] MemberID: ${id}, UserID: ${user.id}, Member-UserID: ${member.userId}, isSelf: ${isSelfUpdate}, isAdmin: ${canUpdateDirectly}`);
+
+        // 1. Nếu tự sửa hồ sơ của mình (trừ SuperAdmin) -> Bắt buộc phải được duyệt
+        if (isSelfUpdate && !user.isSuperAdmin) {
+            console.log(`[Approval-Flow] Tạo yêu cầu phê duyệt cho Member: ${member.fullName}`);
+            // Tạo yêu cầu cập nhật thay vì cập nhật trực tiếp
+            const oldData = {};
+            Object.keys(data).forEach(key => {
+                if (member[key] !== undefined) oldData[key] = member[key];
+            });
+
+            const request = await ProfileUpdateRequest.create({
+                unionMemberId: member.id,
+                oldData,
+                newData: data,
+                status: 'pending'
+            });
+
+            return { isRequest: true, message: 'Yêu cầu cập nhật hồ sơ đã được gửi để phê duyệt', data: request };
+        }
+
+        // 2. Nếu Admin sửa cho người khác -> Kiểm tra quyền update
+        if (!isSelfUpdate && !canUpdateDirectly) {
+            console.log(`[Approval-Flow] Từ chối: Không có quyền sửa hồ sơ người khác`);
+            throw new ErrorResponse('Bạn không có quyền cập nhật hồ sơ cho người khác', 403);
+        }
+
+        console.log(`[Approval-Flow] Cập nhật trực tiếp (Admin/SuperAdmin/Other-Authorized)`);
+
+        // 3. Admin có quyền hoặc SuperAdmin sửa -> Cập nhật trực tiếp
+
         const oldCellId = member.unionCellId;
         const oldRole = member.roleInUnion;
-        const oldStatus = member.activityStatus;
 
-        // Xóa các field nhạy cảm không được phép sửa tự do
+        // Xóa các field nhạy cảm không được phép sửa tự do nếu không phải superAdmin
         if (!user.isSuperAdmin) {
             delete data.memberCode;
         }
@@ -224,6 +258,60 @@ class UnionMemberService {
         }
 
         return member;
+    }
+
+    /**
+     * Lấy danh sách yêu cầu cập nhật hồ sơ (Phân quyền theo Scope)
+     */
+    static async getProfileUpdateRequests(user, status = 'pending') {
+        const scopeFilter = getScopeFilter(user, 'member');
+        
+        return await ProfileUpdateRequest.findAll({
+            where: { status },
+            include: [{
+                model: UnionMember,
+                where: scopeFilter,
+                attributes: ['fullName', 'memberCode'],
+                include: [{ model: UnionCell, attributes: ['name'] }]
+            }],
+            order: [['createdAt', 'DESC']]
+        });
+    }
+
+    /**
+     * Phê duyệt yêu cầu cập nhật
+     */
+    static async approveProfileUpdate(requestId, adminUser) {
+        const request = await ProfileUpdateRequest.findByPk(requestId);
+        if (!request || request.status !== 'pending') throw new ErrorResponse('Không tìm thấy yêu cầu hoặc yêu cầu đã được xử lý', 400);
+
+        const member = await UnionMember.findByPk(request.unionMemberId);
+        if (!member) throw new ErrorResponse('Đoàn viên không còn tồn tại', 404);
+
+        // Cập nhật dữ liệu từ newData vào member
+        await member.update(request.newData);
+
+        // Cập nhật trạng thái yêu cầu
+        await request.update({ status: 'approved', approvedBy: adminUser.id });
+
+        // Đồng bộ hệ thống nếu cần (role/scope)
+        if (request.newData.roleInUnion) {
+            await this._syncUserSystemSpecs(member.id);
+        }
+
+        return { message: 'Đã phê duyệt thay đổi hồ sơ thành công', member };
+    }
+
+    /**
+     * Từ chối yêu cầu cập nhật
+     */
+    static async rejectProfileUpdate(requestId, adminUser, note) {
+        const request = await ProfileUpdateRequest.findByPk(requestId);
+        if (!request || request.status !== 'pending') throw new ErrorResponse('Không tìm thấy yêu cầu hoặc yêu cầu đã được xử lý', 400);
+
+        await request.update({ status: 'rejected', approvedBy: adminUser.id, note });
+
+        return { message: 'Đã từ chối thay đổi hồ sơ' };
     }
 
     static async delete(id, user) {

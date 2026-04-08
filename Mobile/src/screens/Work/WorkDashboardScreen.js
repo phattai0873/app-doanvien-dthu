@@ -39,7 +39,7 @@ export const WorkDashboardScreen = ({ navigation }) => {
     const [refreshing, setRefreshing] = useState(false);
 
     // Kiểm tra quyền Cán bộ - Bạn có thể tùy chỉnh vai trò ở đây
-    const isOfficer = user?.role === 'ADMIN' || user?.role === 'SECRETARY' || user?.role === 'VICE_SECRETARY' || user?.isSuperAdmin;
+    const isOfficer = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'BRANCH_ADMIN' || user?.role === 'CELL_ADMIN' || user?.isSuperAdmin;
 
     const fetchData = async () => {
         try {

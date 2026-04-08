@@ -77,7 +77,7 @@ export const DashboardScreen = ({ navigation }) => {
     const [refreshing, setRefreshing] = useState(false);
 
     // Quyền cán bộ
-    const isOfficer = authUser?.role === 'ADMIN' || authUser?.role === 'SECRETARY' || authUser?.role === 'VICE_SECRETARY' || authUser?.isSuperAdmin;
+    const isOfficer = authUser?.role === 'SUPER_ADMIN' || authUser?.role === 'ADMIN' || authUser?.role === 'BRANCH_ADMIN' || authUser?.role === 'CELL_ADMIN' || authUser?.isSuperAdmin;
 
     useEffect(() => {
         loadData();
@@ -161,16 +161,16 @@ export const DashboardScreen = ({ navigation }) => {
 
                     <View style={styles.headerActions}>
                         {isOfficer && (
-                            <TouchableOpacity 
-                                style={[styles.actionBtn, { marginRight: 12 }]} 
+                            <TouchableOpacity
+                                style={[styles.actionBtn, { marginRight: 12 }]}
                                 onPress={() => navigation.navigate('AdminDashboard')}
                             >
                                 <Ionicons name="shield-checkmark" size={24} color={COLORS.primary} />
                             </TouchableOpacity>
                         )}
-                        
-                        <TouchableOpacity 
-                            style={styles.actionBtn} 
+
+                        <TouchableOpacity
+                            style={styles.actionBtn}
                             onPress={() => navigation.navigate('Notification')}
                         >
                             <Ionicons name="notifications" size={24} color={COLORS.gray900} />
@@ -213,8 +213,8 @@ export const DashboardScreen = ({ navigation }) => {
                                 <Text style={styles.viewMore}>Xem tất cả</Text>
                             </TouchableOpacity>
                         </View>
-                        <TouchableOpacity 
-                            style={styles.scheduleCard} 
+                        <TouchableOpacity
+                            style={styles.scheduleCard}
                             onPress={() => navigation.navigate('MeetingDetail', { id: nextMeeting.id })}
                         >
                             <View style={styles.scheduleTime}>

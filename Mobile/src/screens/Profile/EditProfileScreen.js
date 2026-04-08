@@ -4,475 +4,269 @@ import {
     Text,
     StyleSheet,
     ScrollView,
+    TextInput,
     TouchableOpacity,
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
-    Platform,
-    Image as RNImage
+    Platform
 } from 'react-native';
-import { Icon } from '../../utils/iconMap';
-import { COLORS, SIZES, IMAGES } from '../../constants';
-import TextInput from '../../components/common/TextInput';
-import Button from '../../components/common/Button';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SIZES } from '../../constants';
 import { partyService } from '../../services/partyService';
+import CommonHeader from '../../components/CommonHeader';
 
-export const EditProfileScreen = ({ onBack }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+const InputField = ({ label, icon, value, onChangeText, placeholder, keyboardType = 'default', editable = true }) => (
+    <View style={styles.inputWrapper}>
+        <Text style={styles.inputLabel}>{label}</Text>
+        <View style={[styles.inputContainer, !editable && styles.disabledInput]}>
+            <Ionicons name={icon} size={20} color={COLORS.primary} style={styles.inputIcon} />
+            <TextInput
+                style={styles.textInput}
+                value={value}
+                onChangeText={onChangeText}
+                placeholder={placeholder}
+                placeholderTextColor={COLORS.gray400}
+                keyboardType={keyboardType}
+                editable={editable}
+            />
+        </View>
+    </View>
+);
 
-    // Form states
-    const [name, setName] = useState('');
-    const [studentId, setStudentId] = useState('');
-    const [phone, setPhone] = useState('');
-    const [email, setEmail] = useState('');
-    const [dob, setDob] = useState('');
-    const [hometown, setHometown] = useState('');
-    const [residence, setResidence] = useState('');
-    const [joinedDate, setJoinedDate] = useState('');
-    const [joinedPlace, setJoinedPlace] = useState('');
-    const [identityNumber, setIdentityNumber] = useState('');
-    const [gender, setGender] = useState('male');
-    const [ethnicity, setEthnicity] = useState('');
-    const [religion, setReligion] = useState('');
-    const [occupation, setOccupation] = useState('');
-
-    useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                const data = await partyService.getMemberProfile();
-                setUser(data);
-
-                // Map data to fields
-                setName(data.ho_ten || '');
-                setStudentId(data.UnionMember?.studentId || '');
-                setPhone(data.sdt || '');
-                setEmail(data.email || '');
-                setDob(data.UnionMember?.dateOfBirth ? formatDate(data.UnionMember.dateOfBirth) : '');
-                setHometown(data.UnionMember?.hometown || '');
-                setResidence(data.UnionMember?.homeAddress || '');
-                setJoinedDate(data.UnionMember?.joinedDate ? formatDate(data.UnionMember.joinedDate) : '');
-                setJoinedPlace(data.UnionMember?.joinedPlace || '');
-                setIdentityNumber(data.UnionMember?.identityNumber || '');
-                setGender(data.UnionMember?.gender || 'male');
-                setEthnicity(data.UnionMember?.ethnicity || 'Kinh');
-                setReligion(data.UnionMember?.religion || 'Không');
-                setOccupation(data.UnionMember?.occupation || '');
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchProfile();
-    }, []);
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
-    };
+export const EditProfileScreen = ({ navigation, route }) => {
+    const { userData } = route.params || {};
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        ho_ten: userData?.ho_ten || '',
+        email: userData?.email || '',
+        sdt: userData?.sdt || '',
+        ngay_sinh: userData?.ngay_sinh || '',
+        gioi_tinh: userData?.gioi_tinh || 'Nam',
+        dia_chi: userData?.dia_chi || '',
+        que_quan: userData?.que_quan || '',
+        trinh_do: userData?.trinh_do || '',
+        ngay_vao_doan: userData?.ngay_vao_doan || ''
+    });
 
     const handleSave = async () => {
-        console.log('Button Pressed: handleSave started');
-        if (!name.trim()) {
-            Alert.alert("Thông báo", "Vui lòng nhập họ và tên");
+        if (!formData.ho_ten || !formData.email || !formData.sdt) {
+            Alert.alert('Thông báo', 'Vui lòng điền đầy đủ các thông tin bắt buộc (*)');
             return;
         }
 
-        setSaving(true);
+        setLoading(true);
         try {
-            const memberId = user?.UnionMember?.id;
-            if (!memberId) {
-                Alert.alert("Lỗi", "Không tìm thấy mã đoàn viên để cập nhật.");
-                setSaving(false);
-                return;
-            }
-
-            // Chuẩn bị dữ liệu cập nhật
+            const memberId = userData?.UnionMember?.id || userData?.id;
             const updateData = {
-                fullName: name,
-                phoneNumber: phone,
-                email: email,
-                hometown: hometown,
-                homeAddress: residence,
-                dateOfBirth: dob ? dob.split('/').reverse().join('-') : null,
-                studentId: studentId,
-                identityNumber: identityNumber,
-                joinedDate: joinedDate ? joinedDate.split('/').reverse().join('-') : null,
-                joinedPlace: joinedPlace,
-                gender: gender,
-                ethnicity: ethnicity,
-                religion: religion,
-                occupation: occupation
+                fullName: formData.ho_ten,
+                email: formData.email,
+                phoneNumber: formData.sdt,
+                dateOfBirth: formData.ngay_sinh,
+                gender: formData.gioi_tinh === 'Nam' ? 'male' : 'female',
+                hometown: formData.que_quan,
+                permanentAddress: formData.dia_chi,
+                educationLevel: formData.trinh_do,
+                joinedDate: formData.ngay_vao_doan
             };
 
-            const response = await partyService.updateMemberProfile(memberId, updateData);
+            const result = await partyService.updateMemberProfile(memberId, updateData);
+            const response = result.data || result; // Phụ thuộc vào cấu trúc trả về của axios interceptor
             
-            if (response && response.success) {
-                Alert.alert("Thành công", "Thông tin cá nhân đã được cập nhật.");
-                onBack();
-            } else {
-                Alert.alert("Lỗi", "Không thể cập nhật thông tin lúc này.");
+            if (response.isRequest) {
+                Alert.alert('Đã gửi yêu cầu', 'Thông tin thay đổi của bạn đã được gửi và đang chờ Bí thư phê duyệt.', [
+                    { text: 'Đã hiểu', onPress: () => navigation.goBack() }
+                ]);
+            } else if (result.success || response) {
+                Alert.alert('Thành công', 'Hồ sơ của bạn đã được cập nhật.', [
+                    { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
             }
         } catch (error) {
             console.error('Update profile error:', error);
-            Alert.alert("Lỗi", error.message || "Đã xảy ra lỗi khi lưu thông tin.");
+            Alert.alert('Lỗi', error.message || 'Không thể cập nhật hồ sơ. Vui lòng thử lại sau.');
         } finally {
-            setSaving(false);
+            setLoading(false);
         }
     };
 
-    if (loading) {
-        return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
-        );
-    }
-
-    const isApproved = user?.UnionMember?.status === 'approved';
+    const renderGenderOption = (gender) => (
+        <TouchableOpacity 
+            style={[styles.genderBtn, formData.gioi_tinh === gender && styles.genderBtnActive]}
+            onPress={() => setFormData({ ...formData, gioi_tinh: gender })}
+        >
+            <Ionicons 
+                name={gender === 'Nam' ? 'male' : 'female'} 
+                size={18} 
+                color={formData.gioi_tinh === gender ? COLORS.white : COLORS.gray500} 
+            />
+            <Text style={[styles.genderText, formData.gioi_tinh === gender && styles.genderTextActive]}>
+                {gender}
+            </Text>
+        </TouchableOpacity>
+    );
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : null}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
+        <View style={styles.container}>
+            <CommonHeader title="Chỉnh sửa hồ sơ" />
+            
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
             >
-                {/* Avatar Section */}
-                <View style={styles.avatarSection}>
-                    <View style={styles.avatarWrapper}>
-                        <RNImage
-                            source={user?.anh_dai_dien ? { uri: user.anh_dai_dien } : IMAGES.user_fallback}
-                            style={styles.imageAvatar}
-                        />
-                        <TouchableOpacity style={styles.editAvatarBtn} activeOpacity={0.8}>
-                            <Icon name="Camera" size={18} color="#FFF" />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={styles.avatarHint}>Hình ảnh hiển thị trên thẻ Đoàn viên</Text>
-                </View>
-
-                <View style={styles.formContainer}>
-                    {/* Section 1: Định danh */}
-                    <View style={styles.formSection}>
-                        <Text style={styles.sectionTitle}>Thông tin tuyển sinh / Định danh</Text>
-                        <TextInput
-                            label="Họ và tên *"
-                            placeholder="Nhập đầy đủ họ tên"
-                            value={name}
-                            onChangeText={setName}
-                            iconName="person-outline"
-                            editable={!isApproved}
-                        />
-                        <TextInput
-                            label="Mã số sinh viên"
-                            placeholder="Mã số sinh viên"
-                            value={studentId}
-                            onChangeText={setStudentId}
-                            iconName="card-outline"
-                            editable={!isApproved}
-                        />
-                        <TextInput
-                            label="Số CCCD / CMND"
-                            placeholder="Nhập số CCCD"
-                            value={identityNumber}
-                            onChangeText={setIdentityNumber}
-                            iconName="id-card-outline"
-                            editable={!isApproved}
-                        />
-                        <TextInput
-                            label="Ngày sinh *"
-                            placeholder="DD/MM/YYYY"
-                            value={dob}
-                            onChangeText={setDob}
-                            iconName="calendar-outline"
-                            editable={!isApproved}
+                <ScrollView 
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
+                    <View style={styles.formCard}>
+                        <InputField 
+                            label="Họ và tên (*)" 
+                            icon="person-outline" 
+                            value={formData.ho_ten}
+                            onChangeText={(text) => setFormData({ ...formData, ho_ten: text })}
+                            placeholder="Nhập họ và tên đầy đủ"
                         />
 
-                        <Text style={styles.inputLabel}>Giới tính *</Text>
-                        <View style={styles.genderRow}>
-                            <TouchableOpacity 
-                                style={[styles.genderBtn, gender === 'male' && styles.genderBtnActive]}
-                                onPress={() => !isApproved && setGender('male')}
-                                disabled={isApproved}
-                            >
-                                <Icon name="Male" size={16} color={gender === 'male' ? '#FFF' : COLORS.gray500} />
-                                <Text style={[styles.genderText, gender === 'male' && styles.genderBtnTextActive]}>Nam</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.genderBtn, gender === 'female' && styles.genderBtnActive]}
-                                onPress={() => !isApproved && setGender('female')}
-                                disabled={isApproved}
-                            >
-                                <Icon name="Female" size={16} color={gender === 'female' ? '#FFF' : COLORS.gray500} />
-                                <Text style={[styles.genderText, gender === 'female' && styles.genderBtnTextActive]}>Nữ</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {isApproved && (
-                            <Text style={styles.lockHint}>
-                                * Thông tin định danh đã được xác thực, không thể tự chỉnh sửa.
-                            </Text>
-                        )}
-                    </View>
-
-                    {/* Section: Thông tin cá nhân khác */}
-                    <View style={styles.formSection}>
-                        <Text style={styles.sectionTitle}>Thông tin cá nhân khác</Text>
-                        <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}>
-                                <TextInput
-                                    label="Dân tộc"
-                                    placeholder="Dân tộc"
-                                    value={ethnicity}
-                                    onChangeText={setEthnicity}
-                                    iconName="earth-outline"
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <TextInput
-                                    label="Tôn giáo"
-                                    placeholder="Tôn giáo"
-                                    value={religion}
-                                    onChangeText={setReligion}
-                                    iconName="heart-outline"
-                                />
-                            </View>
-                        </View>
-                        <TextInput
-                            label="Nghề nghiệp / Chuyên ngành"
-                            placeholder="VD: Sinh viên ngành CNTT"
-                            value={occupation}
-                            onChangeText={setOccupation}
-                            iconName="briefcase-outline"
+                        <InputField 
+                            label="Email (*)" 
+                            icon="mail-outline" 
+                            value={formData.email}
+                            onChangeText={(text) => setFormData({ ...formData, email: text })}
+                            placeholder="Nhập email liên hệ"
+                            keyboardType="email-address"
                         />
-                    </View>
 
-                    {/* Section 2: Liên lạc */}
-                    <View style={styles.formSection}>
-                        <Text style={styles.sectionTitle}>Thông tin liên lạc</Text>
-                        <TextInput
-                            label="Số điện thoại *"
+                        <InputField 
+                            label="Số điện thoại (*)" 
+                            icon="call-outline" 
+                            value={formData.sdt}
+                            onChangeText={(text) => setFormData({ ...formData, sdt: text })}
                             placeholder="Nhập số điện thoại"
-                            value={phone}
-                            onChangeText={setPhone}
-                            iconName="call-outline"
                             keyboardType="phone-pad"
                         />
-                        <TextInput
-                            label="Email"
-                            placeholder="Nhập địa chỉ email"
-                            value={email}
-                            onChangeText={setEmail}
-                            iconName="mail-outline"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                        <TextInput
-                            label="Quê quán"
-                            placeholder="VD: Cao Lãnh, Đồng Tháp"
-                            value={hometown}
-                            onChangeText={setHometown}
-                            iconName="map-outline"
-                        />
-                        <TextInput
-                            label="Thường trú"
-                            placeholder="Nhập địa chỉ thường trú"
-                            value={residence}
-                            onChangeText={setResidence}
-                            iconName="home-outline"
-                            multiline
-                            style={{ minHeight: 80 }}
-                        />
-                    </View>
 
-                    {/* Section 3: Đoàn tịch */}
-                    <View style={styles.formSection}>
-                        <Text style={styles.sectionTitle}>Thông tin Đoàn tịch</Text>
-                        <TextInput
-                            label="Ngày vào Đoàn"
-                            placeholder="DD/MM/YYYY"
-                            value={joinedDate}
-                            onChangeText={setJoinedDate}
-                            iconName="calendar-outline"
+                        <InputField 
+                            label="Ngày sinh" 
+                            icon="calendar-outline" 
+                            value={formData.ngay_sinh}
+                            onChangeText={(text) => setFormData({ ...formData, ngay_sinh: text })}
+                            placeholder="YYYY-MM-DD"
                         />
-                        <TextInput
-                            label="Nơi vào Đoàn"
-                            placeholder="Nơi kết nạp Đoàn"
-                            value={joinedPlace}
-                            onChangeText={setJoinedPlace}
-                            iconName="business-outline"
+
+                        <View style={styles.inputWrapper}>
+                            <Text style={styles.inputLabel}>Giới tính</Text>
+                            <View style={styles.genderContainer}>
+                                {renderGenderOption('Nam')}
+                                {renderGenderOption('Nữ')}
+                            </View>
+                        </View>
+
+                        <InputField 
+                            label="Quê quán" 
+                            icon="location-outline" 
+                            value={formData.que_quan}
+                            onChangeText={(text) => setFormData({ ...formData, que_quan: text })}
+                            placeholder="Nhập quê quán (Tỉnh/Thành phố)"
                         />
-                        
-                        <View style={styles.staticBox}>
-                            <View style={styles.staticHeader}>
-                                <Icon name="Building" size={16} color={COLORS.primary} />
-                                <Text style={styles.staticTitle}>Cơ cấu tổ chức hiện tại</Text>
-                            </View>
-                            <View style={styles.staticRow}>
-                                <Text style={styles.staticLabel}>Đơn vị:</Text>
-                                <Text style={styles.staticValue}>{user?.UnionMember?.UnionCell?.name || '—'}</Text>
-                            </View>
-                            <View style={styles.staticRow}>
-                                <Text style={styles.staticLabel}>Chức vụ:</Text>
-                                <Text style={styles.staticValueBold}>{user?.chuc_vu_doan || 'Đoàn viên'}</Text>
-                            </View>
+
+                        <InputField 
+                            label="Trình độ học vấn" 
+                            icon="school-outline" 
+                            value={formData.trinh_do}
+                            onChangeText={(text) => setFormData({ ...formData, trinh_do: text })}
+                            placeholder="Ví dụ: 12/12, Đại học..."
+                        />
+
+                        <InputField 
+                            label="Ngày vào đoàn" 
+                            icon="flag-outline" 
+                            value={formData.ngay_vao_doan}
+                            onChangeText={(text) => setFormData({ ...formData, ngay_vao_doan: text })}
+                            placeholder="YYYY-MM-DD"
+                        />
+
+                        <InputField 
+                            label="Địa chỉ thường trú" 
+                            icon="home-outline" 
+                            value={formData.dia_chi}
+                            onChangeText={(text) => setFormData({ ...formData, dia_chi: text })}
+                            placeholder="Nhập địa chỉ nhà"
+                        />
+
+                        <View style={styles.infoBox}>
+                            <Ionicons name="information-circle-outline" size={18} color={COLORS.gray400} />
+                            <Text style={styles.infoText}>Mã đoàn viên và Mã sinh viên không được phép thay đổi tự do.</Text>
                         </View>
                     </View>
 
-                    <Button
-                        title="Lưu thay đổi hồ sơ"
+                    <TouchableOpacity 
+                        style={styles.saveButton}
                         onPress={handleSave}
-                        loading={saving}
-                        style={styles.saveBtn}
-                    />
-
-                    <TouchableOpacity style={styles.cancelBtn} onPress={onBack}>
-                        <Text style={styles.cancelBtnText}>Quay lại</Text>
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color={COLORS.white} />
+                        ) : (
+                            <>
+                                <Ionicons name="save-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+                                <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
+                            </>
+                        )}
                     </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
-    
-    scrollContent: { paddingBottom: 60 },
-    
-    avatarSection: {
-        alignItems: 'center',
-        paddingVertical: 40,
-        backgroundColor: COLORS.white,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.05,
-        shadowRadius: 20,
-        elevation: 5,
-    },
-    avatarWrapper: {
-        position: 'relative',
-        width: 110,
-        height: 110,
-        borderRadius: 55,
-        padding: 4,
-        borderWidth: 2,
-        borderColor: COLORS.primary,
-        backgroundColor: COLORS.white,
-    },
-    imageAvatar: { width: '100%', height: '100%', borderRadius: 55 },
-    editAvatarBtn: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        backgroundColor: COLORS.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: COLORS.white,
-        elevation: 4,
-    },
-    avatarHint: {
-        marginTop: 16,
-        fontSize: 12,
-        color: COLORS.gray400,
-        fontWeight: '500'
-    },
-
-    formContainer: { padding: 20 },
-    formSection: {
+    container: { flex: 1, backgroundColor: COLORS.background },
+    scrollContent: { padding: SIZES.md },
+    formCard: {
         backgroundColor: COLORS.white,
         borderRadius: 24,
-        padding: 20,
+        padding: SIZES.md,
+        ...COLORS.shadowDark,
+        marginBottom: SIZES.lg,
+    },
+    inputWrapper: {
         marginBottom: 20,
-        borderWidth: 1,
-        borderColor: COLORS.gray100,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 10,
-        elevation: 1
     },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: COLORS.gray900,
-        marginBottom: 20,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        borderLeftWidth: 3,
-        borderLeftColor: COLORS.primary,
-        paddingLeft: 10
-    },
-    lockHint: {
-        fontSize: 11,
-        color: COLORS.gray400,
-        fontStyle: 'italic',
-        marginTop: 5,
-        textAlign: 'center'
-    },
-
-    staticBox: {
-        backgroundColor: '#F1F5F9',
-        borderRadius: 16,
-        padding: 16,
-        marginTop: 10,
-    },
-    staticHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-        gap: 8
-    },
-    staticTitle: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
-    staticRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8
-    },
-    staticLabel: { fontSize: 13, color: COLORS.gray500 },
-    staticValue: { fontSize: 13, color: COLORS.gray800, fontWeight: '500' },
-    staticValueBold: { fontSize: 13, color: COLORS.gray900, fontWeight: '800' },
-
-    saveBtn: { marginTop: 10, height: 56, borderRadius: 16 },
-    cancelBtn: {
-        marginTop: 20,
-        paddingVertical: 12,
-        alignItems: 'center'
-    },
-    cancelBtnText: {
-        fontSize: 15,
-        color: COLORS.gray400,
-        fontWeight: '600'
-    },
-
     inputLabel: {
         fontSize: 14,
         fontWeight: '700',
         color: COLORS.gray700,
         marginBottom: 8,
-        marginTop: 15,
-        marginLeft: 4
+        marginLeft: 4,
     },
-    genderRow: {
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.gray50,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: COLORS.gray100,
+        paddingHorizontal: 12,
+        height: 54,
+    },
+    disabledInput: {
+        backgroundColor: COLORS.gray100,
+        opacity: 0.6,
+    },
+    inputIcon: {
+        marginRight: 10,
+    },
+    textInput: {
+        flex: 1,
+        color: COLORS.gray900,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    genderContainer: {
         flexDirection: 'row',
         gap: 12,
-        marginTop: 5
     },
     genderBtn: {
         flex: 1,
@@ -482,24 +276,51 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 12,
         backgroundColor: COLORS.gray50,
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: COLORS.gray100,
-        gap: 8
     },
     genderBtnActive: {
         backgroundColor: COLORS.primary,
         borderColor: COLORS.primary,
     },
     genderText: {
+        marginLeft: 8,
         fontSize: 14,
+        fontWeight: '700',
         color: COLORS.gray600,
-        fontWeight: '600'
     },
-    genderBtnTextActive: {
-        color: '#FFF'
+    genderTextActive: {
+        color: COLORS.white,
     },
-    row: {
+    infoBox: {
         flexDirection: 'row',
-        width: '100%'
+        backgroundColor: '#F8FAFC',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 10,
+        alignItems: 'center',
+    },
+    infoText: {
+        flex: 1,
+        fontSize: 12,
+        color: COLORS.gray400,
+        marginLeft: 8,
+        fontWeight: '600',
+    },
+    saveButton: {
+        backgroundColor: COLORS.primary,
+        borderRadius: 16,
+        height: 56,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...COLORS.shadowBlue,
+    },
+    saveButtonText: {
+        color: COLORS.white,
+        fontSize: 16,
+        fontWeight: '800',
     }
 });
+
+

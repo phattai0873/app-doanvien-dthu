@@ -16,7 +16,7 @@ export const partyService = {
 
         // API THỰC
         const response = await apiClient.get('/api/branches');
-        return response;
+        return response.data || [];
     },
 
     getCommitteeDetail: async (id) => {
@@ -33,7 +33,7 @@ export const partyService = {
     },
 
     // 2. Chi đoàn (Union Cells) - /api/cells
-    getCells: async () => {
+    getCells: async (params = {}) => {
         if (USE_SUPABASE) {
             const { data, error } = await supabase.from('party_cells').select('*');
             if (error) throw error;
@@ -42,8 +42,8 @@ export const partyService = {
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r([MOCK_DB.party_cell]), SIMULATE_DELAY));
 
         // API THỰC
-        const response = await apiClient.get('/api/cells');
-        return response;
+        const response = await apiClient.get('/api/cells', { params });
+        return response.data || [];
     },
 
     getCellDetail: async (id) => {
@@ -60,7 +60,7 @@ export const partyService = {
     },
 
     // 3. Đoàn viên (Union Members) - /api/members
-    getMembers: async () => {
+    getMembers: async (params = {}) => {
         if (USE_SUPABASE) {
             const { data, error } = await supabase.from('party_members').select('*');
             if (error) throw error;
@@ -69,7 +69,7 @@ export const partyService = {
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.members), SIMULATE_DELAY));
 
         // API THỰC
-        const response = await apiClient.get('/api/members');
+        const response = await apiClient.get('/api/members', { params });
         // Backend returns { success, data: [] }
         const rawItems = response.data || [];
         return rawItems.map(item => ({
@@ -215,5 +215,21 @@ export const partyService = {
             console.error('Error fetching org info:', e);
             return { cell: null, committee: null };
         }
+    },
+
+    // 5. Duyệt cập đóng hồ sơ (Profile Update Approval)
+    getProfileUpdateRequests: async (params = {}) => {
+        const response = await apiClient.get('/api/members/requests/updates', { params });
+        return response.data || [];
+    },
+
+    approveProfileUpdate: async (id) => {
+        const response = await apiClient.patch(`/api/members/requests/updates/${id}/approve`);
+        return response;
+    },
+
+    rejectProfileUpdate: async (id, note) => {
+        const response = await apiClient.patch(`/api/members/requests/updates/${id}/reject`, { note });
+        return response;
     }
 };

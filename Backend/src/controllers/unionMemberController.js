@@ -74,6 +74,23 @@ const unionMemberController = {
     rejectMember: asyncHandler(async (req, res) => {
         const result = await UnionMemberService.reject(req.params.id, req.user);
         res.status(200).json({ success: true, ...result });
+    }),
+
+    getUpdateRequests: asyncHandler(async (req, res) => {
+        const { status } = req.query;
+        const requests = await UnionMemberService.getProfileUpdateRequests(req.user, status || 'pending');
+        res.status(200).json({ success: true, data: requests });
+    }),
+
+    approveUpdate: asyncHandler(async (req, res) => {
+        const result = await UnionMemberService.approveProfileUpdate(req.params.id, req.user);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    rejectUpdate: asyncHandler(async (req, res) => {
+        const { note } = req.body;
+        const result = await UnionMemberService.rejectProfileUpdate(req.params.id, req.user, note);
+        res.status(200).json({ success: true, ...result });
     })
 };
 

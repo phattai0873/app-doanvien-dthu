@@ -107,7 +107,10 @@ const activityController = {
 
     getHistory: asyncHandler(async (req, res) => {
         const memberId = req.user.UnionMember?.id || req.user.unionMemberId;
-        if (!memberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
+        
+        if (!memberId) {
+            return res.status(200).json({ success: true, data: [] });
+        }
 
         const result = await ActivityService.getMemberAttendance(memberId);
         res.status(200).json({ success: true, data: result });

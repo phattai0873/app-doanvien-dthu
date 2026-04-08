@@ -379,10 +379,7 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                         <View style={styles.authorAvatar}>
                             <Icon name="User" size={20} color={COLORS.primary} />
                         </View>
-                        <View>
-                            <Text style={styles.authorName}>Ban Thường vụ Đoàn trường</Text>
-                            <Text style={styles.authorRole}>Đại học Đồng Tháp</Text>
-                        </View>
+
                     </View>
 
                     <View style={styles.articleBody}>

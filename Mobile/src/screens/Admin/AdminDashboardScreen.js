@@ -138,6 +138,12 @@ export const AdminDashboardScreen = ({ navigation }) => {
                         color="#48BB78"
                         onPress={() => navigation.navigate('StatisticsMgmt')}
                     />
+                    <QuickAction
+                        title="Duyệt hồ sơ"
+                        icon="shield-checkmark"
+                        color="#F56565"
+                        onPress={() => navigation.navigate('UpdateApproval')}
+                    />
                 </View>
             </View>
 

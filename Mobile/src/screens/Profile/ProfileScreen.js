@@ -48,10 +48,17 @@ const MenuButton = ({ label, icon, onPress, color = COLORS.gray700, isError = fa
 );
 
 export const ProfileScreen = ({ navigation }) => {
-    const { hasAnyPermission, logout } = useAuth();
+    const { user: authUser, logout } = useAuth();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Kiểm tra quyền cán bộ dựa trên AuthContext
+    const role = authUser?.role;
+    const isOfficer = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'BRANCH_ADMIN' || role === 'CELL_ADMIN' || authUser?.isSuperAdmin;
+    const isCellOfficer = role === 'CELL_ADMIN';
+    const isBranchOfficer = role === 'BRANCH_ADMIN';
+    const isAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN' || authUser?.isSuperAdmin;
 
     const fetchData = useCallback(async () => {
         try {
@@ -113,7 +120,15 @@ export const ProfileScreen = ({ navigation }) => {
                             )}
                         </View>
                         <View style={styles.nameContainer}>
-                            <Text style={styles.nameText}>{user?.ho_ten || 'Đoàn viên'}</Text>
+                            <View style={styles.nameHeaderRow}>
+                                <Text style={styles.nameText}>{user?.ho_ten || 'Đoàn viên'}</Text>
+                                <TouchableOpacity 
+                                    style={styles.editBtn}
+                                    onPress={() => navigation.navigate('EditProfile', { userData: user })}
+                                >
+                                    <Ionicons name="create-outline" size={20} color={COLORS.primary} />
+                                </TouchableOpacity>
+                            </View>
                             <Text style={styles.roleText}>{user?.chuc_vu_doan || 'Thành viên'}</Text>
                             <View style={[styles.statusTag, status === 'approved' ? styles.statusApproved : styles.statusPending]}>
                                 <Text style={[styles.statusTagText, status === 'approved' ? styles.textSuccess : styles.textWarning]}>
@@ -135,9 +150,16 @@ export const ProfileScreen = ({ navigation }) => {
                         <DetailRow icon="mail-outline" label="Email" value={user?.email} />
                         <View style={styles.divider} />
                         <DetailRow icon="calendar-outline" label="Ngày sinh" value={member?.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : null} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="location-outline" label="Quê quán" value={user?.que_quan} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="home-outline" label="Địa chỉ thường trú" value={user?.dia_chi} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="school-outline" label="Trình độ học vấn" value={user?.trinh_do} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="flag-outline" label="Ngày vào đoàn" value={user?.ngay_vao_doan ? new Date(user.ngay_vao_doan).toLocaleDateString('vi-VN') : null} />
                     </View>
                 </View>
-
                 {/* Organization Information */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Tổ chức Đoàn</Text>
@@ -147,6 +169,38 @@ export const ProfileScreen = ({ navigation }) => {
                         <DetailRow icon="school-outline" label="Trực thuộc" value={member?.UnionCell?.UnionBranch?.name || 'Trường Đại học Đồng Tháp'} />
                     </View>
                 </View>
+
+                {/* Organizational Management for Officers */}
+                {isOfficer && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Quản lý Đơn vị</Text>
+                        <View style={styles.menuGroup}>
+                            {isCellOfficer && (
+                                <MenuButton 
+                                    label="Quản lý Đoàn viên lớp" 
+                                    icon="people-circle-outline" 
+                                    onPress={() => navigation.navigate('MemberMgmt')} 
+                                />
+                            )}
+                            
+                            {isBranchOfficer && (
+                                <MenuButton 
+                                    label="Quản lý Các Chi đoàn" 
+                                    icon="business-outline" 
+                                    onPress={() => navigation.navigate('CellMgmt')} 
+                                />
+                            )}
+
+                            {isAdmin && (
+                                <MenuButton 
+                                    label="Bảng Quản trị Hệ thống" 
+                                    icon="shield-checkmark-outline" 
+                                    onPress={() => navigation.navigate('AdminDashboard')} 
+                                />
+                            )}
+                        </View>
+                    </View>
+                )}
 
                 {/* Account Settings & Actions */}
                 <View style={styles.section}>
@@ -213,10 +267,21 @@ const styles = StyleSheet.create({
         marginLeft: SIZES.md,
         flex: 1,
     },
+    nameHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
     nameText: {
         fontSize: 22,
         fontWeight: '900',
         color: COLORS.gray900,
+        flex: 1,
+    },
+    editBtn: {
+        padding: 8,
+        backgroundColor: COLORS.primaryLight,
+        borderRadius: 10,
     },
     roleText: {
         fontSize: 14,

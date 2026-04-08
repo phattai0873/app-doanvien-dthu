@@ -39,7 +39,23 @@ const protect = async (req, res, next) => {
             req.userRecord = userFull;
             req.user.username = userFull.username;
             
-            console.log(`[Auth-Debug] User: ${userFull.username}, Role: ${req.user.isSuperAdmin ? 'SUPER' : 'USER'}, Path: ${req.originalUrl}`);
+            // Gán hồ sơ đoàn viên
+            let member = userFull.UnionMember;
+            
+            // Dự phòng: Nếu inclusion không lấy được (do lỗi Sequelize cache/association), thử findOne trực tiếp
+            if (!member) {
+                const { UnionMember, UnionCell } = require('../models');
+                member = await UnionMember.findOne({
+                    where: { userId: decoded.id },
+                    attributes: ['id', 'fullName', 'avatar', 'unionCellId', 'status'],
+                    include: [{ model: UnionCell, attributes: ['id', 'unionBranchId'] }]
+                });
+            }
+
+            req.user.UnionMember = member;
+            req.user.unionMemberId = member?.id;
+            
+            console.log(`[Auth-Debug] User: ${userFull.username}, ID: ${decoded.id}, MemberID: ${req.user.unionMemberId || 'NONE'}, Path: ${req.originalUrl}`);
 
             next();
         } catch (error) {
