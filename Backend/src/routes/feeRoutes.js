@@ -8,7 +8,7 @@ router.use(protect);
 
 router.get('/', feeController.getFees);
 router.get('/my-dashboard', feeController.getMyFeeDashboard);
-router.post('/', feeController.createFee);
+router.post('/', uploadFeeEvidence, feeController.createFee);
 router.get('/unpaid', feeController.getUnpaidMembers);
 router.put('/:id', feeController.updateFee);
 router.delete('/:id', feeController.deleteFee);
@@ -18,6 +18,8 @@ router.post('/init-payment', uploadFeeEvidence, feeController.initPayment);
 router.get('/pending', authorize('ADMIN', 'SUPER_ADMIN'), feeController.getPendingTransactions);
 router.post('/approve/:id', authorize('ADMIN', 'SUPER_ADMIN'), feeController.approveTransaction);
 router.post('/reject/:id', authorize('ADMIN', 'SUPER_ADMIN'), feeController.rejectTransaction);
+router.post('/bulk-approve', authorize('ADMIN', 'SUPER_ADMIN'), feeController.bulkApproveTransactions);
+router.post('/bulk-reject', authorize('ADMIN', 'SUPER_ADMIN'), feeController.bulkRejectTransactions);
 
 // Bank setting
 router.get('/bank-setting', feeController.getBankSetting);

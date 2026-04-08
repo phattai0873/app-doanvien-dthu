@@ -240,6 +240,10 @@ export const VolunteerListScreen = () => {
                          <View style={styles.miniIconCircle}><Icon name="Calendar" size={12} color="#64748B" /></View>
                          <Text style={styles.infoText}>{startDate} | {startTime}</Text>
                     </View>
+                    <View style={[styles.infoLine, { marginTop: 8 }]}>
+                         <View style={styles.miniIconCircle}><Icon name="Briefcase" size={12} color="#64748B" /></View>
+                         <Text style={styles.infoText}>Ngày CTXH: {item.point || 0} ngày</Text>
+                    </View>
                     <View style={styles.participantInfo}>
                         <View style={styles.participantRow}>
                             <Text style={styles.participantText}>{registeredCount}/{maxParticipants} Đoàn viên</Text>
@@ -258,7 +262,8 @@ export const VolunteerListScreen = () => {
                         styles.actionBtn,
                         (!isOpen || isCheckedIn || (isApproved && isRegistered)) && styles.disabledBtn,
                         (isApproved && isRegistered) && { backgroundColor: '#F1F5F9' },
-                        (isInProgress && !isCheckedIn) && styles.checkinBtn
+                        (isInProgress && !isCheckedIn) && styles.checkinBtn,
+                        isCheckedIn && { backgroundColor: '#F0FDF4', borderTopWidth: 1, borderTopColor: '#DCFCE7' }
                     ]}
                     disabled={!isOpen || isCheckedIn}
                     onPress={() => {
@@ -270,10 +275,15 @@ export const VolunteerListScreen = () => {
                     <Icon 
                         name={isCheckedIn ? 'CheckCircle' : (isInProgress ? 'Scan' : (isRegistered ? 'XCircle' : 'UserPlus'))} 
                         size={18} 
-                        color={isRegistered && !isInProgress && !isCheckedIn ? '#EF4444' : (isRegistered && isApproved ? '#94A3B8' : '#FFF')} 
+                        color={isCheckedIn ? '#10B981' : (isRegistered && !isInProgress && !isCheckedIn ? '#EF4444' : (isRegistered && isApproved ? '#94A3B8' : '#FFF'))} 
                         style={{ marginRight: 8 }} 
                     />
-                    <Text style={[styles.actionBtnText, isRegistered && !isInProgress && !isCheckedIn && { color: '#EF4444' }, isRegistered && isApproved && { color: '#94A3B8' }]}>
+                    <Text style={[
+                        styles.actionBtnText, 
+                        isCheckedIn && { color: '#10B981' },
+                        isRegistered && !isInProgress && !isCheckedIn && { color: '#EF4444' }, 
+                        isRegistered && isApproved && { color: '#94A3B8' }
+                    ]}>
                         {isCheckedIn ? 'ĐÃ ĐIỂM DANH' : (isInProgress ? 'ĐIỂM DANH NGAY' : (isApproved ? (isRegistered ? 'HỦY ĐĂNG KÝ' : 'ĐĂNG KÝ THAM GIA') : 'ĐÃ KẾT THÚC'))}
                     </Text>
                 </TouchableOpacity>
@@ -437,7 +447,7 @@ const styles = StyleSheet.create({
     statusLabel: { fontSize: 11, fontWeight: '800' },
     progressBarBg: { height: 6, backgroundColor: '#F1F5F9', borderRadius: 3, overflow: 'hidden' },
     progressBarFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 3 },
-    actionBtn: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
+    actionBtn: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', backgroundColor: COLORS.primary },
     checkinBtn: { backgroundColor: '#059669' },
     disabledBtn: { backgroundColor: '#F8FAFC' },
     actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '900' },

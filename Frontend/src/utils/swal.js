@@ -102,3 +102,29 @@ export const swalError = (msg) =>
         text: msg,
         confirmButtonColor: PRIMARY,
     });
+
+/**
+ * Hộp thoại yêu cầu nhập lý do (ví dụ từ chối)
+ * @param {string} title 
+ * @param {string} placeholder
+ */
+export const confirmReason = (title, placeholder = 'Nhập lý do tại đây...') =>
+    Swal.fire({
+        title,
+        input: 'textarea',
+        inputPlaceholder: placeholder,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: PRIMARY,
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Gửi',
+        cancelButtonText: 'Hủy',
+        reverseButtons: true,
+        inputValidator: (value) => {
+            if (!value) {
+                return 'Bạn cần nhập nội dung!';
+            }
+        }
+    });
+
+export default Swal;

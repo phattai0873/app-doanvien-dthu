@@ -9,7 +9,7 @@ Các quy tắc dưới đây phải được tuân thủ nghiêm ngặt trong qu
 ## 2. Bảo mật và Phân quyền (Security & RBAC)
 - **Entity Identification**: Mọi hành động quản trị phải được gán với tổ chức (Organizational Unit) của người dùng đó.
 - **Strict Scoping**: Tuyệt đối không để xảy ra tình trạng rò rỉ dữ liệu giữa các đơn vị. Kiểm tra scope của thực thể trước khi thực hiện các thao tác thêm, xóa, sửa.
-- **Permission Helper**: Sử dụng `permissionHelper.js` để kiểm tra quyền truy cập một cách tập trung.
+- **Permission Helper**: Sử dụng `permissionHelper.js` để kiểm tra quyền truy cập một cách tập trung. Xem chi tiết tại [PERMISSIONS.md](./PERMISSIONS.md).
 
 ## 3. Quản lý dữ liệu (Data Management)
 - **Xóa mềm (Soft Delete)**: Tất cả các module chính (Đoàn viên, Hoạt động, Tin tức...) phải hỗ trợ xóa mềm thay vì xóa vĩnh viễn ngay lập tức. Cung cấp chức năng Khôi phục (Restore) và Xóa vĩnh viễn (Force Delete) trong phần quản lý Thùng rác (Trash Management).

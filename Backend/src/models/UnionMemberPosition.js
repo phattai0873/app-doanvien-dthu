@@ -28,7 +28,24 @@ const UnionMemberPosition = sequelize.define('UnionMemberPosition', {
     }
 }, {
     tableName: 'union_member_positions',
-    timestamps: true
+    timestamps: true,
+    hooks: {
+        beforeSave: (instance) => {
+            ['assignedDate', 'endedDate'].forEach(field => {
+                const val = instance[field];
+                if (val) {
+                    if (typeof val === 'string' && val.toLowerCase().includes('invalid')) {
+                        instance[field] = null;
+                    } else {
+                        const d = new Date(val);
+                        if (isNaN(d.getTime())) {
+                            instance[field] = null;
+                        }
+                    }
+                }
+            });
+        }
+    }
 });
 
 module.exports = UnionMemberPosition;

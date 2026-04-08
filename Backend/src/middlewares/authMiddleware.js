@@ -38,6 +38,14 @@ const protect = async (req, res, next) => {
             // Patch thêm các thông tin từ DB vào req.user mà token không chứa
             req.userRecord = userFull;
             req.user.username = userFull.username;
+            req.user.unionBranchId = userFull.unionBranchId;
+            req.user.unionCellId = userFull.unionCellId;
+            
+            // Cập nhật isSuperAdmin từ DB roles
+            const dbRoles = userFull.Roles?.map(r => r.code) || [];
+            if (dbRoles.includes('SUPER_ADMIN')) {
+                req.user.isSuperAdmin = true;
+            }
             
             // Gán hồ sơ đoàn viên
             let member = userFull.UnionMember;

@@ -152,7 +152,7 @@ export const MeetingDetailScreen = ({ route, navigation }) => {
     const handleQRScan = async (code) => {
         setQrScannerVisible(false);
         setCheckinCode(code);
-        
+
         // Tự động submit sau khi quét được mã
         setSubmitting(true);
         try {
@@ -197,7 +197,6 @@ export const MeetingDetailScreen = ({ route, navigation }) => {
                     <View style={[styles.badge, { backgroundColor: meeting.status === 'scheduled' ? '#3B82F6' : '#10B981' }]}>
                         <Text style={styles.badgeText}>{meeting.status === 'scheduled' ? 'Sắp diễn ra' : 'Đang diễn ra'}</Text>
                     </View>
-                    <Text style={styles.idText}>Mã: CM-{meeting.id}</Text>
                 </View>
             </View>
 
@@ -261,7 +260,7 @@ export const MeetingDetailScreen = ({ route, navigation }) => {
                 <View style={styles.actionContainer}>
                     <TouchableOpacity
                         style={[
-                            styles.attendanceBtn, 
+                            styles.attendanceBtn,
                             (meeting.status !== 'active' || isCheckedIn) && styles.disabledBtn
                         ]}
                         onPress={() => meeting.status === 'active' ? setCheckinModalVisible(true) : Alert.alert('Thông báo', 'Cuộc họp chưa diễn ra hoặc đã kết thúc.')}
@@ -304,8 +303,8 @@ export const MeetingDetailScreen = ({ route, navigation }) => {
                         <Text style={styles.inputModalTitle}>Điểm danh Cuộc họp</Text>
                         <Text style={styles.inputModalSub}>{meeting?.title}</Text>
 
-                        <TouchableOpacity 
-                            style={styles.qrScanBtn} 
+                        <TouchableOpacity
+                            style={styles.qrScanBtn}
                             onPress={() => setQrScannerVisible(true)}
                         >
                             <Icon name="QrCode" size={24} color="#FFF" />

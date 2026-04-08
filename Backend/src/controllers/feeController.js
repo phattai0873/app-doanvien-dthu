@@ -42,7 +42,8 @@ const feeController = {
      * Admin: Ghi nộp phí thủ công
      */
     createFee: asyncHandler(async (req, res) => {
-        const fee = await FeeService.create(req.body, req.user);
+        const data = { ...req.body, evidenceImageUrl: req.file?.path };
+        const fee = await FeeService.create(data, req.user);
         res.status(201).json({ success: true, data: fee });
     }),
 
@@ -106,6 +107,18 @@ const feeController = {
 
     updateBankSetting: asyncHandler(async (req, res) => {
         const result = await FeeService.updateBankSetting(req.body);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    bulkApproveTransactions: asyncHandler(async (req, res) => {
+        const { ids } = req.body;
+        const result = await FeeService.bulkApproveTransactions(ids, req.user);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    bulkRejectTransactions: asyncHandler(async (req, res) => {
+        const { ids, reason } = req.body;
+        const result = await FeeService.bulkRejectTransactions(ids, reason, req.user);
         res.status(200).json({ success: true, data: result });
     })
 };

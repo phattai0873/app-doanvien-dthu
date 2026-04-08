@@ -100,7 +100,7 @@ class MeetingService {
 
     static async create(data) {
         const sanitizedData = sanitizeUUID(data);
-        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime);
+        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime, null, false);
 
         if (!sanitizedData.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
@@ -124,7 +124,7 @@ class MeetingService {
         const oldTime = meeting.meetingTime;
 
         const sanitizedData = sanitizeUUID(data);
-        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime);
+        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime, null, false);
 
         if (data.status === 'IN_PROGRESS' && !meeting.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();

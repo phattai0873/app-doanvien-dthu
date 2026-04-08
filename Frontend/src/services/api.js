@@ -130,6 +130,9 @@ export const memberApi = {
     assignPosition: (id, data) => api.post(`/members/${id}/positions`, data),
     getBranches: () => api.get('/branches', { params: { limit: 100 } }),
     getCells: (branchId) => api.get('/cells', { params: { unionBranchId: branchId, limit: 100 } }),
+    getUpdateRequests: (params) => api.get('/members/requests/updates', { params }),
+    approveUpdate: (id) => api.patch(`/members/requests/updates/${id}/approve`),
+    rejectUpdate: (id) => api.patch(`/members/requests/updates/${id}/reject`),
 };
 
 export const positionApi = {
@@ -221,6 +224,8 @@ export const feeApi = {
     getPending: (params) => api.get('/fees/pending', { params }),
     approve: (id) => api.post(`/fees/approve/${id}`),
     reject: (id, reason) => api.post(`/fees/reject/${id}`, { reason }),
+    bulkApprove: (ids) => api.post('/fees/bulk-approve', { ids }),
+    bulkReject: (data) => api.post('/fees/bulk-reject', data), // { ids, reason }
     // Ngân hàng
     getBankSetting: () => api.get('/fees/bank-setting'),
     updateBankSetting: (data) => api.put('/fees/bank-setting', data),

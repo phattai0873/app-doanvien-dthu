@@ -35,6 +35,16 @@ const ENTITY_CONFIG = {
         branchField: 'organizerBranchId',
         cellField: 'organizerCellId',
         allowPublic: true
+    },
+    fee: {
+        branchField: 'unionBranchId',
+        cellField: 'unionCellId',
+        allowPublic: false
+    },
+    transaction: {
+        branchField: '$UnionCell.unionBranchId$',
+        cellField: 'unionCellId',
+        allowPublic: false
     }
 };
 
@@ -165,14 +175,28 @@ const getScopeFilter = (user, entityType) => {
 const injectScope = (data, user, entityType) => {
     if (!user || user.isSuperAdmin) return data;
 
-    // 1. Xóa sạch mọi nỗ lực chèn ID từ bên ngoài (Hard delete fields)
-    delete data.unionBranchId;
-    delete data.unionCellId;
+    const config = ENTITY_CONFIG[entityType];
+    if (!config) return data;
 
-    const userBranchId = user.unionBranchId || user.scope?.branchId;
-    const userCellId = user.unionCellId || user.scope?.cellId;
+    const bField = config.branchField || 'unionBranchId';
+    const cField = config.cellField || 'unionCellId';
+
+    // 1. Xóa sạch mọi nỗ lực chèn ID từ bên ngoài (Hard delete fields)
+    delete data[bField];
+    delete data[cField];
+    
+    // Xóa thêm các trường mặc định nếu chúng khác bField/cField
+    if (bField !== 'unionBranchId') delete data.unionBranchId;
+    if (cField !== 'unionCellId') delete data.unionCellId;
+
+    const userBranchId = user.unionBranchId || user.scope?.branchId || user.UnionMember?.UnionCell?.unionBranchId;
+    const userCellId = user.unionCellId || user.scope?.cellId || user.UnionMember?.unionCellId;
 
     // 2. Gán lại ID theo đúng phạm vi của User
+    if (userBranchId && bField) data[bField] = userBranchId;
+    if (userCellId && cField) data[cField] = userCellId;
+    
+    // Luôn giữ unionBranchId/unionCellId cho mục đích scoping nếu model có
     if (userBranchId) data.unionBranchId = userBranchId;
     if (userCellId) data.unionCellId = userCellId;
 

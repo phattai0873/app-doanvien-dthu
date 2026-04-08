@@ -17,6 +17,7 @@ import {
     Keyboard,
     Pressable
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RenderHTML from 'react-native-render-html';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
@@ -50,6 +51,7 @@ const tagsStyles = {
 
 export const NewsDetailScreen = ({ route, navigation }) => {
     const { id } = route?.params || {};
+    const insets = useSafeAreaInsets();
     const [news, setNews] = useState(null);
     const [relatedNews, setRelatedNews] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -337,10 +339,13 @@ export const NewsDetailScreen = ({ route, navigation }) => {
         );
     }
 
+    // Header height: navigation header (~64) + status bar
+    const KAV_OFFSET = Platform.OS === 'ios' ? insets.top + 64 : 80;
+
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+            behavior="padding"
+            keyboardVerticalOffset={KAV_OFFSET}
             style={styles.container}
         >
             <StatusBar barStyle="dark-content" backgroundColor="white" translucent />
@@ -496,12 +501,13 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                 </View>
             </ScrollView>
 
-            {/* Comment In  put Bar (Premium Upgrade - Sequential Layout) */}
+            {/* Comment Input Bar */}
             {showInput && (
                 <View style={[
                     styles.commentInputContainer,
                     replyingTo && styles.commentInputReplying,
-                    isInputFocused && styles.inputContainerFocused
+                    isInputFocused && styles.inputContainerFocused,
+                    { paddingBottom: Math.max(insets.bottom, 12) }
                 ]}>
                     {replyingTo && (
                         <View style={styles.replyingBar}>
@@ -510,7 +516,10 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                                     <Icon name="MessageSquare" size={12} color={COLORS.primary} />
                                 </View>
                                 <Text style={styles.replyingText} numberOfLines={1}>
-                                    Đang trả lời <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>@{replyingTo.username}</Text>
+                                    Đang trả lời{' '}
+                                    <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>
+                                        @{replyingTo.username}
+                                    </Text>
                                 </Text>
                             </View>
                             <TouchableOpacity
@@ -523,7 +532,6 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                     )}
 
                     <View style={styles.inputRow}>
-                        {/* Current User Avatar Preview */}
                         <View style={styles.currentUserAvatarBox}>
                             {currentUser?.avatar ? (
                                 <RNImage source={getAvatar(currentUser.avatar)} style={styles.inputAvatar} />
@@ -538,7 +546,7 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                             <TextInput
                                 ref={inputRef}
                                 style={styles.textInput}
-                                placeholder={replyingTo ? "Gửi phản hồi..." : "Viết bình luận của bạn..."}
+                                placeholder={replyingTo ? 'Gửi phản hồi...' : 'Viết bình luận của bạn...'}
                                 placeholderTextColor={COLORS.gray400}
                                 value={commentText}
                                 onChangeText={setCommentText}
@@ -546,8 +554,8 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                                 onBlur={() => setIsInputFocused(false)}
                                 multiline
                                 maxLength={500}
+                                returnKeyType="default"
                             />
-
                             <TouchableOpacity
                                 style={[styles.sendBtn, (!commentText.trim() || isSubmitting) && styles.sendBtnDisabled]}
                                 onPress={handleSendComment}
@@ -865,14 +873,14 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.white,
         paddingHorizontal: 16,
         paddingTop: 14,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 14, // Đã bọc KeyboardAvoidingView nên để padding tự nhiên
+        // paddingBottom được set dynamic theo insets.bottom trong JSX
         borderTopWidth: 1,
         borderTopColor: COLORS.gray100,
         elevation: 35,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -10 },
-        shadowOpacity: 0.15,
-        shadowRadius: 15,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.10,
+        shadowRadius: 12,
     },
     commentInputReplying: { borderTopWidth: 0 },
     inputContainerFocused: { borderTopColor: COLORS.primary + '30', elevation: 30 },

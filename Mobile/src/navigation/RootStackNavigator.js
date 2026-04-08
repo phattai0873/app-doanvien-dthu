@@ -16,7 +16,6 @@ import { ExamListScreen } from '../screens/Exam/ExamListScreen';
 import { ExamDetailScreen } from '../screens/Exam/ExamDetailScreen';
 import { DocumentListScreen } from '../screens/Document/DocumentListScreen';
 import { DocumentDetailScreen } from '../screens/Document/DocumentDetailScreen';
-import { PoliticalTheoryScreen } from '../screens/Theory/PoliticalTheoryScreen';
 import { VolunteerListScreen } from '../screens/Volunteer/VolunteerListScreen';
 import { ActivityHistoryScreen } from '../screens/Volunteer/ActivityHistoryScreen';
 
@@ -75,7 +74,6 @@ export const RootStackNavigator = () => {
             <Stack.Screen name="DocumentDetail" component={DocumentDetailScreen} options={{ title: 'Chi tiết văn bản' }} />
             
             {/* Other Modules */}
-            <Stack.Screen name="TheoryStudy" component={PoliticalTheoryScreen} options={{ title: 'Học tập Lý luận' }} />
             <Stack.Screen name="VolunteerList" component={VolunteerListScreen} options={{ title: 'Hoạt động Tình nguyện' }} />
             <Stack.Screen name="ActivityHistory" component={ActivityHistoryScreen} options={{ title: 'Lịch sử hoạt động' }} />
             

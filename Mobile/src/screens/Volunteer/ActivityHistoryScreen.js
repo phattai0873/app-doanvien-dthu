@@ -64,7 +64,7 @@ export const ActivityHistoryScreen = ({ onBack }) => {
                     </View>
                     <View style={styles.infoRow}>
                         <Icon name="Briefcase" size={14} color="#6B7280" />
-                        <Text style={styles.infoText}>Ngày CTXH: {item.Activity?.socialWorkDays || 0} ngày</Text>
+                        <Text style={styles.infoText}>Ngày CTXH: {item.Activity?.point || 0} ngày</Text>
                     </View>
                 </View>
             </View>

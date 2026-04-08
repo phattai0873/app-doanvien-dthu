@@ -120,8 +120,8 @@ class ActivityService {
             else if (user.unionBranchId) data.level = 'BRANCH';
         }
 
-        if (data.startDate) data.startDate = safeDate(data.startDate);
-        if (data.endDate) data.endDate = safeDate(data.endDate);
+        if (data.startDate) data.startDate = safeDate(data.startDate, null, false);
+        if (data.endDate) data.endDate = safeDate(data.endDate, null, false);
 
         if (!data.checkinCode) {
             data.checkinCode = generateCheckinCode();
@@ -146,8 +146,8 @@ class ActivityService {
         // 1. Chống thay đổi đơn vị tổ chức trái phép
         injectScope(data, user, 'activity');
 
-        if (data.startDate) data.startDate = safeDate(data.startDate);
-        if (data.endDate) data.endDate = safeDate(data.endDate);
+        if (data.startDate) data.startDate = safeDate(data.startDate, null, false);
+        if (data.endDate) data.endDate = safeDate(data.endDate, null, false);
 
         if (data.status === 'IN_PROGRESS' && !activity.checkinCode) {
             data.checkinCode = generateCheckinCode();
@@ -232,16 +232,15 @@ class ActivityService {
         }
 
         // 3. Kiểm tra phân quyền đăng ký (Registration ABAC)
-        if (activity.level === 'BRANCH') {
-            const userBranchId = member.unionBranchId || member.UnionCell?.unionBranchId;
-            if (activity.unionBranchId !== userBranchId && activity.organizedByBranchId !== userBranchId) {
-                throw new ErrorResponse('Hoạt động này chỉ dành cho đoàn viên thuộc Liên chi đoàn tổ chức', 403);
-            }
-        } else if (activity.level === 'CELL') {
-            if (activity.organizedByCellId !== member.unionCellId) {
-                throw new ErrorResponse('Hoạt động này chỉ dành cho đoàn viên thuộc Chi đoàn tổ chức', 403);
+        const memberBranchId = member.unionBranchId || member.UnionCell?.unionBranchId;
+        
+        if (activity.level === 'BRANCH' || activity.level === 'CELL') {
+            const orgBranchId = activity.organizedByBranchId || activity.unionBranchId;
+            if (orgBranchId && memberBranchId !== orgBranchId) {
+                throw new ErrorResponse(`Hoạt động này chỉ dành cho đoàn viên thuộc ${activity.level === 'BRANCH' ? 'Liên chi đoàn' : 'Khoa'} tổ chức`, 403);
             }
         }
+        // Lưu ý: Hoạt động cấp SCHOOL (organizedByBranchId = null) thì ai cũng được đăng ký (trừ khi có logic khác)
 
         const [participant, created] = await ActivityParticipant.findOrCreate({
             where: { activityId, memberId },

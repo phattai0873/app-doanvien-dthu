@@ -239,12 +239,18 @@ export default function QuizPage() {
                         {attemptsQ.isLoading ? <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
                             : attempts.length === 0 ? <div className="text-center py-12 text-gray-400 text-sm">Chưa có ai làm bài</div>
                                 : <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Đoàn viên</th><th className="px-4 py-3 text-left">Điểm</th><th className="px-4 py-3 text-left">Đúng</th><th className="px-4 py-3 text-left">Kết quả</th></tr></thead>
+                                    <thead><tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold uppercase text-gray-500"><th className="px-4 py-3 text-left">#</th><th className="px-4 py-3 text-left">Đoàn viên</th><th className="px-4 py-3 text-left">Thời gian nộp</th><th className="px-4 py-3 text-left">Điểm</th><th className="px-4 py-3 text-left">Đúng</th><th className="px-4 py-3 text-left">Kết quả</th></tr></thead>
                                     <tbody>
                                         {attempts.map((a, i) => (
                                             <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
                                                 <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                                                 <td className="px-4 py-3 font-semibold">{a.UnionMember?.fullName || '—'}</td>
+                                                <td className="px-4 py-3 text-[11px] text-gray-500 font-medium">
+                                                    {a.submitTime ? (() => {
+                                                        const d = new Date(a.submitTime);
+                                                        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                                                    })() : '—'}
+                                                </td>
                                                 <td className="px-4 py-3 font-bold text-primary-700">{a.score}</td>
                                                 <td className="px-4 py-3 text-gray-500 text-xs">{a.correctAnswersCount} câu</td>
                                                 <td className="px-4 py-3">

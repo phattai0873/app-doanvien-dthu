@@ -68,8 +68,10 @@ class FeeService {
         const unpaidFees = [];
         for (const type of feeTypes) {
             for (const year of yearsToCheck) {
-                const hasPaid = payments.some(p => p.unionFeeTypeId === type.id && p.period === year);
-                if (!hasPaid) {
+                const hasPaid = payments.some(p => (p.unionFeeTypeId === type.id || p.UnionFeeType?.id === type.id) && p.period === year);
+                const hasPending = pendingTransactions.some(t => (t.unionFeeTypeId === type.id || t.UnionFeeType?.id === type.id) && t.period === year);
+                
+                if (!hasPaid && !hasPending) {
                     unpaidFees.push({
                         unionFeeTypeId: type.id,
                         name: type.name,
@@ -105,51 +107,84 @@ class FeeService {
      * Tạo bản ghi nộp phí thủ công (Admin)
      */
     static async create(data, user) {
-        const { unionMemberId, unionFeeTypeId, period, amount, paymentMethod, note } = data;
+        const { targetType, unionMemberId, unionCellId, unionBranchId, paymentMethod, note, evidenceImageUrl } = data;
+        const amount = Number(data.amount || 0);
+        const period = data.period ? String(data.period) : new Date().getFullYear().toString();
+        const unionFeeTypeId = data.unionFeeTypeId === '' ? null : data.unionFeeTypeId;
 
-        // 1. Kiểm tra phạm vi: Admin chỉ được nộp cho Member trong scope của mình
-        const member = await UnionMember.findByPk(unionMemberId, {
-            include: [{ model: UnionCell }]
-        });
-        if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
-        
-        // Thực thi kiểm tra scope của member
-        enforceScope(user, member);
+        let targetMemberIds = [];
 
-        // 2. Kiểm tra trùng lặp
-        const existing = await UnionFeePayment.findOne({
-            where: { unionMemberId, unionFeeTypeId, period }
-        });
-        if (existing) throw new ErrorResponse('Đoàn viên này đã nộp loại phí này trong kỳ này rồi.', 400);
+        if (targetType === 'CELL' || unionCellId) {
+            const id = unionCellId || data.targetId;
+            const members = await UnionMember.findAll({ where: { unionCellId: id } });
+            targetMemberIds = members.map(m => m.id);
+        } else if (targetType === 'BRANCH' || unionBranchId) {
+            const id = unionBranchId || data.targetId;
+            const members = await UnionMember.findAll({
+                include: [{ model: UnionCell, where: { unionBranchId: id } }]
+            });
+            targetMemberIds = members.map(m => m.id);
+        } else if (targetType === 'MEMBER_LIST' || data.memberIds) {
+            targetMemberIds = Array.isArray(data.memberIds) ? data.memberIds : (typeof data.memberIds === 'string' ? data.memberIds.split(',') : []);
+        } else {
+            targetMemberIds = [unionMemberId];
+        }
+
+        if (targetMemberIds.length === 0) throw new ErrorResponse('Không tìm thấy đoàn viên nào trong phạm vi đã chọn', 404);
+
+        // Lọc những người đã nộp rồi để tránh trùng lặp
+        const paidMemberIds = await UnionFeePayment.findAll({
+            where: { 
+                unionMemberId: { [Op.in]: targetMemberIds },
+                unionFeeTypeId,
+                period
+            },
+            attributes: ['unionMemberId']
+        }).then(r => r.map(x => x.unionMemberId));
+
+        const pendingMemberIds = targetMemberIds.filter(id => !paidMemberIds.includes(id));
+
+        if (pendingMemberIds.length === 0) {
+            throw new ErrorResponse('Tất cả đoàn viên trong đơn vị này đã nộp loại phí này rồi.', 400);
+        }
 
         const t = await sequelize.transaction();
 
         try {
-            const transaction = await PaymentTransaction.create({
-                unionMemberId,
-                unionFeeTypeId,
-                amount,
-                period,
-                paymentProvider: paymentMethod || 'CASH',
-                status: 'SUCCESS',
-                paidAt: new Date(),
-                internalTransactionId: `TXN-MANUAL-${Date.now()}`
-            }, { transaction: t });
+            const results = [];
+            for (const mId of pendingMemberIds) {
+                const member = await UnionMember.findByPk(mId, { include: [UnionCell] });
+                
+                const transaction = await PaymentTransaction.create({
+                    unionMemberId: mId,
+                    unionFeeTypeId,
+                    amount,
+                    period,
+                    paymentProvider: paymentMethod || 'CASH',
+                    status: 'SUCCESS',
+                    paidAt: new Date(),
+                    evidenceImageUrl,
+                    internalTransactionId: `TXN-MANUAL-${Date.now()}-${mId.substring(0,4)}`
+                }, { transaction: t });
 
-            const payment = await UnionFeePayment.create({
-                unionMemberId,
-                unionFeeTypeId,
-                paymentTransactionId: transaction.id,
-                period,
-                amount,
-                paidAt: new Date(),
-                note,
-                unionCellId: member.unionCellId,
-                unionBranchId: member.UnionCell?.unionBranchId
-            }, { transaction: t });
+                const payment = await UnionFeePayment.create({
+                    unionMemberId: mId,
+                    unionFeeTypeId,
+                    paymentTransactionId: transaction.id,
+                    period,
+                    amount,
+                    paidAt: new Date(),
+                    note: note || (pendingMemberIds.length > 1 ? `Ghi nhận hàng loạt cho đơn vị` : ''),
+                    evidenceImageUrl,
+                    unionCellId: member.unionCellId,
+                    unionBranchId: member.UnionCell?.unionBranchId
+                }, { transaction: t });
+                
+                results.push(payment);
+            }
 
             await t.commit();
-            return payment;
+            return { count: results.length, message: `Đã ghi nhận nộp phí cho ${results.length} đoàn viên.` };
         } catch (error) {
             await t.rollback();
             throw error;
@@ -163,8 +198,8 @@ class FeeService {
         if (!period) throw new ErrorResponse('Vui lòng cung cấp kỳ (period)', 400);
         const { page: p, limit: l, offset } = getPagination({ page, limit });
 
-        // 1. Lọc theo Scope của Admin
-        const scopeFilter = getScopeFilter(user, 'member');
+        // 1. Lọc theo Scope của Admin dựa trên bản ghi đóng phí
+        const scopeFilter = getScopeFilter(user, 'fee');
 
         const paidMemberIds = await UnionFeePayment.findAll({
             where: {
@@ -177,7 +212,6 @@ class FeeService {
 
         const memberWhere = {
             id: { [Op.notIn]: paidMemberIds },
-            ...scopeFilter,
             ...(unionCellId && { unionCellId }),
             ...(search && {
                 [Op.or]: [
@@ -187,13 +221,29 @@ class FeeService {
             })
         };
 
+        // Thủ công Scoping cho UnionMember
+        if (!user.isSuperAdmin) {
+            const bId = user.unionBranchId || user.scope?.branchId || user.UnionMember?.UnionCell?.unionBranchId;
+            const cId = user.unionCellId || user.scope?.cellId || user.UnionMember?.unionCellId;
+
+            if (cId) {
+                memberWhere.unionCellId = cId;
+            } else if (bId) {
+                // Sẽ được lọc qua cellInclude.where bên dưới
+            } else {
+                return [];
+            }
+        }
+
         const cellInclude = {
             model: UnionCell,
-            attributes: ['id', 'name', 'unionBranchId']
+            attributes: ['id', 'name', 'unionBranchId'],
+            required: !user.isSuperAdmin // Bắt buộc join nếu không phải superadmin
         };
 
-        if (unionBranchId) {
-            cellInclude.where = { unionBranchId };
+        const bIdForFilter = unionBranchId || ( !user.isSuperAdmin ? (user.unionBranchId || user.scope?.branchId || user.UnionMember?.UnionCell?.unionBranchId) : null );
+        if (bIdForFilter) {
+            cellInclude.where = { unionBranchId: bIdForFilter };
         }
 
         const result = await UnionMember.findAndCountAll({
@@ -247,7 +297,9 @@ class FeeService {
      * Mobile: Gửi yêu cầu thanh toán (Scoping qua User Session)
      */
     static async initPayment(data, user) {
-        const { unionFeeTypeId, period, amount, paymentProvider, evidenceImageUrl, note } = data;
+        const { unionFeeTypeId, paymentProvider, evidenceImageUrl, note } = data;
+        const amount = Number(data.amount || 0);
+        const period = String(data.period || new Date().getFullYear());
         const unionMemberId = user.UnionMember?.id || user.unionMemberId;
 
         if (!unionMemberId) throw new ErrorResponse('Bạn chưa có hồ sơ đoàn viên', 400);
@@ -276,7 +328,7 @@ class FeeService {
      */
     static async approveTransaction(id, user) {
         const transaction = await PaymentTransaction.findByPk(id, {
-            include: [{ model: UnionMember, attributes: ['id', 'unionBranchId', 'unionCellId'] }]
+            include: [{ model: UnionMember, attributes: ['id', 'unionCellId'] }]
         });
         if (!transaction) throw new ErrorResponse('Không tìm thấy giao dịch', 404);
         if (transaction.status !== 'PENDING') throw new ErrorResponse('Giao dịch này đã được xử lý trước đó', 400);
@@ -313,7 +365,7 @@ class FeeService {
 
     static async rejectTransaction(id, reason = 'Thông tin thanh toán không hợp lệ', user) {
         const transaction = await PaymentTransaction.findByPk(id, {
-            include: [{ model: UnionMember, attributes: ['id', 'unionBranchId', 'unionCellId'] }]
+            include: [{ model: UnionMember, attributes: ['id', 'unionCellId'] }]
         });
         if (!transaction) throw new ErrorResponse('Không tìm thấy giao dịch', 404);
         if (transaction.status !== 'PENDING') throw new ErrorResponse('Giao dịch này đã được xử lý trước đó', 400);
@@ -328,18 +380,77 @@ class FeeService {
     }
 
     /**
+     * Duyệt hàng loạt giao dịch
+     */
+    static async bulkApproveTransactions(ids, user) {
+        if (!ids || !ids.length) return { success: true, count: 0 };
+        let count = 0;
+        for (const id of ids) {
+            try {
+                await this.approveTransaction(id, user);
+                count++;
+            } catch (err) {
+                console.error(`Bulk Approve fail for ${id}:`, err.message);
+            }
+        }
+        return { count };
+    }
+
+    /**
+     * Từ chối hàng loạt giao dịch
+     */
+    static async bulkRejectTransactions(ids, reason, user) {
+        if (!ids || !ids.length) return { success: true, count: 0 };
+        let count = 0;
+        for (const id of ids) {
+            try {
+                await this.rejectTransaction(id, reason, user);
+                count++;
+            } catch (err) {
+                console.error(`Bulk Reject fail for ${id}:`, err.message);
+            }
+        }
+        return { count };
+    }
+
+    /**
      * Admin: Lấy danh sách chờ duyệt (Enterprise Scoping)
      */
     static async getPendingTransactions(user) {
-        const scopeFilter = getScopeFilter(user, 'member'); // Lọc Member thuộc scope
+        const where = { status: 'PENDING' };
+        let memberWhere = {};
+        let cellWhere = {};
+
+        // Thủ công Scoping tường minh theo từng cấp association
+        if (!user.isSuperAdmin) {
+            const branchId = user.unionBranchId || user.scope?.branchId || user.UnionMember?.UnionCell?.unionBranchId;
+            const cellId = user.unionCellId || user.scope?.cellId || user.UnionMember?.unionCellId;
+
+            if (cellId) {
+                memberWhere.unionCellId = cellId;
+            } else if (branchId) {
+                cellWhere.unionBranchId = branchId;
+            } else {
+                return [];
+            }
+        }
 
         return await PaymentTransaction.findAll({
-            where: { status: 'PENDING' },
+            where,
             include: [
                 {
                     model: UnionMember,
-                    where: scopeFilter,
-                    attributes: ['id', 'fullName', 'memberCode', 'unionBranchId']
+                    where: Object.keys(memberWhere).length ? memberWhere : undefined,
+                    required: true,
+                    attributes: ['id', 'fullName', 'memberCode', 'unionCellId'],
+                    include: [
+                        { 
+                            model: UnionCell, 
+                            where: Object.keys(cellWhere).length ? cellWhere : undefined,
+                            required: true,
+                            attributes: ['id', 'name', 'unionBranchId'] 
+                        }
+                    ]
                 },
                 { model: UnionFeeType, attributes: ['id', 'name'] }
             ],

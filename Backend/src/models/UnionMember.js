@@ -78,6 +78,10 @@ const UnionMember = sequelize.define('UnionMember', {
     avatar: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    socialWorkDays: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     }
 }, {
     tableName: 'union_members',
@@ -90,7 +94,25 @@ const UnionMember = sequelize.define('UnionMember', {
         { fields: ['status'] },
         { fields: ['activityStatus'] },
         { fields: ['userId'] }
-    ]
+    ],
+    hooks: {
+        beforeSave: (member) => {
+            ['dateOfBirth', 'joinedDate', 'officialDate'].forEach(field => {
+                const val = member[field];
+                if (val) {
+                    // Nếu là string chứa "invalid" hoặc khi parse ra NaN
+                    if (typeof val === 'string' && val.toLowerCase().includes('invalid')) {
+                        member[field] = null;
+                    } else {
+                        const d = new Date(val);
+                        if (isNaN(d.getTime())) {
+                            member[field] = null;
+                        }
+                    }
+                }
+            });
+        }
+    }
 });
 
 module.exports = UnionMember;

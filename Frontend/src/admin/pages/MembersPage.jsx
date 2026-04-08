@@ -77,6 +77,7 @@ function MemberModal({ member, onClose, onSave }) {
                     </div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Email</label><input className={INPUT} value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="email@dthu.edu.vn" /></div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Số điện thoại</label><input className={INPUT} value={form.phoneNumber || ''} onChange={e => set('phoneNumber', e.target.value)} /></div>
+                    <div><label className="block text-xs font-semibold text-gray-600 mb-1">Tổng Ngày CTXH</label><input type="number" className={INPUT} value={form.socialWorkDays || 0} onChange={e => set('socialWorkDays', parseInt(e.target.value))} /></div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Quê quán</label><input className={INPUT} value={form.hometown || ''} onChange={e => set('hometown', e.target.value)} /></div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Thường trú</label><input className={INPUT} value={form.permanentAddress || ''} onChange={e => set('permanentAddress', e.target.value)} /></div>
                 </div>
@@ -295,6 +296,13 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
                                         <p className="text-sm font-bold text-gray-800">{member.UnionCell?.name || '—'} - {member.UnionCell?.UnionBranch?.name || '—'}</p>
                                     </div>
                                 </div>
+                                 <div className="col-span-2 flex items-center gap-3 p-3 bg-primary-50 rounded-xl border border-primary-100">
+                                    <BookOpen size={18} className="text-primary-700" />
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Tổng Ngày CTXH tích lũy</p>
+                                        <p className="text-sm font-black text-primary-700 uppercase">{member.socialWorkDays || 0} ngày</p>
+                                    </div>
+                                </div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày sinh</label><p className="text-sm text-gray-700">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</p></div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Giới tính</label><p className="text-sm text-gray-700">{member.gender === 'female' ? 'Nữ' : 'Nam'}</p></div>
                                 <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Số điện thoại</label><p className="text-sm text-gray-700 font-medium">{member.User?.phoneNumber || member.phoneNumber || '—'}</p></div>
@@ -344,6 +352,89 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
     );
 }
 
+function UpdateRequestModal({ request, onClose, onApprove, onReject }) {
+    if (!request) return null;
+    const { oldData, newData, UnionMember: member } = request;
+
+    // Các trường cần so sánh
+    const FIELDS = [
+        { key: 'fullName', label: 'Họ và tên' },
+        { key: 'dateOfBirth', label: 'Ngày sinh', isDate: true },
+        { key: 'gender', label: 'Giới tính', isGender: true },
+        { key: 'identityNumber', label: 'Số CCCD/CMND' },
+        { key: 'permanentAddress', label: 'Thường trú' },
+        { key: 'hometown', label: 'Quê quán' },
+        { key: 'memberCardNumber', label: 'Số thẻ đoàn' },
+        { key: 'educationLevel', label: 'Trình độ văn hóa' },
+        { key: 'occupation', label: 'Nghề nghiệp/Lớp' },
+    ];
+
+    const formatVal = (key, val, config) => {
+        if (!val) return '—';
+        if (config.isDate) return new Date(val).toLocaleDateString('vi-VN');
+        if (config.isGender) return val === 'female' ? 'Nữ' : 'Nam';
+        return val;
+    };
+
+    return (
+        <ModalPortal onClose={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+                    <div className="flex items-center gap-2">
+                        <RotateCcw size={18} className="text-orange-600" />
+                        <h3 className="font-bold text-gray-800">Yêu cầu cập nhật hồ sơ</h3>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
+                </div>
+                <div className="p-6">
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center font-black text-blue-700 border border-blue-200 shadow-sm text-lg">
+                            {member?.fullName?.charAt(0)}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-gray-800">{member?.fullName}</p>
+                            <p className="text-[11px] font-black text-blue-700 uppercase tracking-tighter">{member?.memberCode}</p>
+                        </div>
+                    </div>
+
+                    <div className="overflow-hidden border border-gray-200 rounded-xl">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-4 py-3 text-left font-bold text-gray-600">Thông tin</th>
+                                    <th className="px-4 py-3 text-left font-bold text-gray-500">Giá trị cũ</th>
+                                    <th className="px-4 py-3 text-left font-bold text-orange-600">Giá trị mới</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {FIELDS.map(f => {
+                                    const isChanged = oldData[f.key] !== newData[f.key];
+                                    if (!isChanged && !newData[f.key]) return null;
+                                    return (
+                                        <tr key={f.key} className={isChanged ? 'bg-orange-50/30' : ''}>
+                                            <td className="px-4 py-3 font-semibold text-gray-700">{f.label}</td>
+                                            <td className="px-4 py-3 text-gray-500">{formatVal(f.key, oldData[f.key], f)}</td>
+                                            <td className="px-4 py-3 font-bold text-orange-700">
+                                                {formatVal(f.key, newData[f.key], f)}
+                                                {isChanged && <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-black uppercase">Đổi</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl sticky bottom-0">
+                    <button className={BTN_SECONDARY} onClick={onClose}>Hủy bỏ</button>
+                    <button className="flex items-center gap-2 px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-medium rounded-lg transition" onClick={() => onReject(request.id)}>Từ chối</button>
+                    <button className={BTN_PRIMARY} onClick={() => onApprove(request.id)}>Chấp nhận thay đổi</button>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
 function Pagination({ pagination, page, setPage }) {
     if (!pagination.totalPages || pagination.totalPages <= 1) return null;
     return (
@@ -374,7 +465,9 @@ export default function MembersPage() {
     const [modal, setModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [appointmentModal, setAppointmentModal] = useState(null);
+    const [updateReqModal, setUpdateReqModal] = useState(null);
     const [showTrash, setShowTrash] = useState(false);
+    const [viewMode, setViewMode] = useState('LIST'); // 'LIST' or 'REQUESTS'
 
     const { data: posRes } = useQuery({ queryKey: ['positions'], queryFn: positionApi.getAll });
     const positions = posRes?.data?.data || [];
@@ -390,16 +483,19 @@ export default function MembersPage() {
     const cellsByBranch = cellsRes?.data?.data || [];
 
     const { data, isLoading } = useQuery({
-        queryKey: ['members', search, page, unionCellId, roleFilter, activityStatusFilter, approvalStatusFilter, branchFilter, cellFilter, showTrash],
-        queryFn: () => memberApi.getAll({ 
-            search, page, limit: 10, 
-            unionCellId: cellFilter || unionCellId || undefined,
-            roleInUnion: roleFilter || undefined,
-            activityStatus: activityStatusFilter || undefined,
-            status: approvalStatusFilter || undefined,
-            unionBranchId: branchFilter || undefined,
-            onlyDeleted: showTrash
-        }),
+        queryKey: ['members', search, page, unionCellId, roleFilter, activityStatusFilter, approvalStatusFilter, branchFilter, cellFilter, showTrash, viewMode],
+        queryFn: () => {
+            if (viewMode === 'REQUESTS') return memberApi.getUpdateRequests({ page, limit: 10 });
+            return memberApi.getAll({ 
+                search, page, limit: 10, 
+                unionCellId: cellFilter || unionCellId || undefined,
+                roleInUnion: roleFilter || undefined,
+                activityStatus: activityStatusFilter || undefined,
+                status: approvalStatusFilter || undefined,
+                unionBranchId: branchFilter || undefined,
+                onlyDeleted: showTrash
+            });
+        },
         keepPreviousData: true,
     });
 
@@ -414,6 +510,9 @@ export default function MembersPage() {
     const approveMutation = useMutation({ mutationFn: memberApi.approve, onSuccess: () => { qc.invalidateQueries(['members']); setDetailModal(null); toast.success('Đã duyệt!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const rejectMutation = useMutation({ mutationFn: memberApi.reject, onSuccess: () => { qc.invalidateQueries(['members']); setDetailModal(null); toast.success('Đã từ chối!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const appointMutation = useMutation({ mutationFn: ({ id, data }) => memberApi.assignPosition(id, data), onSuccess: () => { qc.invalidateQueries(['members']); setAppointmentModal(null); toast.success('Bổ nhiệm thành công! Tài khoản đã được đồng bộ quyền Admin.'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+
+    const approveUpdateMutation = useMutation({ mutationFn: memberApi.approveUpdate, onSuccess: () => { qc.invalidateQueries(['members']); setUpdateReqModal(null); toast.success('Đã chấp nhận thay đổi hồ sơ!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const rejectUpdateMutation = useMutation({ mutationFn: memberApi.rejectUpdate, onSuccess: () => { qc.invalidateQueries(['members']); setUpdateReqModal(null); toast.success('Đã từ chối thay đổi!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
 
     const handleSave = (form) => modal?.id ? updateMutation.mutate({ id: modal.id, data: form }) : createMutation.mutate(form);
     
@@ -491,6 +590,23 @@ export default function MembersPage() {
                 )}
 
                 {!showTrash && (
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${viewMode === 'LIST' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => { setViewMode('LIST'); setPage(1); }}
+                        >
+                            Danh sách
+                        </button>
+                        <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${viewMode === 'REQUESTS' ? 'bg-white text-orange-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => { setViewMode('REQUESTS'); setPage(1); }}
+                        >
+                            Yêu cầu cập nhật
+                        </button>
+                    </div>
+                )}
+
+                {!showTrash && viewMode === 'LIST' && (
                     <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
                 )}
             </div>
@@ -500,7 +616,7 @@ export default function MembersPage() {
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                     <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 uppercase tracking-wide">
                         <Shield size={16} className="text-primary-700" />
-                        {showTrash ? 'Thùng rác Đoàn viên' : 'Danh sách Đoàn viên'}
+                        {showTrash ? 'Thùng rác Đoàn viên' : (viewMode === 'REQUESTS' ? 'Yêu cầu cập nhật hồ sơ' : 'Danh sách Đoàn viên')}
                     </h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest leading-none flex items-center justify-center min-w-[40px] shadow-sm shadow-primary-200">{pagination.total || 0}</span>
                 </div>
@@ -511,11 +627,60 @@ export default function MembersPage() {
                         <div className="text-center py-12 text-gray-400 text-sm font-medium italic">Chưa có đoàn viên nào trong danh sách</div>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead><tr className="bg-gray-50/50 border-b border-gray-200 text-[10px] ont-black uppercase text-gray-500 tracking-widest">
-                                <th className="px-6 py-4 text-left">Hồ sơ</th><th className="px-6 py-4 text-left">Thông tin</th><th className="px-6 py-4 text-left">Chức vụ / Trạng thái</th><th className="px-6 py-4 text-left">Đơn vị</th><th className="px-6 py-4 text-left">Thao tác</th>
-                            </tr></thead>
+                            <thead>
+                                {viewMode === 'REQUESTS' ? (
+                                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-500 tracking-widest">
+                                        <th className="px-6 py-4 text-left">Đoàn viên</th>
+                                        <th className="px-6 py-4 text-left">Ngày yêu cầu</th>
+                                        <th className="px-6 py-4 text-left">Trạng thái</th>
+                                        <th className="px-6 py-4 text-left">Thao tác</th>
+                                    </tr>
+                                ) : (
+                                    <tr className="bg-gray-50/50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-500 tracking-widest">
+                                        <th className="px-6 py-4 text-left">Hồ sơ</th>
+                                        <th className="px-6 py-4 text-left">Thông tin</th>
+                                        <th className="px-6 py-4 text-left">Chức vụ / Trạng thái</th>
+                                        <th className="px-6 py-4 text-left">Đơn vị</th>
+                                        <th className="px-6 py-4 text-left">Thao tác</th>
+                                    </tr>
+                                )}
+                            </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {members.map(m => {
+                                    if (viewMode === 'REQUESTS') {
+                                        return (
+                                            <tr key={m.id} className="hover:bg-gray-50/50 transition border-b border-gray-100 last:border-0">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center font-bold text-primary-700 text-xs shadow-sm">
+                                                            {m.UnionMember?.fullName?.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800 text-xs">{m.UnionMember?.fullName}</p>
+                                                            <p className="font-mono text-[9px] font-black text-gray-400 uppercase">{m.UnionMember?.memberCode}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-xs text-gray-600 font-medium">
+                                                    {new Date(m.createdAt).toLocaleDateString('vi-VN')} {new Date(m.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-orange-100 text-orange-700">
+                                                        Chờ duyệt
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <button 
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-primary-700 hover:bg-primary-800 text-white text-[10px] font-black uppercase rounded shadow-md shadow-primary-200 transition"
+                                                        onClick={() => setUpdateReqModal(m)}
+                                                    >
+                                                        <CheckCircle size={14} /> Xem & Duyệt
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
                                     const statusObj = ACTIVITY_STATUS.find(s => s.value === (m.activityStatus || 'active')) || ACTIVITY_STATUS[0];
                                     const roleObj = ROLES_IN_UNION.find(r => r.value === (m.roleInUnion || 'member')) || ROLES_IN_UNION[0];
                                     return (
@@ -524,6 +689,7 @@ export default function MembersPage() {
                                                 <div>
                                                     <p className="font-mono text-[10px] font-black text-primary-700 uppercase tracking-tight">{m.memberCode}</p>
                                                     <p className="font-bold text-gray-800">{m.fullName}</p>
+                                                    <p className="text-[10px] font-bold text-primary-700 mt-0.5 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100 w-fit">Ngày CTXH: {m.socialWorkDays || 0}</p>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -597,6 +763,7 @@ export default function MembersPage() {
             {modal && <MemberModal member={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} />}
             {detailModal && <MemberDetailModal member={detailModal} onClose={() => setDetailModal(null)} onApprove={handleApprove} onReject={handleReject} />}
             {appointmentModal && <AppointmentModal member={appointmentModal} positions={positions} branches={branchesAll} onClose={() => setAppointmentModal(null)} onAssign={handleAppoint} />}
+            {updateReqModal && <UpdateRequestModal request={updateReqModal} onClose={() => setUpdateReqModal(null)} onApprove={(id) => approveUpdateMutation.mutate(id)} onReject={(id) => rejectUpdateMutation.mutate(id)} />}
         </div>
     );
 }

@@ -3,18 +3,34 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Wallet, CheckCircle2, XCircle, Filter, RotateCcw, Download, CreditCard, Pencil, History, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { feeApi, feeTypeApi, memberApi } from '../../services/api';
-import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete, confirmAction, confirmReason } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
 
 const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
 const BTN_SECONDARY = "flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition";
 
-function FeeModal({ fee, onClose, onSave, members, types }) {
+function FeeModal({ fee, onClose, onSave, members, types, branches, cells }) {
+    const [targetType, setTargetType] = useState('MEMBER'); // 'MEMBER', 'CELL', 'BRANCH'
     const [form, setForm] = useState(fee || {
-        unionMemberId: '', period: new Date().getFullYear().toString(), amount: 24000, 
-        unionFeeTypeId: '', paymentMethod: 'CASH', status: 'COMPLETED', note: ''
+        unionMemberId: '', unionCellId: '', unionBranchId: '',
+        period: new Date().getFullYear().toString(), amount: 24000,
+        unionFeeTypeId: types?.[0]?.id || '', paymentMethod: 'CASH', status: 'COMPLETED', note: ''
     });
+    const [file, setFile] = useState(null);
+
+    const handleConfirm = () => {
+        const formData = new FormData();
+        Object.keys(form).forEach(key => {
+            if (form[key] !== null && form[key] !== undefined) {
+                formData.append(key, form[key]);
+            }
+        });
+        formData.append('targetType', targetType);
+        if (file) formData.append('evidence', file);
+        
+        onSave(formData);
+    };
 
     return (
         <ModalPortal onClose={onClose}>
@@ -25,12 +41,41 @@ function FeeModal({ fee, onClose, onSave, members, types }) {
                 </div>
                 <div className="p-5 space-y-4">
                     {!fee && (
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Đoàn viên *</label>
-                            <select className={INPUT} value={form.unionMemberId} onChange={e => setForm({ ...form, unionMemberId: e.target.value })}>
-                                <option value="">-- Chọn đoàn viên --</option>
-                                {members.map(m => <option key={m.id} value={m.id}>{m.fullName} ({m.memberCode})</option>)}
-                            </select>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Hình thức ghi nhận</label>
+                                <div className="flex bg-gray-100 p-1 rounded-lg">
+                                    <button className={`flex-1 py-1.5 text-xs font-bold rounded-md transition ${targetType === 'MEMBER' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500'}`} onClick={() => setTargetType('MEMBER')}>Cá nhân</button>
+                                    <button className={`flex-1 py-1.5 text-xs font-bold rounded-md transition ${targetType === 'CELL' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500'}`} onClick={() => setTargetType('CELL')}>Chi đoàn</button>
+                                    <button className={`flex-1 py-1.5 text-xs font-bold rounded-md transition ${targetType === 'BRANCH' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500'}`} onClick={() => setTargetType('BRANCH')}>LCĐ</button>
+                                </div>
+                            </div>
+
+                            {targetType === 'MEMBER' ? (
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Đoàn viên *</label>
+                                    <select className={INPUT} value={form.unionMemberId} onChange={e => setForm({ ...form, unionMemberId: e.target.value })}>
+                                        <option value="">-- Chọn đoàn viên --</option>
+                                        {members.sort((a, b) => a.fullName.localeCompare(b.fullName)).map(m => <option key={m.id} value={m.id}>{m.fullName} ({m.memberCode})</option>)}
+                                    </select>
+                                </div>
+                            ) : targetType === 'CELL' ? (
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Chọn Chi đoàn *</label>
+                                    <select className={INPUT} value={form.unionCellId} onChange={e => setForm({ ...form, unionCellId: e.target.value })}>
+                                        <option value="">-- Chọn chi đoàn --</option>
+                                        {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Chọn Liên chi đoàn *</label>
+                                    <select className={INPUT} value={form.unionBranchId} onChange={e => setForm({ ...form, unionBranchId: e.target.value })}>
+                                        <option value="">-- Chọn liên chi đoàn --</option>
+                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
                         </div>
                     )}
                     <div className="grid grid-cols-2 gap-3">
@@ -56,18 +101,32 @@ function FeeModal({ fee, onClose, onSave, members, types }) {
                             <select className={INPUT} value={form.paymentMethod} onChange={e => setForm({ ...form, paymentMethod: e.target.value })}>
                                 <option value="CASH">Tiền mặt</option>
                                 <option value="BANK_TRANSFER">Chuyển khoản</option>
-                                <option value="E-WALLET">Ví điện tử</option>
                             </select>
                         </div>
                     </div>
                     <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ảnh minh chứng</label>
+                        <div className="flex gap-2">
+                             <label className="flex-1 cursor-pointer">
+                                <div className="px-3 py-2 bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-xs text-gray-500 hover:border-primary-400 transition flex items-center gap-2">
+                                    <Download size={14} />
+                                    <span>{file ? file.name : 'Tải lên bill (Ảnh, PDF, Word)'}</span>
+                                </div>
+                                <input type="file" className="hidden" accept="image/*,.pdf,.doc,.docx" onChange={e => setFile(e.target.files[0])} />
+                             </label>
+                             {file && <button className="p-2 text-red-500 hover:bg-red-50 rounded-lg" onClick={() => setFile(null)}>✕</button>}
+                        </div>
+                    </div>
+                    <div>
                         <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ghi chú</label>
-                        <textarea className={INPUT} value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} rows={2} />
+                        <textarea className={INPUT} value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} rows={2} placeholder={targetType !== 'MEMBER' ? 'Sẽ được áp dụng cho tất cả đoàn viên phát sinh bản ghi' : ''} />
                     </div>
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
                     <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
-                    <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Lưu dữ liệu</button>
+                    <button className={BTN_PRIMARY} onClick={handleConfirm}>
+                        {targetType === 'MEMBER' ? 'Lưu dữ liệu' : 'Ghi nhận hàng loạt'}
+                    </button>
                 </div>
             </div>
         </ModalPortal>
@@ -168,15 +227,61 @@ function BankSettingModal({ setting, onClose, onSave, isLoading }) {
     );
 }
 
+const getFileUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    
+    // Lấy domain gốc (ví dụ: http://localhost:5000)
+    let baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '');
+    baseUrl = baseUrl.replace(/\/$/, ''); // Xóa dấu / ở cuối nếu có
+
+    // Chuẩn hóa đường dẫn: thay \ thành /
+    let cleanPath = path.replace(/\\/g, '/');
+    
+    // Nếu đường dẫn chứa 'uploads/', chỉ lấy từ 'uploads/' trở đi
+    const uploadIndex = cleanPath.indexOf('uploads/');
+    if (uploadIndex !== -1) {
+        cleanPath = cleanPath.substring(uploadIndex);
+    } else {
+        cleanPath = cleanPath.replace(/^\//, ''); // Xóa / ở đầu nếu không tìm thấy uploads
+    }
+    
+    const finalUrl = `${baseUrl}/${cleanPath}`;
+    return finalUrl;
+};
+
 function EvidenceModal({ imageUrl, onClose }) {
+    const fileUrl = getFileUrl(imageUrl);
+    const isPdf = imageUrl?.toLowerCase().endsWith('.pdf');
+    const isWord = imageUrl?.toLowerCase().endsWith('.doc') || imageUrl?.toLowerCase().endsWith('.docx');
+
     return (
         <ModalPortal onClose={onClose}>
             <div className="bg-black/90 p-4 rounded-xl relative max-w-4xl w-full flex flex-col items-center">
                 <button onClick={onClose} className="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-white/20 p-2 rounded-full">✕</button>
                 <div className="w-full h-[80vh] flex items-center justify-center">
-                    <img src={imageUrl} alt="Evidence" className="max-w-full max-h-full object-contain" />
+                    {isPdf ? (
+                        <iframe src={fileUrl} className="w-full h-full border-0 rounded-lg bg-white" title="PDF Evidence" />
+                    ) : isWord ? (
+                        <div className="text-center bg-white p-10 rounded-2xl flex flex-col items-center gap-4">
+                            <Download size={64} className="text-blue-600" />
+                            <p className="text-gray-800 font-bold">Tài liệu Word không thể xem trực tiếp</p>
+                            <a 
+                                href={fileUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition"
+                            >
+                                Tải xuống để xem
+                            </a>
+                        </div>
+                    ) : (
+                        <img src={fileUrl} alt="Evidence" className="max-w-full max-h-full object-contain" />
+                    )}
                 </div>
-                <p className="text-white text-xs mt-4 uppercase font-black tracking-widest">Minh chứng thanh toán (Bill)</p>
+                <p className="text-white text-xs mt-4 uppercase font-black tracking-widest">
+                    {isPdf ? 'Minh chứng PDF' : isWord ? 'Minh chứng Word' : 'Minh chứng Hình ảnh (Bill)'}
+                </p>
             </div>
         </ModalPortal>
     );
@@ -190,7 +295,7 @@ export default function FeesPage() {
     const [cellFilter, setCellFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
     const [page, setPage] = useState(1);
-    const [activeTab, setActiveTab ] = useState('unpaid'); // 'unpaid', 'history', 'types', 'pending'
+    const [activeTab, setActiveTab] = useState('unpaid'); // 'unpaid', 'history', 'types', 'pending'
     const [modal, setModal] = useState(null);
     const [typeModal, setTypeModal] = useState(null);
     const [bankModal, setBankModal] = useState(false);
@@ -226,19 +331,33 @@ export default function FeesPage() {
 
     const { data: membersRes } = useQuery({ queryKey: ['members-all'], queryFn: () => memberApi.getAll({ limit: 1000 }) });
     const { data: branchesRes } = useQuery({ queryKey: ['union-branches'], queryFn: () => memberApi.getBranches() });
-    const { data: cellsRes } = useQuery({ 
-        queryKey: ['union-cells', branchFilter], 
+    const { data: cellsRes } = useQuery({
+        queryKey: ['union-cells', branchFilter],
         queryFn: () => memberApi.getCells(branchFilter),
-        enabled: !!branchFilter 
+        enabled: !!branchFilter
     });
 
     const allMembers = membersRes?.data?.data?.data || membersRes?.data?.data || [];
     const branches = branchesRes?.data?.data || [];
     const cells = cellsRes?.data?.data || [];
 
-    const pagination = activeTab === 'unpaid' ? (unpaidRes?.data?.data?.pagination || {}) : (historyRes?.data?.data?.pagination || {});
-    const currentData = activeTab === 'unpaid' ? (unpaidRes?.data?.data?.data || []) : (activeTab === 'history' ? (historyRes?.data?.data?.data || []) : (pendingRes?.data?.data || []));
+    const [selectedIds, setSelectedIds] = useState([]);
+    const pagination = activeTab === 'unpaid' ? (unpaidRes?.data?.pagination || {}) : (historyRes?.data?.pagination || {});
+    const currentData = activeTab === 'unpaid' ? (unpaidRes?.data?.data || []) : (activeTab === 'history' ? (historyRes?.data?.data || []) : (pendingRes?.data?.data || []));
     const isLoading = activeTab === 'unpaid' ? loadingUnpaid : (activeTab === 'history' ? loadingHistory : loadingPending);
+
+    // Reset selection when tab changes
+    useEffect(() => { setSelectedIds([]); }, [activeTab, page, period, branchFilter, cellFilter, typeFilter]);
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === currentData.length) setSelectedIds([]);
+        else setSelectedIds(currentData.map(item => item.id));
+    };
+
+    const toggleSelect = (id) => {
+        if (selectedIds.includes(id)) setSelectedIds(selectedIds.filter(x => x !== id));
+        else setSelectedIds([...selectedIds, id]);
+    };
 
     const approveMutation = useMutation({
         mutationFn: feeApi.approve,
@@ -260,13 +379,21 @@ export default function FeesPage() {
 
     const createMutation = useMutation({
         mutationFn: feeApi.create,
-        onSuccess: () => { qc.invalidateQueries(['fees']); setModal(null); toast.success('Đã ghi nhận'); },
+        onSuccess: (res) => {
+            qc.invalidateQueries(['fees']);
+            setModal(null);
+            toast.success(res?.data?.message || 'Đã ghi nhận');
+        },
         onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
     });
 
     const updateMutation = useMutation({
         mutationFn: ({ id, data }) => feeApi.update(id, data),
-        onSuccess: () => { qc.invalidateQueries(['fees']); setModal(null); toast.success('Đã cập nhật'); },
+        onSuccess: (res) => {
+            qc.invalidateQueries(['fees']);
+            setModal(null);
+            toast.success(res?.data?.message || 'Đã cập nhật');
+        },
         onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
     });
 
@@ -288,6 +415,26 @@ export default function FeesPage() {
         onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
     });
 
+    const bulkApproveMutation = useMutation({
+        mutationFn: feeApi.bulkApprove,
+        onSuccess: (res) => { 
+            qc.invalidateQueries(['fees']); 
+            setSelectedIds([]);
+            toast.success(`Đã phê duyệt ${res?.data?.data?.count || 0} giao dịch`);
+        },
+        onError: (err) => toast.error('Lỗi khi phê duyệt hàng loạt')
+    });
+
+    const bulkRejectMutation = useMutation({
+        mutationFn: feeApi.bulkReject,
+        onSuccess: (res) => {
+            qc.invalidateQueries(['fees']);
+            setSelectedIds([]);
+            toast.success(`Đã từ chối ${res?.data?.data?.count || 0} giao dịch`);
+        },
+        onError: (err) => toast.error('Lỗi khi từ chối hàng loạt')
+    });
+
     const createTypeMutation = useMutation({
         mutationFn: feeTypeApi.create,
         onSuccess: () => { qc.invalidateQueries(['fee-types']); setTypeModal(null); toast.success('Đã thêm'); },
@@ -306,12 +453,18 @@ export default function FeesPage() {
         onError: (err) => toast.error(err.response?.data?.message || 'Lỗi!')
     });
 
-    const handleConfirmFee = (member) => {
+    const handleConfirmFee = async (member) => {
         const selectedType = feeTypes.find(t => t.id === typeFilter) || feeTypes[0];
         if (!selectedType) return toast.error('Vui lòng tạo loại phí trước!');
         const amount = 24000;
         const typeLabel = selectedType.name + ` năm ${period}`;
-        if (window.confirm(`Xác nhận đoàn viên ${member.fullName} đã nộp ${typeLabel}? (Ghi nhận số tiền mặc định 24,000đ)`)) {
+        
+        const res = await confirmAction(
+            'Xác nhận nộp phí?',
+            `Bạn xác nhận đoàn viên ${member.fullName} đã nộp ${typeLabel}? (Số tiền mặc định 24,000đ)`
+        );
+
+        if (res.isConfirmed) {
             createMutation.mutate({ unionMemberId: member.id, period, amount, unionFeeTypeId: selectedType.id, paymentMethod: 'CASH', status: 'COMPLETED', note: `Nộp ${typeLabel}` });
         }
     };
@@ -347,11 +500,11 @@ export default function FeesPage() {
                         ) : (
                             <div className="flex gap-2">
                                 {activeTab === 'history' && (
-                                    <button 
+                                    <button
                                         onClick={() => { setShowTrash(!showTrash); setPage(1); }}
                                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                                            ${showTrash 
-                                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                                            ${showTrash
+                                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                                     >
                                         <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
@@ -368,21 +521,21 @@ export default function FeesPage() {
                 {activeTab !== 'types' && (
                     <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
                         <div className="relative lg:col-span-2">
-                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                             <input className={`${INPUT} pl-10`} placeholder="Tìm đoàn viên..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input className={`${INPUT} pl-10`} placeholder="Tìm đoàn viên..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                         </div>
                         <input type="number" className={INPUT} placeholder="Năm" value={period} onChange={e => { setPeriod(e.target.value); setPage(1); }} />
                         <select className={INPUT} value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }}>
-                             <option value="">-- Tất cả loại phí --</option>
-                             {feeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            <option value="">-- Tất cả loại phí --</option>
+                            {feeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                         <select className={INPUT} value={branchFilter} onChange={e => { setBranchFilter(e.target.value); setCellFilter(''); setPage(1); }}>
-                             <option value="">-- Liên chi đoàn --</option>
-                             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            <option value="">-- Liên chi đoàn --</option>
+                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                         <select className={INPUT} value={cellFilter} onChange={e => { setCellFilter(e.target.value); setPage(1); }} disabled={!branchFilter}>
-                             <option value="">-- Chi đoàn --</option>
-                             {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            <option value="">-- Chi đoàn --</option>
+                            {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                 )}
@@ -421,12 +574,63 @@ export default function FeesPage() {
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <h3 className="text-sm font-black text-gray-600 uppercase tracking-widest flex items-center gap-2">
-                             <Wallet size={18} className="text-primary-700" />
-                             {activeTab === 'unpaid' ? `Đoàn viên chưa nộp ${period}` : (activeTab === 'history' ? (showTrash ? `Thùng rác nộp phí ${period}` : `Lịch sử nộp phí ${period}`) : 'Giao dịch chờ phê duyệt (VietQR)')}
+                            <Wallet size={18} className="text-primary-700" />
+                            {activeTab === 'unpaid' ? `Đoàn viên chưa nộp ${period}` : (activeTab === 'history' ? (showTrash ? `Thùng rác nộp phí ${period}` : `Lịch sử nộp phí ${period}`) : 'Giao dịch chờ phê duyệt (VietQR)')}
                         </h3>
                         {activeTab !== 'pending' && <button className="text-[10px] font-black text-primary-700 uppercase flex items-center gap-1 hover:underline"><Download size={14} /> Xuất Excel</button>}
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative min-h-[400px]">
+                        {/* Bulk Action Bar */}
+                        {selectedIds.length > 0 && (
+                            <div className="absolute top-0 left-0 right-0 h-14 bg-primary-700 text-white flex items-center justify-between px-6 z-20 animate-in slide-in-from-top duration-300">
+                                <div className="flex items-center gap-4">
+                                    <span className="text-xs font-black uppercase tracking-widest">Đã chọn {selectedIds.length} bản ghi</span>
+                                    <button className="text-[10px] font-black uppercase hover:underline" onClick={() => setSelectedIds([])}>Hủy chọn</button>
+                                </div>
+                                <div className="flex gap-2">
+                                    {activeTab === 'pending' && (
+                                        <>
+                                            <button 
+                                                className="px-4 py-1.5 bg-white text-primary-700 text-[10px] font-black uppercase rounded-lg hover:bg-gray-100 transition"
+                                                onClick={async () => {
+                                                    if ((await confirmAction('Phê duyệt hàng loạt?', `Bạn muốn phê duyệt ${selectedIds.length} giao dịch đã chọn?`, 'Phê duyệt ngay')).isConfirmed) {
+                                                        bulkApproveMutation.mutate(selectedIds);
+                                                    }
+                                                }}
+                                            >
+                                                Phê duyệt nhanh
+                                            </button>
+                                            <button 
+                                                className="px-4 py-1.5 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-red-700 transition"
+                                                onClick={async () => {
+                                                    const res = await confirmReason('Từ chối hàng loạt', 'Nhập lý do từ chối cho các bản ghi đã chọn...');
+                                                    if (res.isConfirmed && res.value) {
+                                                        bulkRejectMutation.mutate({ ids: selectedIds, reason: res.value });
+                                                    }
+                                                }}
+                                            >
+                                                Từ chối nhanh
+                                            </button>
+                                        </>
+                                    )}
+                                    {activeTab === 'unpaid' && (
+                                        <button 
+                                            className="px-4 py-1.5 bg-white text-primary-700 text-[10px] font-black uppercase rounded-lg hover:bg-gray-100 transition"
+                                            onClick={async () => {
+                                                const selectedType = feeTypes.find(t => t.id === typeFilter) || feeTypes[0];
+                                                if (!selectedType) return toast.error('Vui lòng chọn loại phí!');
+                                                if ((await confirmAction('Ghi nhận nộp phí hàng loạt?', `Xác nhận ${selectedIds.length} đoàn viên đã chọn đã nộp ${selectedType.name}?`, 'Ghi nhận ngay')).isConfirmed) {
+                                                    createMutation.mutate({ targetType: 'MEMBER_LIST', memberIds: selectedIds, period, amount: 24000, unionFeeTypeId: selectedType.id, paymentMethod: 'CASH' });
+                                                }
+                                            }}
+                                        >
+                                            Xác nhận đã nộp (Tiền mặt)
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {isLoading ? (
                             <div className="py-20 flex justify-center"><div className="spinner" /></div>
                         ) : currentData.length === 0 ? (
@@ -435,6 +639,9 @@ export default function FeesPage() {
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-400 tracking-widest">
                                     <tr>
+                                        <th className="px-6 py-4 w-10">
+                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" checked={selectedIds.length === currentData.length && currentData.length > 0} onChange={toggleSelectAll} />
+                                        </th>
                                         <th className="px-6 py-4">Đoàn viên</th>
                                         <th className="px-6 py-4">Đơn vị</th>
                                         <th className="px-6 py-4">{activeTab === 'pending' ? 'Kỳ đóng / Loại phí' : 'Loại phí'}</th>
@@ -445,7 +652,10 @@ export default function FeesPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 font-medium">
                                     {currentData.map(item => (
-                                        <tr key={item.id} className="hover:bg-gray-50/50 transition border-l-4 border-l-transparent hover:border-l-primary-700">
+                                        <tr key={item.id} className={`hover:bg-gray-50/50 transition border-l-4 ${selectedIds.includes(item.id) ? 'bg-primary-50/50 border-l-primary-700' : 'border-l-transparent'}`}>
+                                            <td className="px-6 py-4">
+                                                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)} />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-gray-800">{item.fullName || item.UnionMember?.fullName}</span>
@@ -458,13 +668,19 @@ export default function FeesPage() {
                                                     <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
                                                         Kỳ {item.period} - {item.UnionFeeType?.name}
                                                     </span>
+                                                ) : activeTab === 'unpaid' ? (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100">
+                                                        {feeTypes.find(t => t.id === typeFilter)?.name || 'Đoàn phí'} - {period}
+                                                    </span>
                                                 ) : (
                                                     <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
                                                         {item.UnionFeeType?.name || item.type}
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 font-bold text-gray-800">{Number(item.amount || 0).toLocaleString()}đ</td>
+                                            <td className="px-6 py-4 font-bold text-gray-800">
+                                                {activeTab === 'unpaid' ? '24,000đ' : `${Number(item.amount || 0).toLocaleString()}đ`}
+                                            </td>
                                             <td className="px-6 py-4 text-center">
                                                 {activeTab === 'unpaid' ? (
                                                     <span className="px-3 py-1 bg-red-100 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest">Chưa nộp</span>
@@ -473,7 +689,7 @@ export default function FeesPage() {
                                                         {item.deletedAt ? <><Trash2 size={12} /> Đã xóa mềm</> : <><CheckCircle2 size={12} /> Đã nộp</>}
                                                     </span>
                                                 ) : (
-                                                    <button 
+                                                    <button
                                                         className="flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-[10px] font-black uppercase mx-auto transition"
                                                         onClick={() => setEvidenceUrl(item.evidenceImageUrl)}
                                                     >
@@ -496,8 +712,8 @@ export default function FeesPage() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <button 
-                                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition" 
+                                                                <button
+                                                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
                                                                     onClick={async () => {
                                                                         const res = await confirmRestore(`bản ghi của ${item.UnionMember?.fullName}`);
                                                                         if (res.isConfirmed) restoreMutation.mutate(item.id);
@@ -506,8 +722,8 @@ export default function FeesPage() {
                                                                 >
                                                                     <RotateCcw size={16} />
                                                                 </button>
-                                                                <button 
-                                                                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition" 
+                                                                <button
+                                                                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition"
                                                                     onClick={async () => {
                                                                         const res = await confirmForceDelete(`bản ghi của ${item.UnionMember?.fullName}`);
                                                                         if (res.isConfirmed) forceDeleteMutation.mutate(item.id);
@@ -521,21 +737,25 @@ export default function FeesPage() {
                                                     </div>
                                                 ) : (
                                                     <div className="flex gap-2 justify-center">
-                                                        <button 
-                                                            className="p-2 bg-green-100 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition" 
+                                                        <button
+                                                            className="p-2 bg-green-100 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition"
                                                             title="Phê duyệt"
-                                                            onClick={() => {
-                                                                if (window.confirm(`Phê duyệt giao dịch của ${item.UnionMember?.fullName}?`)) approveMutation.mutate(item.id);
+                                                            onClick={async () => {
+                                                                if ((await confirmAction('Phê duyệt Giao dịch?', `Phê duyệt giao dịch của ${item.UnionMember?.fullName}?`, 'Đồng ý')).isConfirmed) {
+                                                                    approveMutation.mutate(item.id);
+                                                                }
                                                             }}
                                                         >
                                                             <CheckCircle2 size={16} />
                                                         </button>
-                                                        <button 
-                                                            className="p-2 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition" 
+                                                        <button
+                                                            className="p-2 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-lg transition"
                                                             title="Từ chối"
-                                                            onClick={() => {
-                                                                const reason = window.prompt('Nhập lý do từ chối:', 'Minh chứng không hợp lệ');
-                                                                if (reason) rejectMutation.mutate({ id: item.id, reason });
+                                                            onClick={async () => {
+                                                                const res = await confirmReason('Từ chối giao dịch', 'Nhập lý do từ chối (ví dụ: Minh chứng không hợp lệ)...');
+                                                                if (res.isConfirmed && res.value) {
+                                                                    rejectMutation.mutate({ id: item.id, reason: res.value });
+                                                                }
                                                             }}
                                                         >
                                                             <XCircle size={16} />
@@ -553,15 +773,15 @@ export default function FeesPage() {
             )}
             {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-end gap-2 px-5 py-4 bg-gray-50/30 border-t border-gray-100">
-                     <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 disabled:opacity-40" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>‹</button>
-                     {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
-                         <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg border text-[11px] font-black ${p === page ? 'bg-primary-700 text-white border-primary-700' : 'border-gray-200 bg-white hover:border-primary-700'}`}>{p}</button>
-                     ))}
-                     <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 disabled:opacity-40" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>›</button>
+                    <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 disabled:opacity-40" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>‹</button>
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
+                        <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg border text-[11px] font-black ${p === page ? 'bg-primary-700 text-white border-primary-700' : 'border-gray-200 bg-white hover:border-primary-700'}`}>{p}</button>
+                    ))}
+                    <button className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-sm flex items-center justify-center hover:border-primary-700 disabled:opacity-40" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>›</button>
                 </div>
             )}
 
-            {modal && <FeeModal fee={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} members={allMembers} types={feeTypes} />}
+            {modal && <FeeModal fee={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} members={allMembers} types={feeTypes} branches={branches} cells={cells} />}
             {typeModal && <FeeTypeModal type={typeModal === 'add' ? null : typeModal} onClose={() => setTypeModal(null)} onSave={handleSaveType} />}
             {bankModal && <BankSettingModal setting={bankSetting} onClose={() => setBankModal(false)} onSave={(data) => updateBankMutation.mutate(data)} isLoading={updateBankMutation.isPending} />}
             {evidenceUrl && <EvidenceModal imageUrl={evidenceUrl} onClose={() => setEvidenceUrl(null)} />}

@@ -84,8 +84,8 @@ function ActivityModal({ activity, onClose, onSave }) {
                             <input type="number" className={INPUT} value={form.maxParticipants || ''} onChange={e => set('maxParticipants', e.target.value)} placeholder="Không giới hạn" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Hiệu lực QR (phút)</label>
-                            <input type="number" className={INPUT} value={form.checkinTTL || 15} onChange={e => set('checkinTTL', parseInt(e.target.value))} />
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Ngày CTXH</label>
+                            <input type="number" className={INPUT} value={form.point || 0} onChange={e => set('point', parseInt(e.target.value))} placeholder="Số ngày" />
                         </div>
                     </div>
                     <div><label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Địa điểm</label><input className={INPUT} value={form.location || ''} onChange={e => set('location', e.target.value)} /></div>
@@ -356,6 +356,8 @@ export default function ActivitiesPage() {
                                                             <span>Ngày: {a.startDate ? new Date(a.startDate).toLocaleDateString('vi-VN') : '—'}</span>
                                                             <span className="w-1 h-1 bg-gray-200 rounded-full" />
                                                             <span className="truncate max-w-[120px]">{a.location || '—'}</span>
+                                                            <span className="w-1 h-1 bg-gray-200 rounded-full" />
+                                                            <span className="text-primary-700">Ngày CTXH: {a.point || 0}</span>
                                                         </div>
                                                     </div>
                                                 </td>

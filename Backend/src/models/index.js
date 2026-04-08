@@ -1,3 +1,4 @@
+const { sequelize } = require('../configs/db');
 const User = require('./User');
 const Role = require('./Role');
 const Permission = require('./Permission');
@@ -247,5 +248,6 @@ module.exports = {
     Notification, NotificationReadStatus,
     QuizExam, QuizQuestion, QuizOption, QuizAttempt,
     UnionFeePayment, UnionFeeType, PaymentTransaction, CellMeetingLocation, Banner, LandingConfig, BankSetting,
-    ProfileUpdateRequest
+    ProfileUpdateRequest,
+    sequelize
 };

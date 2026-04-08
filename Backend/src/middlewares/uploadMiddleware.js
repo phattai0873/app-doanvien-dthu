@@ -165,8 +165,8 @@ const uploadDocument = multer({
 
 const uploadFeeEvidence = multer({
     storage: feeEvidenceStorage,
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: imageFileFilter
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: documentFileFilter
 }).single('evidence');
 
 
