@@ -1,6 +1,5 @@
 # 🇻🇳 App Đoàn Viên - Hệ Thống Quản Lý Đoàn Viên Toàn Diện
 
-![Chuyên nghiệp](https://img.shields.io/badge/Status-Enterprise--Level-brightgreen)
 ![Công nghệ](https://img.shields.io/badge/Stack-NodeJS--React--Expo-blue)
 ![Cấu trúc](https://img.shields.io/badge/Arch-Layered--Architecture-orange)
 ![Deploy](https://img.shields.io/badge/Deploy-Docker--Ready-blueviolet)
