@@ -17,7 +17,7 @@ import { documentService } from '../../services/documentService';
 import { authService } from '../../services/authService';
 import { API_BASE_URL } from '../../services/api';
 
-export const DocumentListScreen = ({ onNavigate }) => {
+export const DocumentListScreen = ({ navigation }) => {
     const [categories, setCategories] = useState([]);
     const [allDocuments, setAllDocuments] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -94,7 +94,7 @@ export const DocumentListScreen = ({ onNavigate }) => {
         <TouchableOpacity
             style={styles.docCard}
             onPress={() => handleQuickOpen(item.filePath)}
-            onLongPress={() => onNavigate && onNavigate('document_detail', { id: item.id })}
+            onLongPress={() => navigation.navigate('DocumentDetail', { id: item.id })}
             activeOpacity={0.7}
         >
             <View style={[

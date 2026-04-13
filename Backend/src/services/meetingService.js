@@ -20,36 +20,35 @@ class MeetingService {
         const where = {};
         const visibilityWhere = {};
         if (level) where.level = level;
-        if (status) where.status = status;
+        if (status) {
+            if (typeof status === 'string' && status.includes(',')) {
+                const statusArray = status.split(',').map(s => {
+                    const trimmed = s.trim().toUpperCase();
+                    return trimmed === 'ACTIVE' ? 'IN_PROGRESS' : trimmed;
+                });
+                where.status = { [Op.in]: statusArray };
+            } else {
+                const s = status.toUpperCase();
+                where.status = s === 'ACTIVE' ? 'IN_PROGRESS' : s;
+            }
+        }
         if (type) where.type = type;
         if (semester) where.semester = semester;
         if (academicYear) where.academicYear = academicYear;
 
         const searchCondition = buildSearchCondition(search, ['title', 'content', 'academicYear']);
 
-        // --- NEW: Tự động lọc theo Scope của User ---
-        const scopeFilter = getScopeFilter(user, 'organizerBranchId');
-        const cellScopeFilter = getScopeFilter(user, 'organizerCellId');
-
-        if (Object.keys(scopeFilter).length > 0) {
-            // Nếu là Admin có phạm vi, chỉ thấy bài của Trường HOẶC bài trong phạm vi mình
-            visibilityWhere[Op.or] = [
-                { level: 'SCHOOL' },
-                { 
-                    [Op.and]: [
-                        { level: 'BRANCH' },
-                        scopeFilter 
-                    ]
-                },
-                {
-                    [Op.and]: [
-                        { level: 'CELL' },
-                        cellScopeFilter
-                    ]
-                }
-            ];
-        } else {
-            // Nếu là Super Admin, cho phép lọc thủ công nếu có truyền ID
+        // --- NEW: Tự động lọc theo Scope của User (ABAC) ---
+        if (user && !user.isSuperAdmin) {
+            const scopeFilter = getScopeFilter(user, 'meeting');
+            if (Object.keys(scopeFilter).length > 0) {
+                visibilityWhere[Op.or] = [
+                    scopeFilter,
+                    { level: 'SCHOOL' }
+                ];
+            }
+        } else if (!user?.isSuperAdmin) {
+            // Trường hợp user chưa login hoặc super admin lọc thủ công
             if (unionBranchId) visibilityWhere.organizerBranchId = unionBranchId;
             if (unionCellId) visibilityWhere.organizerCellId = unionCellId;
         }
@@ -73,7 +72,7 @@ class MeetingService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             queryOptions.where[Op.and].push({ deletedAt: { [Op.ne]: null } });
         }
@@ -101,7 +100,7 @@ class MeetingService {
 
     static async create(data) {
         const sanitizedData = sanitizeUUID(data);
-        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime);
+        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime, null, false);
 
         if (!sanitizedData.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();
@@ -125,7 +124,7 @@ class MeetingService {
         const oldTime = meeting.meetingTime;
 
         const sanitizedData = sanitizeUUID(data);
-        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime);
+        if (sanitizedData.meetingTime) sanitizedData.meetingTime = safeDate(sanitizedData.meetingTime, null, false);
 
         if (data.status === 'IN_PROGRESS' && !meeting.checkinCode) {
             sanitizedData.checkinCode = generateCheckinCode();

@@ -19,13 +19,15 @@ import TextInput from '../../components/common/TextInput';
 import { authService } from '../../services/authService';
 import { USE_MOCK_API } from '../../services/api';
 
-const LoginScreen = ({ onLogin }) => {
+import { useAuth } from '../../contexts/AuthContext';
+
+const LoginScreen = ({ navigation }) => {
+    const { login } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-    const [showRegister, setShowRegister] = useState(false);
 
     // Load saved credentials
     React.useEffect(() => {
@@ -64,7 +66,9 @@ const LoginScreen = ({ onLogin }) => {
 
         setLoading(true);
         try {
-            const response = await authService.login(username, password);
+            // Sử dụng hàm login từ useAuth để xử lý toàn bộ luồng
+            const response = await login(username, password);
+            
             if (response && (response.token || response.success)) {
                 // Save or clear credentials
                 if (rememberMe) {
@@ -76,27 +80,21 @@ const LoginScreen = ({ onLogin }) => {
                     await AsyncStorage.removeItem('saved_password');
                     await AsyncStorage.setItem('remember_me', 'false');
                 }
-
-                if (onLogin) onLogin(response);
+                // Sau khi login(username, password) trong AuthContext thành công,
+                // nó đã tự gọi checkAuth() để cập nhật trạng thái isLoggedIn.
             } else {
-                Alert.alert('Lỗi', 'Đăng nhập thất bại');
+                Alert.alert('Lỗi', 'Tên đăng nhập hoặc mật khẩu không đúng');
             }
         } catch (error) {
-            Alert.alert('Lỗi', 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+            console.error('Login error:', error);
+            const errorMsg = error?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.';
+            Alert.alert('Lỗi', errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleForgotPassword = () => {
-        Alert.alert('Quên mật khẩu', 'Chức năng đang được phát triển');
-    };
-
-    if (showRegister) {
-        // Cần import RegisterScreen ở trên
-        const RegisterScreen = require('./RegisterScreen').default;
-        return <RegisterScreen onNavigateBack={() => setShowRegister(false)} />;
-    }
+    // Removed manual RegisterScreen rendering logic
 
     return (
         <KeyboardAvoidingView
@@ -163,7 +161,7 @@ const LoginScreen = ({ onLogin }) => {
                             />
                             <Text style={styles.rememberText}>Nhớ mật khẩu</Text>
                         </View>
-                        <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
+                        <TouchableOpacity onPress={() => Alert.alert('Quên mật khẩu', 'Chức năng đang được phát triển')} style={styles.forgotPasswordButton}>
                             <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
                         </TouchableOpacity>
                     </View>
@@ -178,14 +176,14 @@ const LoginScreen = ({ onLogin }) => {
                     {/* 🔧 DEV MODE: Nút đăng nhập nhanh, chỉ hiện khi USE_MOCK_API = true */}
                     {USE_MOCK_API && (
                         <TouchableOpacity
-                            onPress={() => onLogin && onLogin({ success: true, token: 'mock-token', role: 'user' })}
+                            onPress={() => login && login({ success: true, token: 'mock-token', role: 'user' })}
                             style={styles.devLoginButton}
                         >
                             <Text style={styles.devLoginText}>🔧 Đăng nhập nhanh (Dev)</Text>
                         </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity onPress={() => setShowRegister(true)} style={styles.registerLink}>
+                    <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.registerLink}>
                         <Text style={styles.registerText}>
                             Chưa có tài khoản? <Text style={styles.registerTextBold}>Đăng ký ngay</Text>
                         </Text>

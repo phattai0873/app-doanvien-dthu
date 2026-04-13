@@ -12,6 +12,11 @@ const unionBranchController = {
         res.status(200).json({ success: true, ...result });
     }),
 
+    getBranchesAll: asyncHandler(async (req, res) => {
+        const branches = await UnionBranchService.getAllDropdown({ user: req.user });
+        res.status(200).json({ success: true, data: branches });
+    }),
+
     getBranch: asyncHandler(async (req, res) => {
         const branch = await UnionBranchService.getById(req.params.id, req.user);
         res.status(200).json({ success: true, data: branch });

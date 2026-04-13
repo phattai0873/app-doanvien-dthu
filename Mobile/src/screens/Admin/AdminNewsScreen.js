@@ -80,7 +80,7 @@ function NewsFormModal({ visible, news, onClose, onSave }) {
 
 import { newsService } from '../../services/newsService';
 
-export const AdminNewsScreen = ({ onNavigate }) => {
+export const AdminNewsScreen = ({ navigation }) => {
     const [news, setNews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [formVisible, setFormVisible] = useState(false);

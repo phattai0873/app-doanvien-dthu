@@ -17,29 +17,31 @@ import {
     Keyboard,
     Pressable
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RenderHTML from 'react-native-render-html';
 import { Icon } from '../../utils/iconMap';
 import { COLORS, SIZES } from '../../constants';
 import { newsService } from '../../services/newsService';
+import { authService } from '../../services/authService';
 import { API_BASE_URL, USE_MOCK_API } from '../../services/api';
 import { decodeHtml, formatViews } from '../../utils/helpers';
 
 const { width } = Dimensions.get('window');
 
-// Cấu hình style cho HTML
+// Cấu hình style cho HTML (🎨 News Typography)
 const tagsStyles = {
     body: {
         color: COLORS.gray700,
         fontSize: 16,
-        lineHeight: 26,
+        lineHeight: 28, // Tăng line-height cho dễ đọc
     },
     p: {
-        marginBottom: 16,
+        marginBottom: 20, // Tăng spacing giữa các đoạn
     },
     img: {
         borderRadius: 16,
-        marginTop: 12,
-        marginBottom: 12,
+        marginTop: 15,
+        marginBottom: 15,
     },
     strong: {
         fontWeight: 'bold',
@@ -47,8 +49,9 @@ const tagsStyles = {
     }
 };
 
-export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
+export const NewsDetailScreen = ({ route, navigation }) => {
     const { id } = route?.params || {};
+    const insets = useSafeAreaInsets();
     const [news, setNews] = useState(null);
     const [relatedNews, setRelatedNews] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -58,13 +61,23 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
     const [commentsLoading, setCommentsLoading] = useState(true);
     const [commentText, setCommentText] = useState('');
     const [replyingTo, setReplyingTo] = useState(null); // { id, username }
+    const [currentUser, setCurrentUser] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isInputFocused, setIsInputFocused] = useState(false);
+    const [showInput, setShowInput] = useState(false);
     const lastTap = useRef(0);
+    const inputRef = useRef(null);
+
+    const getAvatar = (url) => {
+        if (!url) return require('../../assets/images/default-avatar.png');
+        if (url.startsWith('http')) return { uri: url };
+        return { uri: `${API_BASE_URL.replace(/\/$/, '')}${url}` };
+    };
 
     const formatThumbnail = (url) => {
         if (!url) return null;
         if (url.startsWith('http')) return url;
-        return `${API_BASE_URL}${url}`;
+        return `${API_BASE_URL.replace(/\/$/, '')}${url}`;
     };
 
     // Helper xử lý URL ảnh trong chuỗi HTML
@@ -77,11 +90,11 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
     const handleLike = async () => {
         if (!news) return;
         const previousState = { ...news };
-        
+
         // Optimistic UI update
         const newIsLiked = !news.isLiked;
         const newLikesCount = news.likesCount + (newIsLiked ? 1 : -1);
-        
+
         setNews(prev => ({
             ...prev,
             isLiked: newIsLiked,
@@ -136,6 +149,14 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
         }
     };
 
+    const handleOpenCommentInput = (replyData = null) => {
+        setReplyingTo(replyData);
+        setShowInput(true);
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 300);
+    };
+
     const handleSendComment = async () => {
         if (!commentText.trim() || isSubmitting) return;
 
@@ -145,6 +166,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             if (res.success) {
                 setCommentText('');
                 setReplyingTo(null);
+                setShowInput(false); // Ẩn thanh input sau khi gửi
                 Keyboard.dismiss();
                 // Refresh list
                 fetchComments();
@@ -167,7 +189,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                     }
                     // Check replies if any
                     if (c.Replies) {
-                        const updatedReplies = c.Replies.map(r => 
+                        const updatedReplies = c.Replies.map(r =>
                             r.id === commentId ? { ...r, isLiked: res.data.isLiked, likesCount: res.data.likesCount } : r
                         );
                         return { ...c, Replies: updatedReplies };
@@ -186,8 +208,8 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             "Lý do báo cáo bình luận này:",
             [
                 { text: "Hủy", style: "cancel" },
-                { 
-                    text: "Gửi", 
+                {
+                    text: "Gửi",
                     onPress: async (reason) => {
                         try {
                             await newsService.reportComment(commentId, reason);
@@ -195,7 +217,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                         } catch (error) {
                             Alert.alert("Lỗi", error.response?.data?.message || "Không thể gửi báo cáo");
                         }
-                    } 
+                    }
                 }
             ]
         );
@@ -210,7 +232,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
 
         try {
             const replies = await newsService.getReplies(parentComment.id);
-            setComments(prev => prev.map(c => 
+            setComments(prev => prev.map(c =>
                 c.id === parentComment.id ? { ...c, Replies: replies, showReplies: true } : c
             ));
         } catch (error) {
@@ -224,8 +246,8 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             "Bạn có chắc muốn xóa bình luận này?",
             [
                 { text: "Hủy", style: "cancel" },
-                { 
-                    text: "Xóa", 
+                {
+                    text: "Xóa",
                     style: "destructive",
                     onPress: async () => {
                         try {
@@ -241,6 +263,15 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
     };
 
     useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const user = await authService.getCurrentUser();
+                setCurrentUser(user);
+            } catch (err) {
+                console.log('Fetch user profile error:', err);
+            }
+        };
+
         const fetchContent = async () => {
             if (!id) return;
             setLoading(true);
@@ -282,6 +313,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             }
         };
 
+        fetchUserData();
         fetchContent();
         fetchComments();
     }, [id]);
@@ -300,19 +332,27 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             <View style={styles.center}>
                 <Icon name="AlertTriangle" size={48} color={COLORS.gray300} />
                 <Text style={styles.errorText}>Không tìm thấy bài viết hoặc lỗi kết nối</Text>
-                <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Text style={styles.backBtnText}>Quay lại</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
+    // Header height: navigation header (~64) + status bar
+    const KAV_OFFSET = Platform.OS === 'ios' ? insets.top + 64 : 80;
+
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <KeyboardAvoidingView
+            behavior="padding"
+            keyboardVerticalOffset={KAV_OFFSET}
+            style={styles.container}
+        >
+            <StatusBar barStyle="dark-content" backgroundColor="white" translucent />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
+                style={{ flex: 1 }}
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
             >
@@ -344,10 +384,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                         <View style={styles.authorAvatar}>
                             <Icon name="User" size={20} color={COLORS.primary} />
                         </View>
-                        <View>
-                            <Text style={styles.authorName}>Ban Thường vụ Đoàn trường</Text>
-                            <Text style={styles.authorRole}>Đại học Đồng Tháp</Text>
-                        </View>
+
                     </View>
 
                     <View style={styles.articleBody}>
@@ -369,10 +406,10 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                     {/* Interaction Bar */}
                     <View style={styles.interactionBar}>
                         <TouchableOpacity style={styles.interactionBtn} onPress={handleLike}>
-                            <Icon 
-                                name={news.isLiked ? "HeartFilled" : "Heart"} 
-                                size={22} 
-                                color={news.isLiked ? COLORS.error : COLORS.gray500} 
+                            <Icon
+                                name={news.isLiked ? "HeartFilled" : "Heart"}
+                                size={22}
+                                color={news.isLiked ? COLORS.error : COLORS.gray500}
                                 style={{ marginRight: 8 }}
                             />
                             <Text style={[styles.interactionText, news.isLiked && { color: COLORS.error }]}>
@@ -385,21 +422,29 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                             <Text style={styles.interactionText}>{news.sharesCount || 0}</Text>
                         </TouchableOpacity>
 
+                        <TouchableOpacity
+                            style={styles.interactionBtn}
+                            onPress={() => handleOpenCommentInput()}
+                        >
+                            <Icon name="MessageSquare" size={22} color={COLORS.gray500} style={{ marginRight: 8 }} />
+                            <Text style={styles.interactionText}>{comments.length || 0}</Text>
+                        </TouchableOpacity>
+
                         <View style={{ flex: 1 }} />
-                        
+
                         <View style={styles.viewCount}>
                             <Icon name="Eye" size={16} color={COLORS.gray400} style={{ marginRight: 6 }} />
                             <Text style={styles.viewCountText}>{formatViews(news.viewsCount || 0)}</Text>
                         </View>
                     </View>
- 
+
                     {/* Comment Section */}
                     <View style={styles.commentSection}>
                         <View style={styles.sectionHeader}>
                             <View style={styles.sectionDot} />
                             <Text style={styles.sectionTitle}>Bình luận</Text>
                         </View>
- 
+
                         {commentsLoading ? (
                             <View style={styles.commentLoading}>
                                 <ActivityIndicator size="small" color={COLORS.primary} />
@@ -429,7 +474,7 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                                 <TouchableOpacity
                                     key={item.id}
                                     style={styles.relatedItem}
-                                    onPress={() => onNavigate && onNavigate('news_detail', { id: item.id })}
+                                    onPress={() => navigation.navigate('NewsDetail', { id: item.id })}
                                 >
                                     <RNImage
                                         source={{ uri: formatThumbnail(item.thumbnailUrl || item.bannerUrl) }}
@@ -449,63 +494,85 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                         </View>
                     )}
 
-                    {/* Footer decoration */}
-                    <View style={styles.footerLine} />
-                    <Text style={styles.footerNote}>Nguồn: Cổng thông tin Đoàn thanh niên DTHU</Text>
+                    {/* Spacer to push footer to bottom if content is short */}
+                    <View style={{ flex: 1 }} />
+
+
                 </View>
             </ScrollView>
 
             {/* Comment Input Bar */}
-            <KeyboardAvoidingView 
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-            >
-                <View style={[styles.commentInputContainer, replyingTo && styles.commentInputReplying]}>
+            {showInput && (
+                <View style={[
+                    styles.commentInputContainer,
+                    replyingTo && styles.commentInputReplying,
+                    isInputFocused && styles.inputContainerFocused,
+                    { paddingBottom: Math.max(insets.bottom, 12) }
+                ]}>
                     {replyingTo && (
                         <View style={styles.replyingBar}>
-                            <Text style={styles.replyingText} numberOfLines={1}>
-                                Trả lời <Text style={{ fontWeight: 'bold' }}>@{replyingTo.username}</Text>
-                            </Text>
-                            <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                                <Icon name="X" size={16} color={COLORS.gray500} />
+                            <View style={styles.flexRowCenter}>
+                                <View style={styles.replyIconBox}>
+                                    <Icon name="MessageSquare" size={12} color={COLORS.primary} />
+                                </View>
+                                <Text style={styles.replyingText} numberOfLines={1}>
+                                    Đang trả lời{' '}
+                                    <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>
+                                        @{replyingTo.username}
+                                    </Text>
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.closeReplyBtn}
+                                onPress={() => setReplyingTo(null)}
+                            >
+                                <Icon name="X" size={14} color={COLORS.gray500} />
                             </TouchableOpacity>
                         </View>
                     )}
+
                     <View style={styles.inputRow}>
+                        <View style={styles.currentUserAvatarBox}>
+                            {currentUser?.avatar ? (
+                                <RNImage source={getAvatar(currentUser.avatar)} style={styles.inputAvatar} />
+                            ) : (
+                                <View style={[styles.inputAvatar, { backgroundColor: COLORS.gray100, alignItems: 'center', justifyContent: 'center' }]}>
+                                    <Icon name="UserCircle" size={24} color={COLORS.gray400} />
+                                </View>
+                            )}
+                        </View>
+
                         <View style={styles.inputWrapper}>
                             <TextInput
+                                ref={inputRef}
                                 style={styles.textInput}
-                                placeholder={replyingTo ? "Viết phản hồi..." : "Viết bình luận..."}
+                                placeholder={replyingTo ? 'Gửi phản hồi...' : 'Viết bình luận của bạn...'}
                                 placeholderTextColor={COLORS.gray400}
                                 value={commentText}
                                 onChangeText={setCommentText}
+                                onFocus={() => setIsInputFocused(true)}
+                                onBlur={() => setIsInputFocused(false)}
                                 multiline
                                 maxLength={500}
+                                returnKeyType="default"
                             />
+                            <TouchableOpacity
+                                style={[styles.sendBtn, (!commentText.trim() || isSubmitting) && styles.sendBtnDisabled]}
+                                onPress={handleSendComment}
+                                disabled={!commentText.trim() || isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator size="small" color="#FFF" />
+                                ) : (
+                                    <Icon name="Send" size={18} color="#FFF" />
+                                )}
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity 
-                            style={[styles.sendBtn, (!commentText.trim() || isSubmitting) && styles.sendBtnDisabled]} 
-                            onPress={handleSendComment}
-                            disabled={!commentText.trim() || isSubmitting}
-                        >
-                            {isSubmitting ? (
-                                <ActivityIndicator size="small" color="#FFF" />
-                            ) : (
-                                <Icon name="Send" size={20} color="#FFF" />
-                            )}
-                        </TouchableOpacity>
                     </View>
                 </View>
-            </KeyboardAvoidingView>
+            )}
 
-            {/* Float Back Button */}
-            <TouchableOpacity
-                style={styles.floatBack}
-                onPress={onBack}
-                activeOpacity={0.8}
-            >
-                <Icon name="ArrowLeft" size={24} color="#FFF" />
-            </TouchableOpacity>
+            {/* Float Back Button - Removed for Standard Navigation Header */}
 
             {/* Share Button */}
             <TouchableOpacity
@@ -515,27 +582,30 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
             >
                 <Icon name="Share2" size={20} color="#FFF" />
             </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
     );
 
     function renderCommentItem(comment, isReply = false) {
-        const avatarSource = comment.User?.avatar 
-            ? { uri: formatThumbnail(comment.User.avatar) } 
-            : require('../../assets/images/default-avatar.png');
+        const avatarUrl = comment.User?.avatar;
 
         return (
             <View key={comment.id} style={[styles.commentItem, isReply && styles.replyItem]}>
-                <RNImage 
-                    source={avatarSource} 
-                    style={isReply ? styles.replyAvatar : styles.commentAvatar} 
-                />
+                {avatarUrl ? (
+                    <RNImage
+                        source={getAvatar(avatarUrl)}
+                        style={isReply ? styles.replyAvatar : styles.commentAvatar}
+                    />
+                ) : (
+                    <View style={[isReply ? styles.replyAvatar : styles.commentAvatar, { backgroundColor: COLORS.gray100, alignItems: 'center', justifyContent: 'center' }]}>
+                        <Icon name="UserCircle" size={isReply ? 24 : 32} color={COLORS.gray400} />
+                    </View>
+                )}
                 <View style={styles.commentBody}>
                     <View style={styles.commentHeader}>
                         <Text style={styles.commentUser}>{comment.User?.username || 'Người dùng'}</Text>
-                        <Text style={styles.commentTime}>{comment.createdAt ? new Date(comment.createdAt).toLocaleDateString('vi-VN') : ''}</Text>
                     </View>
-                    
-                    <Pressable 
+
+                    <Pressable
                         onLongPress={() => handleReportComment(comment.id)}
                         onPress={() => {
                             const now = Date.now();
@@ -545,7 +615,11 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                             lastTap.current = now;
                         }}
                     >
-                        <Text style={[styles.commentContent, comment.isDeleted && styles.deletedContent]}>
+                        <Text style={[
+                            styles.commentContent,
+                            isReply && styles.replyContent,
+                            comment.isDeleted && styles.deletedContent
+                        ]}>
                             {comment.content}
                         </Text>
                     </Pressable>
@@ -553,31 +627,35 @@ export const NewsDetailScreen = ({ route, onBack, onNavigate }) => {
                     {!comment.isDeleted && (
                         <View style={styles.commentActions}>
                             <TouchableOpacity style={styles.actionBtn} onPress={() => handleLikeComment(comment.id)}>
-                                <Icon 
-                                    name={comment.isLiked ? "HeartFilled" : "Heart"} 
-                                    size={14} 
-                                    color={comment.isLiked ? COLORS.error : COLORS.gray400} 
-                                    style={{ marginRight: 4 }}
+                                <Icon
+                                    name={comment.isLiked ? "HeartFilled" : "Heart"}
+                                    size={16}
+                                    color={comment.isLiked ? COLORS.error : COLORS.gray500}
                                 />
                                 <Text style={[styles.actionText, comment.isLiked && { color: COLORS.error }]}>
                                     {comment.likesCount > 0 ? comment.likesCount : 'Thích'}
                                 </Text>
                             </TouchableOpacity>
 
+                            {/* ⚠️ 3.2 Nesting Limit: Chỉ cho phép reply cho comment cấp 1 */}
                             {!isReply && (
-                                <TouchableOpacity 
-                                    style={styles.actionBtn} 
+                                <TouchableOpacity
+                                    style={styles.actionBtn}
                                     onPress={() => {
-                                        setReplyingTo({ id: comment.id, username: comment.User?.username });
+                                        handleOpenCommentInput({ id: comment.id, username: comment.User?.username });
                                     }}
                                 >
-                                    <Icon name="MessageSquare" size={14} color={COLORS.gray400} style={{ marginRight: 4 }} />
+                                    <Icon name="MessageSquare" size={16} color={COLORS.gray500} />
                                     <Text style={styles.actionText}>Trả lời</Text>
                                 </TouchableOpacity>
                             )}
 
-                            <TouchableOpacity style={styles.actionBtn} onPress={() => handleReportComment(comment.id)}>
-                                <Text style={styles.actionText}>Báo cáo</Text>
+                            <Text style={styles.commentTime}>
+                                {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString('vi-VN') : ''}
+                            </Text>
+
+                            <TouchableOpacity style={styles.reportBtn} onPress={() => handleReportComment(comment.id)}>
+                                <Icon name="AlertCircle" size={12} color={COLORS.gray300} />
                             </TouchableOpacity>
                         </View>
                     )}
@@ -605,7 +683,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.white },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     loadingText: { marginTop: 10, color: COLORS.gray500, fontSize: 14 },
-    scrollContent: { paddingBottom: 120 },
+    scrollContent: { flexGrow: 1, paddingBottom: 0 },
     imageContainer: { width: width, height: 320, position: 'relative' },
     headerImage: { width: width, height: 320 },
     imageOverlay: {
@@ -613,6 +691,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.15)',
     },
     contentCard: {
+        flex: 1, // Để kéo dài xuống hết màn hình nếu nội dung ngắn
         backgroundColor: COLORS.white,
         marginTop: -40,
         borderTopLeftRadius: 36,
@@ -767,22 +846,24 @@ const styles = StyleSheet.create({
     loadingTextSm: { fontSize: 13, color: COLORS.gray400, marginTop: 8 },
     emptyComments: { padding: 40, alignItems: 'center' },
     emptyText: { fontSize: 13, color: COLORS.gray400, textAlign: 'center', marginTop: 10, lineHeight: 20 },
-    
+
     commentItem: { flexDirection: 'row', marginBottom: 24 },
     replyItem: { marginTop: 16, marginBottom: 0 },
     commentAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.gray100 },
     replyAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.gray100 },
     commentBody: { flex: 1, marginLeft: 12 },
     commentHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    commentUser: { fontSize: 14, fontWeight: '700', color: COLORS.gray900, marginRight: 8 },
-    commentTime: { fontSize: 11, color: COLORS.gray400 },
-    commentContent: { fontSize: 15, color: COLORS.gray700, lineHeight: 22 },
+    commentUser: { fontSize: 15, fontWeight: '700', color: COLORS.gray900, marginRight: 8 },
+    commentTime: { fontSize: 13, color: COLORS.gray400 },
+    commentContent: { fontSize: 16, color: COLORS.gray800, lineHeight: 24, marginTop: 4 },
+    replyContent: { color: COLORS.gray600, fontSize: 15 },
     deletedContent: { fontStyle: 'italic', color: COLORS.gray400 },
-    
-    commentActions: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-    actionBtn: { flexDirection: 'row', alignItems: 'center', marginRight: 20, gap: 4 },
-    actionText: { fontSize: 12, fontWeight: '600', color: COLORS.gray500 },
-    
+
+    commentActions: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 20 },
+    actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    actionText: { fontSize: 14, fontWeight: '600', color: COLORS.gray600 },
+    reportBtn: { marginLeft: 'auto', padding: 4 },
+
     showRepliesBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
     replyLine: { width: 24, height: 1, backgroundColor: COLORS.gray200, marginRight: 10 },
     showRepliesText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
@@ -791,46 +872,67 @@ const styles = StyleSheet.create({
     commentInputContainer: {
         backgroundColor: COLORS.white,
         paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 12,
+        paddingTop: 14,
+        // paddingBottom được set dynamic theo insets.bottom trong JSX
         borderTopWidth: 1,
         borderTopColor: COLORS.gray100,
-        elevation: 20,
+        elevation: 35,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10
+        shadowOpacity: 0.10,
+        shadowRadius: 12,
     },
     commentInputReplying: { borderTopWidth: 0 },
-    replyingBar: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        backgroundColor: COLORS.gray50, 
-        paddingHorizontal: 12, 
-        paddingVertical: 8,
-        borderRadius: 8,
-        marginBottom: 8
+    inputContainerFocused: { borderTopColor: COLORS.primary + '30', elevation: 30 },
+    replyingBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: COLORS.primary + '08',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: COLORS.primary + '15'
     },
-    replyingText: { fontSize: 12, color: COLORS.gray600 },
-    
-    inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
-    inputWrapper: { 
-        flex: 1, 
-        backgroundColor: COLORS.gray100, 
-        borderRadius: 20, 
-        paddingHorizontal: 16, 
-        paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-        maxHeight: 100
+    flexRowCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    replyIconBox: { width: 22, height: 22, borderRadius: 6, backgroundColor: COLORS.primary + '15', alignItems: 'center', justifyContent: 'center' },
+    replyingText: { fontSize: 13, color: COLORS.gray600 },
+    closeReplyBtn: { padding: 4 },
+
+    inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+    currentUserAvatarBox: { marginBottom: 4 },
+    inputAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.gray100 },
+    inputWrapper: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 24,
+        paddingLeft: 16,
+        paddingRight: 6,
+        paddingVertical: Platform.OS === 'ios' ? 4 : 2,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        minHeight: 46
     },
-    textInput: { fontSize: 15, color: COLORS.gray800, padding: 0 },
-    sendBtn: { 
-        width: 44, 
-        height: 44, 
-        borderRadius: 22, 
-        backgroundColor: COLORS.primary, 
-        alignItems: 'center', 
-        justifyContent: 'center'
+    textInput: {
+        flex: 1,
+        fontSize: 15,
+        color: COLORS.gray800,
+        paddingTop: Platform.OS === 'ios' ? 10 : 8,
+        paddingBottom: Platform.OS === 'ios' ? 10 : 8,
+        marginRight: 6
+    },
+    sendBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: COLORS.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 4
     },
     sendBtnDisabled: { backgroundColor: COLORS.gray300 }
 });

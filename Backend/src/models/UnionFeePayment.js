@@ -38,7 +38,6 @@ const UnionFeePayment = sequelize.define('UnionFeePayment', {
     note: {
         type: DataTypes.TEXT
     },
-    // Trình độ phân quyền có thể cần lưu lại đơn vị tại thời điểm đóng
     unionCellId: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -48,6 +47,10 @@ const UnionFeePayment = sequelize.define('UnionFeePayment', {
         type: DataTypes.UUID,
         allowNull: true,
         field: 'union_branch_id'
+    },
+    deadline: {
+        type: DataTypes.DATEONLY,
+        allowNull: true
     }
 }, {
     tableName: 'union_fee_payments',

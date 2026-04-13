@@ -38,21 +38,33 @@ const parseDate = (dateStr) => {
  * @param {string|null} fallback 
  * @returns {string|null}
  */
-const safeDate = (date, fallback = null) => {
+const safeDate = (date, fallback = null, onlyDate = true) => {
     if (!date) return fallback;
     
-    if (date instanceof Date) {
-        return isNaN(date.getTime()) ? fallback : date;
-    }
+    // Nếu là string "Invalid date" từ JS lỗi
+    if (typeof date === 'string' && date.toLowerCase().includes('invalid')) return fallback;
 
-    const parsed = parseDate(date);
-    const d = new Date(parsed);
+    let d;
+    if (date instanceof Date) {
+        d = date;
+    } else {
+        const parsed = parseDate(date);
+        d = new Date(parsed);
+    }
     
     if (isNaN(d.getTime())) {
         return fallback;
     }
     
-    return parsed;
+    if (onlyDate) {
+        // Trả về YYYY-MM-DD theo giờ địa phương để tránh lệch ngày do ISO
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    return d; // Trả về đối tượng Date cho các trường DATETIME
 };
 
 module.exports = { parseDate, safeDate };

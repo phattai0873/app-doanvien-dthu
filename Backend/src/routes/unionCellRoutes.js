@@ -5,8 +5,9 @@ const { protect, checkPermission } = require('../middlewares/authMiddleware');
 
 router.use(protect);
 
+router.get('/all', unionCellController.getCellsAll);
 router.get('/', checkPermission('cell:read'), unionCellController.getCells);
-router.get('/my', protect, unionCellController.getMyCell); // Cho phép đoàn viên xem chi đoàn của chính mình
+router.get('/my', unionCellController.getMyCell); // Cho phép đoàn viên xem chi đoàn của chính mình
 router.post('/', checkPermission('cell:create'), unionCellController.createCell);
 router.get('/:id', checkPermission('cell:read'), unionCellController.getCell);
 router.put('/:id', checkPermission('cell:update'), unionCellController.updateCell);

@@ -6,7 +6,7 @@ import {
     Modal,
     TouchableOpacity,
     Dimensions,
-    Animated
+    Pressable
 } from 'react-native';
 import { Icon } from '../utils/iconMap';
 import { COLORS } from '../constants/colors';
@@ -18,7 +18,7 @@ export const ConfirmModal = ({
     title,
     message,
     onConfirm,
-    onCancel,
+    onAttemptClose, // replaces onCancel for consistency
     confirmText = 'Xác nhận',
     cancelText = 'Hủy bỏ',
     type = 'warning' // 'warning', 'info', 'danger'
@@ -38,10 +38,13 @@ export const ConfirmModal = ({
             transparent
             visible={visible}
             animationType="fade"
-            onRequestClose={onCancel}
+            onRequestClose={onAttemptClose}
         >
-            <View style={styles.overlay}>
-                <View style={styles.modalContent}>
+            <Pressable 
+                style={styles.overlay} 
+                onPress={() => onAttemptClose?.()}
+            >
+                <Pressable style={styles.modalContent} onPress={() => {}}>
                     <View style={[styles.iconContainer, { backgroundColor: iconData.color + '15' }]}>
                         <Icon name={iconData.name} size={32} color={iconData.color} />
                     </View>
@@ -52,7 +55,7 @@ export const ConfirmModal = ({
                     <View style={styles.buttonGroup}>
                         <TouchableOpacity 
                             style={styles.cancelBtn} 
-                            onPress={onCancel}
+                            onPress={onAttemptClose}
                             activeOpacity={0.7}
                         >
                             <Text style={styles.cancelText}>{cancelText}</Text>
@@ -65,8 +68,8 @@ export const ConfirmModal = ({
                             <Text style={styles.confirmText}>{confirmText}</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
-            </View>
+                </Pressable>
+            </Pressable>
         </Modal>
     );
 };

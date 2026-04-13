@@ -12,7 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { COLORS } from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 
-const QRScannerModal = ({ visible, onClose, onScan }) => {
+const QRScannerModal = ({ visible, onClose, onScan, title = 'Quét mã QR', hint = 'Di chuyển camera tới mã QR để quét' }) => {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
 
@@ -43,7 +43,7 @@ const QRScannerModal = ({ visible, onClose, onScan }) => {
         return (
             <Modal visible={visible} animationType="slide">
                 <View style={styles.container}>
-                    <Text style={styles.message}>Chúng tôi cần quyền truy cập camera để quét mã QR.</Text>
+                    <Text style={styles.message}>Chúng tôi cần quyền truy cập camera để thực hiện thao tác này.</Text>
                     <TouchableOpacity onPress={requestPermission} style={styles.button}>
                         <Text style={styles.buttonText}>Cấp quyền Camera</Text>
                     </TouchableOpacity>
@@ -62,7 +62,7 @@ const QRScannerModal = ({ visible, onClose, onScan }) => {
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                         <Ionicons name="close" size={30} color="#FFF" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Quét mã điểm danh</Text>
+                    <Text style={styles.headerTitle}>{title}</Text>
                     <View style={{ width: 30 }} />
                 </View>
 
@@ -92,7 +92,7 @@ const QRScannerModal = ({ visible, onClose, onScan }) => {
                 </View>
 
                 <View style={styles.footer}>
-                    <Text style={styles.hintText}>Di chuyển camera tới mã QR của hoạt động để điểm danh tự động</Text>
+                    <Text style={styles.hintText}>{hint}</Text>
                 </View>
             </SafeAreaView>
         </Modal>

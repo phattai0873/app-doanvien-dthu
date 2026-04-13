@@ -5,9 +5,10 @@ const { protect, checkPermission } = require('../middlewares/authMiddleware');
 
 router.use(protect);
 
+router.get('/all', unionBranchController.getBranchesAll);
 router.get('/', checkPermission('branch:read'), unionBranchController.getBranches);
 router.get('/stats', checkPermission('branch:read'), unionBranchController.getBranchStats);
-router.get('/my', protect, unionBranchController.getMyBranch); // Mọi người dùng đều xem được khoa của chính mình
+router.get('/my', unionBranchController.getMyBranch); // Mọi người dùng đều xem được khoa của chính mình
 router.get('/:id/stats', checkPermission('branch:read'), unionBranchController.getBranchStats);
 router.post('/', checkPermission('branch:create'), unionBranchController.createBranch);
 router.get('/:id', checkPermission('branch:read'), unionBranchController.getBranch);

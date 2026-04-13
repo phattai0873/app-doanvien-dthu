@@ -23,12 +23,16 @@ const landingRoutes = require('./routes/landingRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const positionRoutes = require('./routes/positionRoutes');
 const roleRoutes = require('./routes/roleRoutes');
+const statisticRoutes = require('./routes/statisticRoutes');
 
 // Load environment variables
 dotenv.config();
 
 // Connect to Database
 connectDB();
+
+// Initialize Background Workers (BullMQ)
+require('./workers');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,21 +43,33 @@ app.use(compression()); // Nén toàn bộ API response trước khi gửi đi �
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Global Rate Limiting - Tối đa 500 requests / 15 phút trên mỗi IP
+const { RedisStore } = require('rate-limit-redis');
+const redisClient = require('./configs/redis');
+
+// Global Rate Limiting - Tối đa 500 requests / 15 phút trên mỗi IP (Dùng Redis store)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500, // Limit each IP to 500 requests per `window` (here, per 15 minutes)
+  max: 500,
   message: { success: false, message: 'Quá nhiều request từ IP này, vui lòng thử lại sau!' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: new RedisStore({
+    sendCommand: (...args) => redisClient.sendCommand(args),
+    prefix: 'rl:global:',
+  }),
 });
 app.use('/api', globalLimiter);
 
-// Specific Rate Limiting for Login - Tối đa 10 requests / 15 phút trên mỗi IP
+// Specific Rate Limiting for Login - Tối đa 10 requests / 15 phút (Dùng Redis store)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { success: false, message: 'Thử đăng nhập sai quá nhiều lần, vui lòng chờ 15 phút!' }
+  message: { success: false, message: 'Thử đăng nhập sai quá nhiều lần, vui lòng chờ 15 phút!' },
+  store: new RedisStore({
+    sendCommand: (...args) => redisClient.sendCommand(args),
+    prefix: 'rl:login:',
+  }),
+  keyGenerator: (req) => req.user?.id || req.ip, // Ưu tiên ID nếu đã login, tránh bypass qua IP động
 });
 app.use('/api/users/login', loginLimiter);
 
@@ -89,6 +105,7 @@ app.use('/api/landing', landingRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/positions', positionRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/stats', statisticRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

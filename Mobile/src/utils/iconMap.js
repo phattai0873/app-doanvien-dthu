@@ -3,65 +3,109 @@ import { Ionicons } from '@expo/vector-icons';
 
 // --- ICON MAPPING (Lucide -> Ionicons) ---
 export const ICONS = {
+    // Navigation & Layout
     Home: 'home',
-    Briefcase: 'briefcase',
-    Bell: 'notifications',
+    Layout: 'grid',
+    Grid: 'grid-outline',
+    Menu: 'menu',
+    List: 'list-outline',
+
+    // People & Users
     User: 'person',
-    ChevronLeft: 'chevron-back',
-    ArrowLeft: 'chevron-back',
-    Settings: 'settings-outline',
-    Database: 'server-outline',
-    Calendar: 'calendar-outline',
-    Clock: 'time-outline',
-    Wallet: 'wallet-outline',
     Users: 'people-outline',
-    Award: 'ribbon-outline',
-    BookOpen: 'book-outline',
-    GraduationCap: 'school-outline',
-    Library: 'library-outline',
-    LogOut: 'log-out-outline',
-    QrCode: 'qr-code-outline',
-    History: 'time-outline',
-    Info: 'information-circle-outline',
-    AlertTriangle: 'alert-circle-outline',
-    CheckCircle: 'checkmark-circle-outline',
-    ChevronRight: 'chevron-forward',
-    Camera: 'camera-outline',
+    UserCircle: 'person-circle-outline',
     Shield: 'shield-checkmark-outline',
-    FileText: 'document-text-outline',
+    BadgeCheck: 'checkmark-circle',
+
+    // Communication
+    Bell: 'notifications',
+    BellOff: 'notifications-off-outline',
     Mail: 'mail-outline',
     Phone: 'call-outline',
-    MapPin: 'location-outline',
-    BadgeCheck: 'checkmark-circle',
-    Building: 'business-outline',
-    Landmark: 'podium-outline',
-    Menu: 'menu',
-    Book: 'book-outline',
-    CreditCard: 'card-outline',
-    Heart: 'heart-outline',
-    HeartFilled: 'heart',
-    Share: 'share-outline',
-    Share2: 'share-social-outline',
-    Eye: 'eye-outline',
-    Grid: 'grid-outline',
-    List: 'list-outline',
-    RotateCw: 'refresh',
-    X: 'close',
-    Scan: 'scan-outline',
-    Copy: 'copy-outline',
-    Newspaper: 'newspaper-outline',
-    Male: 'male-outline',
-    Female: 'female-outline',
-    Earth: 'earth-outline',
-    School: 'school-outline',
-    Compass: 'compass-outline',
     Send: 'send',
     MessageSquare: 'chatbubble-outline',
+
+    // Files & Documents
+    FileText: 'document-text-outline',
+    File: 'document-outline',
+    Folder: 'folder-outline',
+    FolderPlus: 'folder-open-outline',
+    Library: 'library-outline',
+    Book: 'book-outline',
+    BookOpen: 'book-outline',
+    Newspaper: 'newspaper-outline',
+
+    // Work & Business
+    Briefcase: 'briefcase',
+    Building: 'business-outline',
+    Landmark: 'podium-outline',
+    Database: 'server-outline',
+
+    // Time & Calendar
+    Calendar: 'calendar-outline',
+    Clock: 'time-outline',
+    History: 'time-outline',
+
+    // Finance
+    Wallet: 'wallet-outline',
+    CreditCard: 'card-outline',
+
+    // Education & Awards
+    Award: 'ribbon-outline',
+    GraduationCap: 'school-outline',
+    School: 'school-outline',
+    Trophy: 'trophy-outline',
+    Star: 'star-outline',
+    Layers: 'layers-outline',
+
+    // Location & Map
+    MapPin: 'location-outline',
+    Compass: 'compass-outline',
+    Earth: 'earth-outline',
+
+    // Actions & Controls
+    Settings: 'settings-outline',
+    LogOut: 'log-out-outline',
+    Camera: 'camera-outline',
+    QrCode: 'qr-code-outline',
+    Scan: 'scan-outline',
+    Copy: 'copy-outline',
+    RotateCw: 'refresh',
+    Share: 'share-outline',
+    Share2: 'share-social-outline',
+    ChevronLeft: 'chevron-back',
+    ChevronRight: 'chevron-forward',
     ChevronDown: 'chevron-down',
     ChevronUp: 'chevron-up',
-    Trophy: 'trophy-outline'
+    ArrowLeft: 'chevron-back',
+    X: 'close',
+    Lock: 'lock-closed-outline',
+    ExternalLink: 'open-outline',
+
+    // Status & Feedback
+    CheckCircle: 'checkmark-circle-outline',
+    AlertTriangle: 'alert-circle-outline',
+    AlertCircle: 'alert-circle-outline',
+    Info: 'information-circle-outline',
+    Eye: 'eye-outline',
+    WifiOff: 'wifi-outline',
+
+    // Social
+    Heart: 'heart-outline',
+    HeartFilled: 'heart',
+
+    // Media & Image
+    Image: 'image-outline',
+
+    // Demographics
+    Male: 'male-outline',
+    Female: 'female-outline',
+
+    // Misc
+    BarChart: 'bar-chart-outline',
 };
 
 export const Icon = ({ name, size = 24, color = '#000', style }) => (
     <Ionicons name={ICONS[name] || 'help-circle'} size={size} color={color} style={style} />
 );
+

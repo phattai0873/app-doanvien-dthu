@@ -9,8 +9,14 @@ export const workService = {
     getWorkSummary: async (params) => {
         if (USE_SUPABASE) {
             const { data: meeting } = await supabase.from('cell_meetings').select('tieu_de, thoi_gian').order('thoi_gian', { ascending: true }).limit(1).single();
-            const { data: fees } = await supabase.from('union_fees').select('count', { count: 'exact' }).eq('trang_thai', 'chua_dong');
-            return { next_meeting: meeting ? `${meeting.thoi_gian}` : 'Chưa có lịch', unpaid_fee: fees ? `Chưa đóng` : 'Đã hoàn thành' };
+            const { data: fees } = await supabase.from('union_fees').select('*', { count: 'exact' }).eq('trang_thai', 'chua_dong');
+            const { count: examCount } = await supabase.from('exams').select('*', { count: 'exact', head: true }).or('status.eq.ongoing,status.eq.open');
+            
+            return { 
+                next_meeting: meeting ? `${meeting.thoi_gian}` : 'Chưa có lịch', 
+                unpaid_fee: fees && fees.length > 0 ? `Chưa đóng` : 'Đã hoàn thành',
+                pending_exams: examCount || 0
+            };
         }
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.work_summary), SIMULATE_DELAY));
 

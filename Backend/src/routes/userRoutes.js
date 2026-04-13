@@ -9,6 +9,7 @@ const { uploadAvatar } = require('../middlewares/uploadMiddleware');
 // Public routes (không cần token)
 router.post('/register', validate(userValidation.register), userController.registerUser);
 router.post('/login', validate(userValidation.login), userController.loginUser);
+router.post('/lookup-member-code', validate(userValidation.lookupMemberCode), userController.lookupMemberCode);
 router.post('/refresh-token', userController.refreshToken);
 
 // Protected routes (cần Bearer access token)

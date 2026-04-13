@@ -1,65 +1,90 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
-import { Icon } from '../../utils/iconMap';
-import { Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../../constants';
 
-export const WorkCard = ({ icon, bg, color, title, desc, table, onPress, isPng, pngIcon }) => (
-    <TouchableOpacity style={styles.workCard} onPress={onPress}>
-        <View style={[styles.workIconBox, !isPng && { backgroundColor: bg }]}>
-            {isPng ? (
-                <Image source={pngIcon} style={styles.pngIcon} resizeMode="contain" />
-            ) : (
-                <Icon name={icon} size={32} color={color} />
+/**
+ * WorkCard – Module card dùng trong WorkDashboardScreen.
+ * Props:
+ *   iconName  – tên Ionicons
+ *   title     – tiêu đề (string)
+ *   desc      – mô tả ngắn (string)
+ *   color     – màu icon (default: COLORS.primary)
+ *   bg        – màu nền icon box (default: COLORS.primaryLight)
+ *   onPress   – callback
+ *   badge     – text badge (optional)
+ */
+export const WorkCard = ({ iconName, title, desc, color, bg, onPress, badge }) => {
+    const iconColor = color || COLORS.primary;
+    const iconBg = bg || COLORS.primaryLight || '#EBF0FE';
+
+    return (
+        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
+            {badge && (
+                <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{badge}</Text>
+                </View>
             )}
-        </View>
-        <Text style={styles.workTitle}>{title}</Text>
-        <Text style={styles.workDesc}>{desc}</Text>
-        <Text style={styles.workTable}>{table}</Text>
-    </TouchableOpacity>
-);
+            <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+                <Ionicons name={iconName} size={26} color={iconColor} />
+            </View>
+            <Text style={styles.title} numberOfLines={2}>{title}</Text>
+            {desc ? <Text style={styles.desc} numberOfLines={2}>{desc}</Text> : null}
+        </TouchableOpacity>
+    );
+};
 
 const styles = StyleSheet.create({
-    workCard: {
+    card: {
         flex: 1,
-        backgroundColor: '#FFF',
+        backgroundColor: '#FFFFFF',
         padding: 16,
-        borderRadius: 16,
+        borderRadius: 20,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-        elevation: 2
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+        minHeight: 140,
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden',
     },
-    workIconBox: {
-        width: 56,
-        height: 56,
+    iconBox: {
+        width: 54,
+        height: 54,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12
+        marginBottom: 10,
     },
-    pngIcon: {
-        width: 48,
-        height: 48
-    },
-    workTitle: {
+    title: {
         fontSize: 13,
-        fontWeight: 'bold',
-        color: '#1F2937',
-        textAlign: 'center'
+        fontWeight: '800',
+        color: '#1E293B',
+        textAlign: 'center',
+        lineHeight: 18,
     },
-    workDesc: {
-        fontSize: 10,
-        color: '#6B7280',
+    desc: {
+        fontSize: 11,
+        color: '#94A3B8',
         textAlign: 'center',
         marginTop: 4,
-        marginBottom: 8
+        lineHeight: 15,
     },
-    workTable: {
-        fontSize: 8,
-        color: '#D1D5DB',
-        backgroundColor: '#F9FAFB',
-        paddingHorizontal: 6,
+    badge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 7,
         paddingVertical: 2,
-        borderRadius: 4
+        borderRadius: 8,
+    },
+    badgeText: {
+        color: '#FFF',
+        fontSize: 9,
+        fontWeight: '800',
     },
 });

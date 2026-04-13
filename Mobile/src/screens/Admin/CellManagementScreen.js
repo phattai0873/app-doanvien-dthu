@@ -12,8 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants';
 import { partyService } from '../../services/partyService';
+import { useAuth } from '../../contexts/AuthContext';
 
-export const CellManagementScreen = () => {
+export const CellManagementScreen = ({ navigation }) => {
+    const { user: authUser } = useAuth();
     const [cells, setCells] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +27,15 @@ export const CellManagementScreen = () => {
     const loadCells = async () => {
         setLoading(true);
         try {
-            const data = await partyService.getCells();
+            const params = {};
+
+            // Xử lý bộ lọc theo quyền Bí thư Liên chi đoàn (BRANCH_ADMIN)
+            const member = authUser?.UnionMember;
+            if (authUser?.role === 'BRANCH_ADMIN' && member?.UnionCell?.unionBranchId) {
+                params.unionBranchId = member.UnionCell.unionBranchId;
+            }
+
+            const data = await partyService.getCells(params);
             setCells(data || []);
         } catch (error) {
             console.error('Error loading cells:', error);
@@ -35,13 +45,17 @@ export const CellManagementScreen = () => {
         }
     };
 
-    const filteredCells = cells.filter(c =>
+    const filteredCells = (cells || []).filter(c =>
         c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.code?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const renderItem = ({ item }) => (
-        <View style={styles.cellCard}>
+        <TouchableOpacity 
+            style={styles.cellCard}
+            onPress={() => navigation.navigate('MemberMgmt', { cellId: item.id, cellName: item.name })}
+            activeOpacity={0.7}
+        >
             <View style={styles.cellIcon}>
                 <Ionicons name="business" size={24} color={COLORS.primary} />
             </View>
@@ -55,10 +69,8 @@ export const CellManagementScreen = () => {
                     </View>
                 </View>
             </View>
-            <TouchableOpacity style={styles.actionButton}>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.gray400} />
-            </TouchableOpacity>
-        </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.gray300} />
+        </TouchableOpacity>
     );
 
     return (
@@ -91,7 +103,7 @@ export const CellManagementScreen = () => {
                     }
                 />
             )}
-            
+
             <TouchableOpacity style={styles.fab} onPress={() => Alert.alert('Thông báo', 'Tính năng tạo chi đoàn mới sẽ được cập nhật sau.')}>
                 <Ionicons name="add" size={30} color={COLORS.white} />
             </TouchableOpacity>

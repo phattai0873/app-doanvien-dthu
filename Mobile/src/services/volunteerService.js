@@ -73,13 +73,28 @@ export const volunteerService = {
         }
     },
 
-    // [GET] /api/activities/history
+    // [POST] /api/activities/{id}/history
     getMyHistory: async () => {
         try {
             const res = await apiClient.get('/api/activities/history');
             return res.data || res;
         } catch (error) {
             console.error('Error fetching activity history:', error);
+            throw error;
+        }
+    },
+
+    // [POST] /api/activities/{id}/attendance
+    markAttendance: async (activityId, memberId, status = 'PRESENT', remarks = 'Quét mã bởi Admin') => {
+        try {
+            const res = await apiClient.post(`/api/activities/${activityId}/attendance`, {
+                memberId,
+                status,
+                remarks
+            });
+            return res.data || res;
+        } catch (error) {
+            console.error('Error marking attendance:', error);
             throw error;
         }
     }

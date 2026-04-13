@@ -65,15 +65,22 @@ export const QRCardScreen = ({ onBack }) => {
                     {/* Member Info Section */}
                     <View style={styles.cardMain}>
                         <View style={styles.memberAvatarWrapper}>
-                            <RNImage source={{ uri: user?.anh_dai_dien }} style={styles.memberAvatar} />
+                            <RNImage 
+                                source={user.unionMember?.avatarUrl ? { uri: user.unionMember.avatarUrl } : { uri: `https://ui-avatars.com/api/?name=${user.unionMember?.fullName || 'U'}&background=2563EB&color=fff` }} 
+                                style={styles.memberAvatar} 
+                            />
                         </View>
                         
                         <View style={styles.memberDetails}>
-                            <Text style={styles.memberName}>{user?.ho_ten?.toUpperCase()}</Text>
-                            <Text style={styles.memberRole}>{user?.chuc_vu_doan || 'Đoàn viên'}</Text>
+                            <Text style={styles.memberName}>{user.unionMember?.fullName?.toUpperCase() || 'ĐOÀN VIÊN'}</Text>
+                            <Text style={styles.memberRole}>
+                                {user.unionMember?.roleInUnion === 'member' ? 'Đoàn viên' : 
+                                 user.unionMember?.roleInUnion === 'secretary' ? 'Bí thư Chi đoàn' :
+                                 user.unionMember?.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn'}
+                            </Text>
                             <View style={styles.idRow}>
-                                <Text style={styles.idLabel}>Mã số:</Text>
-                                <Text style={styles.idValue}>{user?.ma_so_doan || 'DTHU-12345678'}</Text>
+                                <Text style={styles.idLabel}>Số hiệu:</Text>
+                                <Text style={styles.idValue}>{user.unionMember?.memberCode || 'DTHU-XXXXXX'}</Text>
                             </View>
                         </View>
                     </View>
@@ -81,8 +88,14 @@ export const QRCardScreen = ({ onBack }) => {
                     {/* QR Code Section */}
                     <View style={styles.qrSection}>
                         <View style={styles.qrWrapper}>
-                            {/* Placeholder for QR Code */}
-                            <Icon name="QrCode" size={150} color={COLORS.gray800} />
+                            {user.unionMember?.id ? (
+                                <RNImage
+                                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${user.unionMember.id}` }}
+                                    style={styles.qrImage}
+                                />
+                            ) : (
+                                <Icon name="QrCode" size={150} color={COLORS.gray200} />
+                            )}
                         </View>
                         <Text style={styles.qrHint}>Sử dụng mã này để điểm danh hoạt động</Text>
                     </View>
@@ -155,6 +168,7 @@ const styles = StyleSheet.create({
     idValue: { fontSize: 11, color: COLORS.gray700, fontWeight: '700' },
     qrSection: { alignItems: 'center', marginBottom: 30 },
     qrWrapper: { padding: 15, backgroundColor: '#F9FAFB', borderRadius: 20, borderWidth: 1, borderColor: '#F3F4F6' },
+    qrImage: { width: 180, height: 180 },
     qrHint: { fontSize: 11, color: COLORS.gray400, marginTop: 15, fontWeight: '500' },
     cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 15 },
     validUntil: { fontSize: 10, color: COLORS.gray400, fontWeight: '600' },

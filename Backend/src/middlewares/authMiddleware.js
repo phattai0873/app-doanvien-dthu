@@ -38,8 +38,34 @@ const protect = async (req, res, next) => {
             // Patch thêm các thông tin từ DB vào req.user mà token không chứa
             req.userRecord = userFull;
             req.user.username = userFull.username;
+            req.user.email = userFull.email;
+            req.user.phoneNumber = userFull.phoneNumber;
+            req.user.unionBranchId = userFull.unionBranchId;
+            req.user.unionCellId = userFull.unionCellId;
             
-            console.log(`[Auth-Debug] User: ${userFull.username}, Role: ${req.user.isSuperAdmin ? 'SUPER' : 'USER'}, Path: ${req.originalUrl}`);
+            // Cập nhật isSuperAdmin từ DB roles
+            const dbRoles = userFull.Roles?.map(r => r.code) || [];
+            if (dbRoles.includes('SUPER_ADMIN')) {
+                req.user.isSuperAdmin = true;
+            }
+            
+            // Gán hồ sơ đoàn viên
+            let member = userFull.UnionMember;
+            
+            // Dự phòng: Nếu inclusion không lấy được (do lỗi Sequelize cache/association), thử findOne trực tiếp
+            if (!member) {
+                const { UnionMember, UnionCell } = require('../models');
+                member = await UnionMember.findOne({
+                    where: { userId: decoded.id },
+                    attributes: ['id', 'fullName', 'avatar', 'unionCellId', 'status'],
+                    include: [{ model: UnionCell, attributes: ['id', 'unionBranchId'] }]
+                });
+            }
+
+            req.user.UnionMember = member;
+            req.user.unionMemberId = member?.id;
+            
+            console.log(`[Auth-Debug] User: ${userFull.username}, ID: ${decoded.id}, MemberID: ${req.user.unionMemberId || 'NONE'}, Path: ${req.originalUrl}`);
 
             next();
         } catch (error) {

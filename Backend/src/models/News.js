@@ -72,6 +72,7 @@ const News = sequelize.define('News', {
 }, {
     tableName: 'news',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { fields: ['status'] },
         { fields: ['categoryId'] },

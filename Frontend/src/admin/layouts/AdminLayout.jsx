@@ -1,61 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import {
     LayoutDashboard, Users, Building2, Network,
     Calendar, Newspaper, BookOpen, Wallet, LogOut, Shield,
-    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2, MapPin
+    CalendarClock, FileText, Bell, UserCog, Image as ImageIcon, KeyRound, Plus, MousePointer2, MapPin, Eye, EyeOff
 } from 'lucide-react';
 import { authApi } from '../../services/api';
 import ModalPortal from '../../components/ModalPortal';
+import { confirmUnsavedChanges } from '../../utils/swal';
 import logoDthu from '../../assets/logodthu.png';
 
-const NAV = [
-    { label: 'Tổng quan', icon: LayoutDashboard, to: '/admin' },
-    { section: 'Tổ chức' },
-    { label: 'Đoàn viên', icon: Users, to: '/admin/members', permission: 'member:read' },
-    { label: 'Liên chi đoàn', icon: Building2, to: '/admin/branches', permission: 'branch:read' },
-    { label: 'Chi đoàn', icon: Network, to: '/admin/cells', permission: 'cell:read' },
-    { section: 'Nghiệp vụ' },
-    { label: 'Hoạt động', icon: Calendar, to: '/admin/activities', permission: 'activity:read' },
-    { label: 'Sinh hoạt', icon: CalendarClock, to: '/admin/meetings', permission: 'meeting:read' },
-    { label: 'Tin tức', icon: Newspaper, to: '/admin/news', permission: 'news:read' },
-    { label: 'Thi & Khảo sát', icon: BookOpen, to: '/admin/quiz', permission: 'quiz:read' },
-    { label: 'Văn bản', icon: FileText, to: '/admin/documents', permission: 'document:read' },
-    { label: 'Đoàn phí', icon: Wallet, to: '/admin/fees', permission: 'fee:read' },
-    { label: 'Thông báo', icon: Bell, to: '/admin/notifications', permission: 'notification:read' },
-    { section: 'Hệ thống' },
-    { label: 'Tài khoản', icon: UserCog, to: '/admin/users', permission: 'user:read' },
-    { label: 'Phân quyền', icon: Shield, to: '/admin/roles', permission: 'system:config' },
-    { label: 'Banner Trang chủ', icon: ImageIcon, to: '/admin/banners', permission: 'banner:read' },
-    { label: 'Trang Landing Page', icon: MousePointer2, to: '/admin/landing', permission: 'landing:read' },
-];
-
-const PAGE_TITLES = {
-    '/admin': 'Tổng quan',
-    '/admin/members': 'Quản lý Đoàn viên',
-    '/admin/branches': 'Quản lý Liên chi đoàn',
-    '/admin/cells': 'Quản lý Chi đoàn',
-    '/admin/activities': 'Quản lý Hoạt động',
-    '/admin/meetings': 'Sinh hoạt Chi đoàn',
-    '/admin/news': 'Quản lý Tin tức',
-    '/admin/quiz': 'Thi & Khảo sát',
-    '/admin/documents': 'Kho Văn bản',
-    '/admin/fees': 'Quản lý Đoàn phí',
-    '/admin/notifications': 'Quản lý Thông báo',
-    '/admin/users': 'Quản lý Tài khoản',
-    '/admin/roles': 'Quản lý Phân quyền',
-    '/admin/banners': 'Quản lý Banner',
-    '/admin/landing': 'Quản lý Trang Landing',
-    '/admin/locations': 'Quản lý Địa điểm',
-};
+import { NAV, PAGE_TITLES, getSidebarNav } from '../constants/navigation';
+import CommandPalette from '../components/CommandPalette';
+import { Search, Command } from 'lucide-react';
 
 export default function AdminLayout() {
     const { user, setUser, logout, hasPermission } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const pageTitle = PAGE_TITLES[location.pathname] || 'Admin';
+
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+    // Lắng nghe phím tắt Ctrl + K
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                setIsSearchOpen(true);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleLogout = async () => {
         await logout();
@@ -66,6 +45,7 @@ export default function AdminLayout() {
     const [pwModal, setPwModal] = useState(false);
     const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
     const [pwLoading, setPwLoading] = useState(false);
+    const [showPasswords, setShowPasswords] = useState(false);
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
 
@@ -74,6 +54,22 @@ export default function AdminLayout() {
         if (f) {
             setFile(f);
             setPreview(URL.createObjectURL(f));
+        }
+    };
+
+    const isProfileDirty = !!file || !!pwForm.oldPassword || !!pwForm.newPassword || !!pwForm.confirm;
+
+    const handleAttemptClose = async () => {
+        if (isProfileDirty) {
+            const result = await confirmUnsavedChanges();
+            if (result.isConfirmed) {
+                setPwModal(false);
+                setPwForm({ oldPassword: '', newPassword: '', confirm: '' });
+                setFile(null);
+                setPreview(null);
+            }
+        } else {
+            setPwModal(false);
         }
     };
 
@@ -104,12 +100,15 @@ export default function AdminLayout() {
                     setPwLoading(false);
                     return;
                 }
-                if (pwForm.newPassword.length < 6) {
+                const oldPw = pwForm.oldPassword.trim();
+                const newPw = pwForm.newPassword.trim();
+
+                if (newPw.length < 6) {
                     toast.error('Mật khẩu mới phải có ít nhất 6 ký tự');
                     setPwLoading(false);
                     return;
                 }
-                await authApi.changeMyPassword({ oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
+                await authApi.changeMyPassword({ oldPassword: oldPw, newPassword: newPw });
                 updated = true;
             }
 
@@ -129,6 +128,8 @@ export default function AdminLayout() {
         }
     };
 
+    const sidebarNav = getSidebarNav();
+
     return (
         <div className="flex min-h-screen bg-white font-sans">
             {/* Sidebar */}
@@ -146,13 +147,13 @@ export default function AdminLayout() {
 
                 {/* Nav */}
                 <nav className="flex-1 py-4 overflow-y-auto scrollbar-hide">
-                    {NAV.map((item, i) => {
+                    {sidebarNav.map((item, i) => {
                         if (item.permission && !hasPermission(item.permission)) return null;
 
-                        if (item.section) {
-                            const nextItems = NAV.slice(i + 1);
+                        if (item.isHeader) {
+                            const nextItems = sidebarNav.slice(i + 1);
                             const sectionHasVisibleItem = nextItems.some(sub => {
-                                if (sub.section) return false;
+                                if (sub.isHeader) return false;
                                 return !sub.permission || hasPermission(sub.permission);
                             });
                             if (item.section === 'Hệ thống' && !sectionHasVisibleItem) return null;
@@ -163,6 +164,7 @@ export default function AdminLayout() {
                                 </p>
                             );
                         }
+
 
                         const Icon = item.icon;
                         return (
@@ -223,10 +225,24 @@ export default function AdminLayout() {
                 {/* Header */}
                 <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-40">
                     <h1 className="text-xl font-black text-gray-800 tracking-tight">{pageTitle}</h1>
-                    <div className="flex items-center gap-3 text-xs font-bold text-gray-400">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <Shield size={14} className="text-primary-700" />
-                        Trường Đại học Đồng Tháp
+                    <div className="flex items-center gap-6">
+                        {/* Search Trigger */}
+                        <button
+                            onClick={() => setIsSearchOpen(true)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-400 hover:bg-gray-100 hover:border-gray-300 transition-all group"
+                        >
+                            <Search size={16} className="group-hover:text-primary-600" />
+                            <span className="text-xs font-semibold">Tìm kiếm...</span>
+                            <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-gray-200 text-[10px] font-bold text-gray-400">
+                                <Command size={10} /> K
+                            </kbd>
+                        </button>
+
+                        <div className="flex items-center gap-3 text-xs font-bold text-gray-400">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            <Shield size={14} className="text-primary-700" />
+                            Trường Đại học Đồng Tháp
+                        </div>
                     </div>
                 </header>
 
@@ -236,13 +252,19 @@ export default function AdminLayout() {
                 </main>
             </div>
 
+            {/* Command Palette */}
+            <CommandPalette
+                isOpen={isSearchOpen}
+                onClose={() => setIsSearchOpen(false)}
+            />
+
             {/* Change Profile Modal */}
             {pwModal && (
-                <ModalPortal onClose={() => setPwModal(false)}>
+                <ModalPortal onAttemptClose={handleAttemptClose}>
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                             <h3 className="font-bold text-gray-800">Cập nhật hồ sơ</h3>
-                            <button onClick={() => setPwModal(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+                            <button onClick={handleAttemptClose} className="text-gray-400 hover:text-gray-700">✕</button>
                         </div>
                         <div className="p-5 space-y-4">
                             {/* Update Avatar Section */}
@@ -263,10 +285,22 @@ export default function AdminLayout() {
 
                             <hr className="border-gray-100" />
 
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Thiết lập mật khẩu</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPasswords(!showPasswords)}
+                                    className="text-[10px] font-bold text-primary-600 hover:text-primary-700 uppercase tracking-widest flex items-center gap-1"
+                                >
+                                    {showPasswords ? <EyeOff size={12} /> : <Eye size={12} />}
+                                    {showPasswords ? 'Ẩn' : 'Hiện'} mật khẩu
+                                </button>
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu hiện tại</label>
                                 <input
-                                    type="password"
+                                    type={showPasswords ? "text" : "password"}
                                     className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     placeholder="Bỏ trống nếu không đổi"
                                     value={pwForm.oldPassword}
@@ -276,7 +310,7 @@ export default function AdminLayout() {
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Mật khẩu mới</label>
                                 <input
-                                    type="password"
+                                    type={showPasswords ? "text" : "password"}
                                     className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     placeholder="Ít nhất 6 ký tự"
                                     value={pwForm.newPassword}
@@ -286,7 +320,7 @@ export default function AdminLayout() {
                             <div>
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
                                 <input
-                                    type="password"
+                                    type={showPasswords ? "text" : "password"}
                                     className="w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition"
                                     value={pwForm.confirm}
                                     onChange={e => setPwForm(prev => ({ ...prev, confirm: e.target.value }))}
@@ -294,7 +328,7 @@ export default function AdminLayout() {
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
-                            <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition" onClick={() => setPwModal(false)}>Hủy</button>
+                            <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition" onClick={handleAttemptClose}>Hủy</button>
                             <button
                                 className="px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60"
                                 onClick={handleSaveProfile}

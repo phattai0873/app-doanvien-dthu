@@ -11,6 +11,7 @@ import { newsApi } from '../../services/api';
 import BannerUpload from '../components/BannerUpload';
 import NewsEditor from '../components/NewsEditor';
 import ModalPortal from '../../components/ModalPortal';
+import { useDirtyModal } from '../../hooks/useDirtyModal';
 
 const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed";
@@ -91,6 +92,8 @@ export default function NewsPage() {
     const [catModal, setCatModal] = useState(null); // null | 'add' | 'edit'
     const [catForm, setCatForm] = useState({ name: '', description: '', isActive: true });
     const [catEditId, setCatEditId] = useState(null);
+
+    const { handleAttemptClose: handleAttemptCloseCat } = useDirtyModal(catForm, () => setCatModal(null));
 
     // ─── Queries ─────────────────────────────────────────
     const { data: newsData, isLoading: newsLoading } = useQuery({
@@ -514,11 +517,11 @@ export default function NewsPage() {
                 MODAL: Thêm / Sửa chuyên mục
                 ═══════════════════════════════════════════════════ */}
             {catModal && (
-                <ModalPortal onClose={closeCatModal}>
+                <ModalPortal onAttemptClose={handleAttemptCloseCat}>
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                             <h3 className="font-bold text-gray-800">{catModal === 'add' ? 'Thêm chuyên mục' : 'Sửa chuyên mục'}</h3>
-                            <button onClick={closeCatModal} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"><X size={18} /></button>
+                            <button onClick={handleAttemptCloseCat} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"><X size={18} /></button>
                         </div>
                         <div className="p-6 space-y-4">
                             <div>
@@ -542,7 +545,7 @@ export default function NewsPage() {
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-                            <button className={BTN_SECONDARY} onClick={closeCatModal}>Hủy</button>
+                            <button className={BTN_SECONDARY} onClick={handleAttemptCloseCat}>Hủy</button>
                             <button
                                 className={BTN_PRIMARY}
                                 disabled={!catForm.name || createCat.isPending || updateCat.isPending}

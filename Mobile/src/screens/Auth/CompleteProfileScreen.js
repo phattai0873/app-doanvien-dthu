@@ -17,6 +17,7 @@ import Button from '../../components/common/Button';
 import TextInput from '../../components/common/TextInput';
 import StatusModal from '../../components/common/StatusModal';
 import { partyService } from '../../services/partyService';
+import { Pressable } from 'react-native';
 
 const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
     const [formData, setFormData] = useState({
@@ -233,7 +234,7 @@ const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
                 type={modalConfig.type}
                 title={modalConfig.title}
                 message={modalConfig.message}
-                onClose={modalConfig.onClose}
+                onAttemptClose={modalConfig.onClose}
             />
 
             {/* Cell Modal */}
@@ -241,9 +242,18 @@ const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
                 visible={showCellModal}
                 animationType="slide"
                 transparent={true}
+                onRequestClose={() => setShowCellModal(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                <Pressable 
+                    style={styles.modalOverlay}
+                    onPress={() => {
+                        // Check logic dirty for cell modal (thường chọn xong là thoát, ít ai lỡ tay)
+                        // Nhưng vẫn block nếu đang có filter hoặc gì đó nếu phức tạp.
+                        // Ở đây đơn giản là thoát nếu click ngoài.
+                        setShowCellModal(false);
+                    }}
+                >
+                    <Pressable style={styles.modalContent} onPress={() => {}}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Chọn Chi đoàn</Text>
                             <TouchableOpacity onPress={() => setShowCellModal(false)}>
@@ -261,8 +271,8 @@ const CompleteProfileScreen = ({ onSuccess, onLogout }) => {
                                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
                             />
                         )}
-                    </View>
-                </View>
+                    </Pressable>
+                </Pressable>
             </Modal>
         </KeyboardAvoidingView>
     );

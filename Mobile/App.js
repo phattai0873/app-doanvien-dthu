@@ -1,25 +1,28 @@
+import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from './src/contexts/AuthContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
-import { COLORS } from './src/constants/colors';
+import { registerRootComponent } from 'expo';
 
 /**
- * Component App chính
- * Đã chuyển logic điều hướng sang AppNavigator
+ * Main Application Component
+ * Restored with full navigation and authentication logic
+ * after the React 19 / RN 0.81 stabilization.
  */
-export default function App() {
+function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
-      <AppNavigator />
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <StatusBar style="auto" />
+        <AppNavigator />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-});
+export default App;
+
+// Ensure manual registration for stable entry point on Windows
+registerRootComponent(App);

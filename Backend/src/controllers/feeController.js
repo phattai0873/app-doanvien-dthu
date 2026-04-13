@@ -21,7 +21,18 @@ const feeController = {
      */
     getMyFeeDashboard: asyncHandler(async (req, res) => {
         const memberId = req.user?.UnionMember?.id || req.user.unionMemberId;
-        if (!memberId) throw new ErrorResponse('Tài khoản này chưa liên kết với hồ sơ đoàn viên', 400);
+        
+        if (!memberId) {
+            return res.status(200).json({ 
+                success: true, 
+                data: {
+                    summary: { totalDebt: 0, unpaidCount: 0, pendingCount: 0, memberCode: 'N/A', fullName: req.user.username },
+                    unpaidFees: [],
+                    pendingTransactions: [],
+                    history: []
+                } 
+            });
+        }
 
         const dashboard = await FeeService.getMyFeeDashboard(memberId);
         res.status(200).json({ success: true, data: dashboard });
@@ -31,8 +42,22 @@ const feeController = {
      * Admin: Ghi nộp phí thủ công
      */
     createFee: asyncHandler(async (req, res) => {
-        const fee = await FeeService.create(req.body, req.user);
+        const data = { ...req.body, evidenceImageUrl: req.file?.path };
+        const fee = await FeeService.create(data, req.user);
         res.status(201).json({ success: true, data: fee });
+    }),
+
+    /**
+     * Admin: Tạo đợt thu phí (Collection)
+     */
+    createCollection: asyncHandler(async (req, res) => {
+        const collection = await FeeService.createCollection(req.body, req.user);
+        res.status(201).json({ success: true, data: collection });
+    }),
+
+    getCollections: asyncHandler(async (req, res) => {
+        const result = await FeeService.getCollections(req.query);
+        res.status(200).json({ success: true, ...result });
     }),
 
     /**
@@ -95,6 +120,18 @@ const feeController = {
 
     updateBankSetting: asyncHandler(async (req, res) => {
         const result = await FeeService.updateBankSetting(req.body);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    bulkApproveTransactions: asyncHandler(async (req, res) => {
+        const { ids } = req.body;
+        const result = await FeeService.bulkApproveTransactions(ids, req.user);
+        res.status(200).json({ success: true, data: result });
+    }),
+
+    bulkRejectTransactions: asyncHandler(async (req, res) => {
+        const { ids, reason } = req.body;
+        const result = await FeeService.bulkRejectTransactions(ids, reason, req.user);
         res.status(200).json({ success: true, data: result });
     })
 };

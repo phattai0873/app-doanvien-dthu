@@ -7,6 +7,16 @@ class UnionBranchService {
     /**
      * Lấy danh sách liên chi đoàn (Enterprise Scoping)
      */
+    static async getAllDropdown({ user } = {}) {
+        // Đoàn viên có thể xem danh sách tất cả khoa để chọn khi cập nhật hồ sơ
+        const branches = await UnionBranch.findAll({
+            where: { status: 'active' },
+            attributes: ['id', 'name', 'code'],
+            order: [['displayOrder', 'ASC'], ['name', 'ASC']]
+        });
+        return branches;
+    }
+
     static async getAll({ search, status, unionLevel, page = 1, limit = 10, onlyDeleted, user } = {}) {
         const { sequelize } = require('../configs/db');
         const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
@@ -52,7 +62,7 @@ class UnionBranchService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             where.deletedAt = { [Op.ne]: null };
         }

@@ -15,15 +15,26 @@ import Button from '../../components/common/Button';
 import TextInput from '../../components/common/TextInput';
 import StatusModal from '../../components/common/StatusModal';
 import { authService } from '../../services/authService';
+import { Pressable } from 'react-native';
 
-const RegisterScreen = ({ onNavigateBack }) => {
+const RegisterScreen = ({ navigation }) => {
     const [formData, setFormData] = useState({
         username: '',
         email: '',
         phoneNumber: '',
         password: '',
         confirmPassword: '',
+        memberCode: '',
+        dateOfBirth: '', // Format: DD/MM/YYYY
     });
+    const [lookupData, setLookupData] = useState({
+        fullName: '',
+        dateOfBirth: '',
+        unionCellId: null
+    });
+    const [lookupResults, setLookupResults] = useState([]);
+    const [isLookupVisible, setIsLookupVisible] = useState(false);
+    const [lookupLoading, setLookupLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     
@@ -65,9 +76,67 @@ const RegisterScreen = ({ onNavigateBack }) => {
         if (formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
         }
+
+        if (!formData.memberCode.trim()) {
+            newErrors.memberCode = 'Vui lòng nhập mã đoàn viên';
+        }
+
+        if (!formData.dateOfBirth.trim()) {
+            newErrors.dateOfBirth = 'Vui lòng nhập ngày sinh';
+        } else if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.dateOfBirth)) {
+            newErrors.dateOfBirth = 'Định dạng: DD/MM/YYYY';
+        }
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    // Route Guard: Chặn quay lại nếu đang nhập liệu
+    React.useEffect(() => {
+        const isDirty = Object.values(formData).some(val => val.length > 0);
+        
+        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+            if (!isDirty) return;
+
+            // Chặn chuyển trang
+            e.preventDefault();
+
+            // Hiển thị confirm
+            Alert.alert(
+                'Thay đổi chưa lưu',
+                'Bạn đang nhập đăng ký tài khoản. Bạn có chắc muốn thoát và xóa thông tin đã nhập không?',
+                [
+                    { text: 'Ở lại', style: 'cancel', onPress: () => {} },
+                    {
+                        text: 'Thoát',
+                        style: 'destructive',
+                        onPress: () => navigation.dispatch(e.data.action),
+                    },
+                ]
+            );
+        });
+
+        return unsubscribe;
+    }, [navigation, formData]);
+
+    const handleLookup = async () => {
+        if (!lookupData.fullName.trim() || !lookupData.dateOfBirth.trim()) {
+            Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ tên và ngày sinh để tra cứu');
+            return;
+        }
+        setLookupLoading(true);
+        try {
+            const res = await authService.lookupMemberCode(lookupData);
+            if (res.success) {
+                setLookupResults(res.data);
+            } else {
+                Alert.alert('Lỗi', res.message || 'Không tìm thấy thông tin');
+            }
+        } catch (error) {
+            Alert.alert('Lỗi', error.response?.data?.message || 'Lỗi khi tra cứu');
+        } finally {
+            setLookupLoading(false);
+        }
     };
 
     const handleRegister = async () => {
@@ -85,7 +154,7 @@ const RegisterScreen = ({ onNavigateBack }) => {
                     message: 'Tài khoản của bạn đã được tạo. Quay lại màn hình đăng nhập để tiếp tục hoàn thiện hồ sơ.',
                     onClose: () => {
                         setModalConfig(prev => ({ ...prev, visible: false }));
-                        onNavigateBack && onNavigateBack();
+                        navigation.goBack();
                     }
                 });
             } else {
@@ -123,7 +192,7 @@ const RegisterScreen = ({ onNavigateBack }) => {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.gray700} />
                     </TouchableOpacity>
                     <Text style={styles.title}>Đăng Ký Tài Khoản</Text>
@@ -166,6 +235,33 @@ const RegisterScreen = ({ onNavigateBack }) => {
                         keyboardType="phone-pad"
                     />
 
+                    <View style={styles.activationHeader}>
+                        <Text style={styles.sectionTitle}>Xác minh đoàn viên</Text>
+                        <TouchableOpacity onPress={() => setIsLookupVisible(true)}>
+                            <Text style={styles.lookupLink}>Tìm mã đoàn viên?</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <TextInput
+                        label="Mã đoàn viên *"
+                        placeholder="VD: DV2024001"
+                        value={formData.memberCode}
+                        onChangeText={(text) => handleChange('memberCode', text)}
+                        iconName="id-card-outline"
+                        error={errors.memberCode}
+                        autoCapitalize="characters"
+                    />
+
+                    <TextInput
+                        label="Ngày sinh (DD/MM/YYYY) *"
+                        placeholder="31/12/2000"
+                        value={formData.dateOfBirth}
+                        onChangeText={(text) => handleChange('dateOfBirth', text)}
+                        iconName="calendar-outline"
+                        error={errors.dateOfBirth}
+                        keyboardType="numeric"
+                    />
+
                     <TextInput
                         label="Mật khẩu *"
                         placeholder="Nhập mật khẩu"
@@ -193,7 +289,7 @@ const RegisterScreen = ({ onNavigateBack }) => {
                         style={styles.nextButton}
                     />
                     
-                    <TouchableOpacity onPress={onNavigateBack} style={styles.loginLink}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.loginLink}>
                         <Text style={styles.loginText}>Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập ngay</Text></Text>
                     </TouchableOpacity>
                 </View>
@@ -205,12 +301,83 @@ const RegisterScreen = ({ onNavigateBack }) => {
 
             </ScrollView>
 
+            {/* Lookup Modal */}
+            {isLookupVisible && (
+                <Pressable 
+                    style={[StyleSheet.absoluteFill, styles.modalOverlay]}
+                    onPress={() => {
+                        const lookupDirty = lookupData.fullName.trim() || lookupData.dateOfBirth.trim();
+                        if (lookupDirty) {
+                            Alert.alert(
+                                'Thông báo',
+                                'Bạn đang tra cứu. Thoát cửa sổ này?',
+                                [
+                                    { text: 'Ở lại', style: 'cancel' },
+                                    { text: 'Thoát', onPress: () => setIsLookupVisible(false) }
+                                ]
+                            );
+                        } else {
+                            setIsLookupVisible(false);
+                        }
+                    }}
+                >
+                    <Pressable style={styles.modalContent} onPress={() => {}}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Tra cứu mã đoàn viên</Text>
+                            <TouchableOpacity onPress={() => setIsLookupVisible(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.gray600} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <ScrollView keyboardShouldPersistTaps="handled">
+                            <TextInput
+                                label="Họ và tên"
+                                placeholder="Nhập đầy đủ họ tên"
+                                value={lookupData.fullName}
+                                onChangeText={(val) => setLookupData(p => ({ ...p, fullName: val }))}
+                            />
+                            <TextInput
+                                label="Ngày sinh (DD/MM/YYYY)"
+                                placeholder="31/12/2000"
+                                value={lookupData.dateOfBirth}
+                                onChangeText={(val) => setLookupData(p => ({ ...p, dateOfBirth: val }))}
+                            />
+                            
+                            <Button 
+                                title="Tìm kiếm"
+                                onPress={handleLookup}
+                                loading={lookupLoading}
+                                style={{ marginBottom: 15 }}
+                            />
+
+                            {lookupResults.length > 0 && (
+                                <View>
+                                    <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Kết quả tìm thấy:</Text>
+                                    {lookupResults.map((item, idx) => (
+                                        <View key={idx} style={styles.resultItem}>
+                                            <View>
+                                                <Text style={styles.resultText}>{item.fullName}</Text>
+                                                <Text style={{ color: COLORS.gray600 }}>{item.memberCodeMasked}</Text>
+                                            </View>
+                                            {/* Chú ý: Vì mã bị mask nên ko thể "Áp dụng" trực tiếp, user vẫn phải tự điền hoặc admin báo mã */}
+                                            <Text style={{ fontStyle: 'italic', fontSize: 11, color: COLORS.primary }}>
+                                                Vui lòng điền mã này vào form
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </ScrollView>
+                    </Pressable>
+                </Pressable>
+            )}
+
             <StatusModal 
                 visible={modalConfig.visible}
                 type={modalConfig.type}
                 title={modalConfig.title}
                 message={modalConfig.message}
-                onClose={modalConfig.onClose}
+                onAttemptClose={modalConfig.onClose}
             />
         </KeyboardAvoidingView>
     );
@@ -296,6 +463,77 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         flex: 1,
         lineHeight: 18
+    },
+    activationHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 15,
+        marginBottom: 10,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.gray100,
+        paddingTop: 15
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: COLORS.gray800
+    },
+    lookupLink: {
+        fontSize: 13,
+        color: COLORS.primary,
+        fontWeight: '600',
+        textDecorationLine: 'underline'
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    modalContent: {
+        width: '100%',
+        backgroundColor: COLORS.white,
+        borderRadius: SIZES.radiusLg,
+        padding: 20,
+        maxHeight: '80%'
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: COLORS.primary
+    },
+    resultItem: {
+        padding: 12,
+        backgroundColor: COLORS.gray50,
+        borderRadius: 8,
+        marginBottom: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+    },
+    resultText: {
+        fontSize: 14,
+        color: COLORS.gray800,
+        fontWeight: '600'
+    },
+    applyButton: {
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6
+    },
+    applyText: {
+        color: COLORS.white,
+        fontSize: 12,
+        fontWeight: 'bold'
     }
 });
 

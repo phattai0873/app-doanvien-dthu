@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 // Admin
 import AdminLayout from './admin/layouts/AdminLayout';
 import Dashboard from './admin/pages/Dashboard';
+import StatisticsPage from './admin/pages/StatisticsPage';
 import MembersPage from './admin/pages/MembersPage';
 import ActivitiesPage from './admin/pages/ActivitiesPage';
 import NewsPage from './admin/pages/NewsPage';
@@ -56,6 +57,7 @@ function AppRoutes() {
       <Route path="/login" element={isAuthenticated ? <Navigate to="/admin" replace /> : <LoginPage />} />
       <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
+        <Route path="stats" element={<StatisticsPage />} />
         <Route path="members" element={<MembersPage />} />
         <Route path="activities" element={<ActivitiesPage />} />
         <Route path="news" element={<NewsPage />} />

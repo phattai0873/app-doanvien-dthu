@@ -44,6 +44,7 @@ const UnionCell = sequelize.define('UnionCell', {
 }, {
     tableName: 'union_cells',
     timestamps: true,
+    paranoid: true,
     indexes: [
         {
             unique: true,

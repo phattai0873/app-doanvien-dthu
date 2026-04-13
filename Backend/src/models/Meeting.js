@@ -76,6 +76,7 @@ const Meeting = sequelize.define('Meeting', {
 }, {
     tableName: 'meetings',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { fields: ['status'] },
         { fields: ['meetingTime'] },

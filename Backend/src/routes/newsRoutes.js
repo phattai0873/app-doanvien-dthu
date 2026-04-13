@@ -3,10 +3,11 @@ const router = express.Router();
 const newsController = require('../controllers/newsController');
 const { protect, loadUser, checkPermission } = require('../middlewares/authMiddleware');
 const { uploadNewsBanner, uploadEditorImage } = require('../middlewares/uploadMiddleware');
+const cacheMiddleware = require('../middlewares/cacheMiddleware');
 
 // ==================== CHUYÊN MỤC ====================
-router.get('/categories', newsController.getCategories);
-router.get('/categories/:id', newsController.getCategoryById);
+router.get('/categories', cacheMiddleware({ ttl: 21600 }), newsController.getCategories);
+router.get('/categories/:id', cacheMiddleware({ ttl: 21600 }), newsController.getCategoryById);
 router.post('/categories', protect, checkPermission('category:write'), newsController.createCategory);
 router.put('/categories/:id', protect, checkPermission('category:write'), newsController.updateCategory);
 router.delete('/categories/:id', protect, checkPermission('category:delete'), newsController.deleteCategory);
@@ -18,9 +19,9 @@ router.delete('/categories/:id/force', protect, checkPermission('category:delete
 router.post('/upload-image', protect, uploadEditorImage, newsController.uploadEditorImage);
 
 // ==================== BÀI VIẾT ====================
-router.get('/', loadUser, newsController.getNews);
+router.get('/', loadUser, cacheMiddleware({ ttl: 600, useScope: false }), newsController.getNews);
 router.post('/', protect, checkPermission('news:create'), uploadNewsBanner, newsController.createNews);
-router.get('/:id', loadUser, newsController.getNewsById);
+router.get('/:id', loadUser, cacheMiddleware({ ttl: 3600, useScope: false }), newsController.getNewsById);
 router.put('/:id', protect, checkPermission('news:edit'), uploadNewsBanner, newsController.updateNews);
 router.patch('/:id/publish', protect, checkPermission('news:publish'), newsController.publishNews);
 router.patch('/:id/unpublish', protect, checkPermission('news:publish'), newsController.unpublishNews);

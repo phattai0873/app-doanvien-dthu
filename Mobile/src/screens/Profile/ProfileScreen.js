@@ -9,17 +9,56 @@ import {
     ActivityIndicator,
     RefreshControl,
     Platform,
-    Alert
+    Alert,
+    Dimensions
 } from 'react-native';
-import { Icon } from '../../utils/iconMap';
-import { MenuRow } from '../../components/common/MenuRow';
-import { COLORS, SIZES, IMAGES } from '../../constants';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, SIZES } from '../../constants';
 import { partyService } from '../../services/partyService';
+import { useAuth } from '../../contexts/AuthContext';
+import CommonHeader from '../../components/CommonHeader';
 
-export const ProfileScreen = ({ onNavigate, onLogout }) => {
+const { width } = Dimensions.get('window');
+
+const DetailRow = ({ label, value, icon }) => (
+    <View style={styles.detailRow}>
+        <View style={styles.detailIconWrapper}>
+            <Ionicons name={icon} size={18} color={COLORS.primary} />
+        </View>
+        <View style={styles.detailTextWrapper}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <Text style={styles.detailValue}>{value || 'Chưa cập nhật'}</Text>
+        </View>
+    </View>
+);
+
+const MenuButton = ({ label, icon, onPress, color = COLORS.gray700, isError = false }) => (
+    <TouchableOpacity 
+        style={[styles.menuButton, isError && styles.menuButtonError]} 
+        onPress={onPress}
+        activeOpacity={0.7}
+    >
+        <View style={[styles.menuIconWrapper, isError && styles.menuIconError]}>
+            <Ionicons name={icon} size={22} color={isError ? COLORS.error : COLORS.primary} />
+        </View>
+        <Text style={[styles.menuLabel, isError && styles.menuLabelError]}>{label}</Text>
+        <Ionicons name="chevron-forward" size={18} color={isError ? COLORS.error + '50' : COLORS.gray300} />
+    </TouchableOpacity>
+);
+
+export const ProfileScreen = ({ navigation }) => {
+    const { user: authUser, logout } = useAuth();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Kiểm tra quyền cán bộ dựa trên AuthContext
+    const role = authUser?.role;
+    const isOfficer = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'BRANCH_ADMIN' || role === 'CELL_ADMIN' || authUser?.isSuperAdmin;
+    const isCellOfficer = role === 'CELL_ADMIN';
+    const isBranchOfficer = role === 'BRANCH_ADMIN';
+    const isAdmin = role === 'SUPER_ADMIN' || role === 'ADMIN' || authUser?.isSuperAdmin;
 
     const fetchData = useCallback(async () => {
         try {
@@ -42,7 +81,7 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
         fetchData();
     };
 
-    if (loading) {
+    if (loading && !refreshing) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -51,375 +90,322 @@ export const ProfileScreen = ({ onNavigate, onLogout }) => {
         );
     }
 
-    const member = user?.UnionMember;
-    const status = member?.status || 'none'; // none, pending, approved, rejected
-
-    const renderStatusBadge = () => {
-        switch (status) {
-            case 'approved':
-                return (
-                    <View style={[styles.statusBadge, { backgroundColor: '#ECFDF5' }]}>
-                        <Icon name="BadgeCheck" size={14} color="#10B981" />
-                        <Text style={[styles.statusBadgeText, { color: '#059669' }]}>Chính thức</Text>
-                    </View>
-                );
-            case 'pending':
-                return (
-                    <View style={[styles.statusBadge, { backgroundColor: '#FFFBEB' }]}>
-                        <Icon name="Clock" size={14} color="#F59E0B" />
-                        <Text style={[styles.statusBadgeText, { color: '#B45309' }]}>Chờ duyệt</Text>
-                    </View>
-                );
-            case 'rejected':
-                return (
-                    <View style={[styles.statusBadge, { backgroundColor: '#FEF2F2' }]}>
-                        <Icon name="AlertTriangle" size={14} color="#EF4444" />
-                        <Text style={[styles.statusBadgeText, { color: '#B91C1C' }]}>Từ chối</Text>
-                    </View>
-                );
-            default:
-                return (
-                    <View style={[styles.statusBadge, { backgroundColor: '#F3F4F6' }]}>
-                        <Icon name="User" size={14} color="#6B7280" />
-                        <Text style={[styles.statusBadgeText, { color: '#374151' }]}>Chưa tạo hồ sơ</Text>
-                    </View>
-                );
+    const member = user?.unionMember;
+    const hasPendingRequest = member?.ProfileUpdateRequests?.length > 0;
+    const status = member?.status || 'none';
+    
+    // Logic hiển thị label trạng thái
+    const getStatusLabel = () => {
+        if (status === 'approved') {
+            return hasPendingRequest ? 'Đang chờ duyệt cập nhật' : 'Đoàn viên chính thức';
         }
+        return 'Đang chờ phê duyệt';
     };
 
+    const roleLabel = member?.roleInUnion === 'member' ? 'Đoàn viên' : 
+                     member?.roleInUnion === 'secretary' ? 'Bí thư Chi đoàn' :
+                     member?.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn';
+
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={styles.content}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-            showsVerticalScrollIndicator={false}
-        >
-            {/* 1. Profile Card Section */}
-            <View style={styles.profileCard}>
-                <View style={styles.cardHeader}>
-                    <View style={styles.avatarWrapper}>
-                        <RNImage
-                            source={user?.anh_dai_dien ? { uri: user.anh_dai_dien } : IMAGES.user_fallback}
-                            style={styles.avatar}
-                        />
-                        {status === 'approved' && (
-                            <View style={styles.verifiedDot}>
-                                <Icon name="BadgeCheck" size={16} color="#FFF" />
+        <View style={styles.container}>
+            <CommonHeader title="Trang cá nhân" />
+            
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+            >
+                {/* Profile Card */}
+                <LinearGradient
+                    colors={['#FFFFFF', '#F8FAFC']}
+                    style={styles.profileCard}
+                >
+                    <View style={styles.profileHeader}>
+                        <View style={styles.avatarContainer}>
+                            <RNImage
+                                source={member?.avatarUrl ? { uri: member.avatarUrl } : { uri: `https://ui-avatars.com/api/?name=${member?.fullName || 'U'}&background=2563EB&color=fff` }}
+                                style={styles.avatar}
+                            />
+                            {status === 'approved' && (
+                                <View style={styles.verifiedBadge}>
+                                    <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
+                                </View>
+                            )}
+                        </View>
+                        <View style={styles.nameContainer}>
+                            <View style={styles.nameHeaderRow}>
+                                <Text style={styles.nameText}>{member?.fullName || 'Đoàn viên'}</Text>
+                                <TouchableOpacity 
+                                    style={styles.editBtn}
+                                    onPress={() => navigation.navigate('EditProfile', { userData: user })}
+                                >
+                                    <Ionicons name="create-outline" size={20} color={COLORS.primary} />
+                                </TouchableOpacity>
                             </View>
-                        )}
+                            <Text style={styles.roleText}>{roleLabel}</Text>
+                            <View style={[styles.statusTag, (status === 'approved' && !hasPendingRequest) ? styles.statusApproved : styles.statusPending]}>
+                                <Text style={[styles.statusTagText, (status === 'approved' && !hasPendingRequest) ? styles.textSuccess : styles.textWarning]}>
+                                    {getStatusLabel()}
+                                </Text>
+                            </View>
+                        </View>
                     </View>
-                    <View style={styles.basicInfo}>
-                        <Text style={styles.nameText}>{user?.ho_ten || 'Đoàn viên'}</Text>
-                        <Text style={styles.roleText}>{user?.chuc_vu_doan || 'Thành viên App'}</Text>
-                        {renderStatusBadge()}
+                </LinearGradient>
+
+                {/* Identity Information */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Hồ sơ cá nhân</Text>
+                    <View style={styles.sectionCard}>
+                        <DetailRow icon="finger-print-outline" label="Mã đoàn viên" value={member?.memberCode} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="call-outline" label="Số điện thoại" value={user?.phoneNumber} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="mail-outline" label="Email" value={user?.email} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="calendar-outline" label="Ngày sinh" value={member?.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : null} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="location-outline" label="Quê quán" value={member?.hometown} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="home-outline" label="Địa chỉ thường trú" value={member?.permanentAddress} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="school-outline" label="Trình độ chuyên môn" value={member?.professionalLevel} />
                     </View>
-                    <TouchableOpacity
-                        style={styles.settingsBtn}
-                        onPress={() => onNavigate('edit_profile')}
-                    >
-                        <Icon name="Settings" size={20} color={COLORS.gray500} />
-                    </TouchableOpacity>
+                </View>
+                {/* Organization Information */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Tổ chức Đoàn</Text>
+                    <View style={styles.sectionCard}>
+                        <DetailRow icon="business-outline" label="Chi đoàn" value={member?.UnionCell?.name} />
+                        <View style={styles.divider} />
+                        <DetailRow icon="school-outline" label="Trực thuộc" value={member?.UnionCell?.UnionBranch?.name || 'Trường Đại học Đồng Tháp'} />
+                    </View>
                 </View>
 
-                {/* Status Messages */}
-                {status === 'pending' && (
-                    <View style={styles.infoBanner}>
-                        <Icon name="Info" size={16} color="#B45309" />
-                        <Text style={styles.infoBannerText}>Hồ sơ đang được Bí thư Chi đoàn phê duyệt.</Text>
-                    </View>
-                )}
-                {status === 'none' && (
-                    <TouchableOpacity
-                        style={styles.ctaButton}
-                        onPress={() => onNavigate('complete_profile')}
-                    >
-                        <Text style={styles.ctaButtonText}>Hoàn thiện hồ sơ ngay</Text>
-                        <Icon name="ChevronRight" size={16} color="#FFF" />
-                    </TouchableOpacity>
-                )}
-                {/* 
-                {status !== 'none' && (
-                    <View style={styles.statsBar}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{member?.activityCount || 0}</Text>
-                            <Text style={styles.statLabel}>Hoạt động</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{user?.socialWorkDays || 0}</Text>
-                            <Text style={styles.statLabel}>Ngày CTXH</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{member?.points || 0}</Text>
-                            <Text style={styles.statLabel}>Điểm RL</Text>
-                        </View>
-                    </View>
-                )}
-                */}
-            </View>
-
-            {/* 2. Interactive Digital Card Entry */}
-            {status === 'approved' && (
-                <TouchableOpacity
-                    style={styles.digitalCardEntry}
-                    onPress={() => onNavigate('qr_card')}
-                    activeOpacity={0.9}
-                >
-                    <View style={styles.digitalCardLeft}>
-                        <Icon name="QrCode" size={28} color={COLORS.primary} />
-                        <View style={{ marginLeft: 16 }}>
-                            <Text style={styles.digitalCardTitle}>Thẻ Đoàn viên điện tử</Text>
-                            <Text style={styles.digitalCardSub}>Nhấn để xem mã QR định danh</Text>
-                        </View>
-                    </View>
-                    <Icon name="ChevronRight" size={20} color={COLORS.gray400} />
-                </TouchableOpacity>
-            )}
-
-            {/* 3. Detail Information Sections */}
-            {status !== 'none' && (
-                <>
-                    {/* Identity Group */}
+                {/* Organizational Management for Officers */}
+                {isOfficer && (
                     <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Icon name="User" size={18} color={COLORS.primary} />
-                            <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-                        </View>
-                        <View style={styles.sectionContent}>
-                            <DetailRow label="Mã số sinh viên" value={member?.studentId} />
-                            <DetailRow label="Số điện thoại" value={user?.sdt} />
-                            <DetailRow label="Email" value={user?.email} />
-                            <DetailRow label="Giới tính" value={user?.gioi_tinh} />
-                            <DetailRow label="Ngày sinh" value={member?.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : null} />
-                            <DetailRow label="Dân tộc" value={member?.ethnicity} />
-                            <DetailRow label="Tôn giáo" value={member?.religion} />
-                            <DetailRow label="Quê quán" value={member?.hometown} />
-                            <DetailRow label="Thường trú" value={member?.homeAddress} />
-                        </View>
-                    </View>
+                        <Text style={styles.sectionTitle}>Quản lý Đơn vị</Text>
+                        <View style={styles.menuGroup}>
+                            {isCellOfficer && (
+                                <MenuButton 
+                                    label="Quản lý Đoàn viên lớp" 
+                                    icon="people-circle-outline" 
+                                    onPress={() => navigation.navigate('MemberMgmt')} 
+                                />
+                            )}
+                            
+                            {isBranchOfficer && (
+                                <MenuButton 
+                                    label="Quản lý Các Chi đoàn" 
+                                    icon="business-outline" 
+                                    onPress={() => navigation.navigate('CellMgmt')} 
+                                />
+                            )}
 
-                    {/* Organization Group */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Icon name="Shield" size={18} color={COLORS.primary} />
-                            <Text style={styles.sectionTitle}>Thông tin tổ chức</Text>
-                        </View>
-                        <View style={styles.sectionContent}>
-                            <DetailRow label="Chi đoàn" value={member?.UnionCell?.name} />
-                            <DetailRow label="Trực thuộc" value={member?.UnionCell?.UnionBranch?.name || 'Trường Đại học Đồng Tháp'} />
-                            <DetailRow label="Ngày vào đoàn" value={member?.joinedDate ? new Date(member.joinedDate).toLocaleDateString('vi-VN') : '—'} />
-                            <DetailRow label="Nơi vào đoàn" value={member?.joinedPlace} />
-                            <DetailRow label="Nghề nghiệp / CM" value={member?.occupation} />
+                            {isAdmin && (
+                                <MenuButton 
+                                    label="Bảng Quản trị Hệ thống" 
+                                    icon="shield-checkmark-outline" 
+                                    onPress={() => navigation.navigate('AdminDashboard')} 
+                                />
+                            )}
                         </View>
                     </View>
-                </>
-            )}
+                )}
 
-            {/* 4. Menu Actions */}
-            <View style={styles.menuCard}>
-                <MenuRow
-                    icon="Wallet"
-                    label="Đoàn phí & Quỹ"
-                    onPress={() => onNavigate('fee_payment')}
-                    badge="Mới"
-                />
-                <View style={styles.menuCardDivider} />
-                <MenuRow
-                    icon="History"
-                    label="Lịch sử hoạt động"
-                    onPress={() => onNavigate('activity_history')}
-                />
-                <View style={styles.menuCardDivider} />
-                <MenuRow
-                    icon="FileText"
-                    label="Tài liệu & Văn bản"
-                    onPress={() => onNavigate('document_list')}
-                />
-            </View>
+                {/* Account Settings & Actions */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Tài khoản & Ứng dụng</Text>
+                    <View style={styles.menuGroup}>
+                        <MenuButton label="Cài đặt tài khoản" icon="settings-outline" onPress={() => navigation.navigate('Settings')} />
+                        <View style={styles.divider} />
+                        <MenuButton label="Lịch sử hoạt động" icon="time-outline" onPress={() => navigation.navigate('ActivityHistory')} />
+                        <View style={styles.divider} />
+                        <MenuButton label="Đoàn phí & Quỹ" icon="wallet-outline" onPress={() => navigation.navigate('FeePayment')} />
+                        <View style={styles.divider} />
+                        <MenuButton label="Thông báo" icon="notifications-outline" onPress={() => navigation.navigate('Notification')} />
+                        <View style={styles.divider} />
+                        <MenuButton label="Đăng xuất" icon="log-out-outline" onPress={logout} isError />
+                    </View>
+                </View>
 
-            <View style={styles.menuCard}>
-                <MenuRow
-                    icon="Settings"
-                    label="Cài đặt tài khoản"
-                    onPress={() => onNavigate('settings')}
-                />
-                <View style={styles.menuCardDivider} />
-                <MenuRow
-                    icon="Info"
-                    label="Về ứng dụng"
-                    onPress={() => { }}
-                />
-            </View>
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>App Đoàn viên DTHU • Phiên bản 1.0.0</Text>
+                </View>
 
-            <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
-                <Icon name="LogOut" size={20} color={COLORS.error} />
-                <Text style={styles.logoutBtnText}>Đăng xuất</Text>
-            </TouchableOpacity>
-
-            <View style={styles.footer}>
-                <Text style={styles.footerText}>App Đoàn viên DTHU • v1.0.0</Text>
-            </View>
-        </ScrollView>
+                <View style={{ height: 120 }} />
+            </ScrollView>
+        </View>
     );
 };
 
-const DetailRow = ({ label, value, isCopyable }) => (
-    <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <View style={styles.detailValueWrapper}>
-            <Text style={[styles.detailValue, !value && { color: COLORS.gray300 }]}>
-                {value || 'Chưa cập nhật'}
-            </Text>
-            {isCopyable && value && (
-                <TouchableOpacity style={{ marginLeft: 8 }}>
-                    <Icon name="Copy" size={14} color={COLORS.gray400} />
-                </TouchableOpacity>
-            )}
-        </View>
-    </View>
-);
-
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    content: { padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 100 },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
-    loadingText: { marginTop: 12, color: COLORS.gray500, fontWeight: '500' },
-
+    container: { flex: 1, backgroundColor: COLORS.background },
+    scrollContent: { padding: SIZES.md },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { marginTop: 12, color: COLORS.gray500, fontWeight: '600' },
+    
     profileCard: {
-        backgroundColor: COLORS.white,
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 15,
-        elevation: 3,
-        borderWidth: 1,
-        borderColor: COLORS.gray100
+        borderRadius: 32,
+        padding: SIZES.lg,
+        marginBottom: SIZES.lg,
+        ...COLORS.shadowDark,
     },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    avatarWrapper: { position: 'relative' },
-    avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.gray100 },
-    verifiedDot: {
+    profileHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatarContainer: {
+        position: 'relative',
+    },
+    avatar: {
+        width: 80,
+        height: 80,
+        borderRadius: 32,
+        backgroundColor: COLORS.gray100,
+    },
+    verifiedBadge: {
         position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 22,
-        height: 22,
-        borderRadius: 11,
+        bottom: -4,
+        right: -4,
         backgroundColor: COLORS.primary,
-        borderWidth: 2,
-        borderColor: COLORS.white,
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    basicInfo: { flex: 1, marginLeft: 16 },
-    nameText: { fontSize: 20, fontWeight: '800', color: COLORS.gray900, marginBottom: 2 },
-    roleText: { fontSize: 13, color: COLORS.gray500, marginBottom: 8, fontWeight: '500' },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        gap: 4
-    },
-    statusBadgeText: { fontSize: 11, fontWeight: '700' },
-    settingsBtn: { padding: 8 },
-
-    infoBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFBEB',
-        padding: 12,
         borderRadius: 12,
-        marginBottom: 16,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: '#FEF3C7'
+        padding: 2,
+        borderWidth: 3,
+        borderColor: COLORS.white,
     },
-    infoBannerText: { flex: 1, fontSize: 12, color: '#92400E', fontWeight: '500' },
-
-    ctaButton: {
-        backgroundColor: COLORS.primary,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 16,
-        gap: 8,
-        marginBottom: 16
+    nameContainer: {
+        marginLeft: SIZES.md,
+        flex: 1,
     },
-    ctaButtonText: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
-
-    statsBar: {
+    nameHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.gray50
     },
-    statItem: { flex: 1, alignItems: 'center' },
-    statValue: { fontSize: 15, fontWeight: '800', color: COLORS.gray900 },
-    statLabel: { fontSize: 11, color: COLORS.gray400, marginTop: 2, fontWeight: '500' },
-    statDivider: { width: 1, height: 24, backgroundColor: COLORS.gray100 },
+    nameText: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: COLORS.gray900,
+        flex: 1,
+    },
+    editBtn: {
+        padding: 8,
+        backgroundColor: COLORS.primaryLight,
+        borderRadius: 10,
+    },
+    roleText: {
+        fontSize: 14,
+        color: COLORS.gray500,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    statusTag: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 10,
+        marginTop: 8,
+    },
+    statusApproved: { backgroundColor: '#DEF7EC' },
+    statusPending: { backgroundColor: '#FEF3C7' },
+    statusTagText: { fontSize: 11, fontWeight: '800' },
+    textSuccess: { color: '#03543F' },
+    textWarning: { color: '#92400E' },
 
-    digitalCardEntry: {
+    section: {
+        marginBottom: SIZES.lg,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '900',
+        color: COLORS.gray900,
+        marginBottom: 12,
+        marginLeft: 4,
+    },
+    sectionCard: {
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: SIZES.md,
+        ...COLORS.shadowDark,
+    },
+    detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.white,
-        padding: 16,
-        borderRadius: 20,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: COLORS.gray100,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 10,
-        elevation: 2
+        paddingVertical: 12,
     },
-    digitalCardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-    digitalCardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.gray900 },
-    digitalCardSub: { fontSize: 12, color: COLORS.gray400, marginTop: 2 },
-
-    section: { backgroundColor: COLORS.white, borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: COLORS.gray100 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
-    sectionTitle: { fontSize: 13, fontWeight: '800', color: COLORS.gray900, textTransform: 'uppercase', letterSpacing: 0.5 },
-    sectionContent: { gap: 12 },
-    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    detailLabel: { fontSize: 13, color: COLORS.gray400, fontWeight: '500', flex: 1 },
-    detailValueWrapper: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
-    detailValue: { fontSize: 14, color: COLORS.gray800, fontWeight: '600', textAlign: 'right' },
-
-    menuCard: {
+    detailIconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 14,
+        backgroundColor: COLORS.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    detailTextWrapper: {
+        marginLeft: 16,
+        flex: 1,
+    },
+    detailLabel: {
+        fontSize: 12,
+        color: COLORS.gray400,
+        fontWeight: '600',
+    },
+    detailValue: {
+        fontSize: 15,
+        color: COLORS.gray800,
+        fontWeight: '700',
+        marginTop: 2,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: COLORS.gray50,
+        marginHorizontal: 4,
+    },
+    
+    menuGroup: {
         backgroundColor: COLORS.white,
         borderRadius: 24,
         overflow: 'hidden',
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: COLORS.gray100
+        ...COLORS.shadowDark,
     },
-    menuCardDivider: { height: 1, backgroundColor: COLORS.gray50, marginHorizontal: 20 },
-
-    logoutBtn: {
+    menuButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 16,
-        backgroundColor: '#FEF2F2',
-        borderRadius: 20,
-        marginTop: 8,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: '#FEE2E2'
+        padding: 16,
     },
-    logoutBtnText: { color: COLORS.error, fontWeight: '800', fontSize: 15 },
-
-    footer: { alignItems: 'center', marginTop: 30, paddingBottom: 20 },
-    footerText: { fontSize: 11, color: COLORS.gray300, fontWeight: '500' }
+    menuButtonError: {
+        backgroundColor: '#FFF5F5',
+    },
+    menuIconWrapper: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: COLORS.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    menuIconError: {
+        backgroundColor: '#FFE4E4',
+    },
+    menuLabel: {
+        flex: 1,
+        marginLeft: 16,
+        fontSize: 15,
+        fontWeight: '700',
+        color: COLORS.gray700,
+    },
+    menuLabelError: {
+        color: COLORS.error,
+    },
+    
+    footer: {
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    footerText: {
+        fontSize: 12,
+        color: COLORS.gray300,
+        fontWeight: '600',
+    }
 });

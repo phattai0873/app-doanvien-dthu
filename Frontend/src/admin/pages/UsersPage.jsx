@@ -55,7 +55,7 @@ function UserModal({ user, onClose, onSave, allRoles }) {
     };
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800">{isEdit ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản mới'}</h3>
@@ -120,7 +120,7 @@ function ResetPasswordModal({ user, onClose, onSave }) {
     const [confirm, setConfirm] = useState('');
     const [show, setShow] = useState(false);
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800">Đặt lại mật khẩu</h3>

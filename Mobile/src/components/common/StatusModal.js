@@ -5,7 +5,7 @@ import {
     StyleSheet,
     Modal,
     TouchableOpacity,
-    Animated,
+    Pressable,
     Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ const StatusModal = ({
     title,
     message,
     buttonText = 'Đóng',
-    onClose
+    onAttemptClose
 }) => {
     const getIcon = () => {
         switch (type) {
@@ -41,10 +41,13 @@ const StatusModal = ({
             visible={visible}
             transparent={true}
             animationType="fade"
-            onRequestClose={onClose}
+            onRequestClose={onAttemptClose}
         >
-            <View style={styles.overlay}>
-                <View style={styles.modalContainer}>
+            <Pressable 
+                style={styles.overlay} 
+                onPress={() => onAttemptClose?.()}
+            >
+                <Pressable style={styles.modalContainer} onPress={(e) => {}}>
                     <View style={[styles.iconContainer, { backgroundColor: icon.color + '15' }]}>
                         <Ionicons name={icon.name} size={64} color={icon.color} />
                     </View>
@@ -54,13 +57,13 @@ const StatusModal = ({
 
                     <TouchableOpacity
                         style={[styles.button, { backgroundColor: icon.color }]}
-                        onPress={onClose}
+                        onPress={onAttemptClose}
                         activeOpacity={0.8}
                     >
                         <Text style={styles.buttonText}>{buttonText}</Text>
                     </TouchableOpacity>
-                </View>
-            </View>
+                </Pressable>
+            </Pressable>
         </Modal>
     );
 };
