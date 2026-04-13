@@ -44,7 +44,7 @@ class DocumentService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             where.deletedAt = { [Op.ne]: null };
         }
@@ -152,7 +152,7 @@ class DocumentService {
         const queryOptions = {
             order: onlyDeleted ? [['deletedAt', 'DESC']] : [['name', 'ASC']]
         };
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             queryOptions.where = { deletedAt: { [Op.ne]: null } };
         }

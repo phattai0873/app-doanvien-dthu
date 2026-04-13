@@ -48,6 +48,19 @@ const feeController = {
     }),
 
     /**
+     * Admin: Tạo đợt thu phí (Collection)
+     */
+    createCollection: asyncHandler(async (req, res) => {
+        const collection = await FeeService.createCollection(req.body, req.user);
+        res.status(201).json({ success: true, data: collection });
+    }),
+
+    getCollections: asyncHandler(async (req, res) => {
+        const result = await FeeService.getCollections(req.query);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    /**
      * Admin: Danh sách chưa nộp phí (Scoping)
      */
     getUnpaidMembers: asyncHandler(async (req, res) => {

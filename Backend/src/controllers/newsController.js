@@ -1,5 +1,6 @@
 const asyncHandler = require('../utils/asyncHandler');
 const NewsService = require('../services/newsService');
+const cacheService = require('../services/cacheService');
 
 const newsController = {
     // ==================== BÀI VIẾT ====================
@@ -36,27 +37,35 @@ const newsController = {
     createNews: asyncHandler(async (req, res) => {
         // Logic gán ID và Level đã được chuyển vào NewsService.injectScope để tập trung bảo mật
         const result = await NewsService.create(req.body, req.user.id, req.file, req.user);
+        
+        // Invalidate News Cache
+        await cacheService.delPattern('__cache__:*:/api/news*');
+        
         res.status(201).json({ success: true, data: result });
     }),
 
     updateNews: asyncHandler(async (req, res) => {
         const result = await NewsService.update(req.params.id, req.body, req.file, req.user);
+        await cacheService.delPattern('__cache__:*:/api/news*');
         res.status(200).json({ success: true, data: result });
     }),
 
     publishNews: asyncHandler(async (req, res) => {
         const { publishedAt } = req.body;
         const news = await NewsService.publish(req.params.id, publishedAt, req.user);
+        await cacheService.delPattern('__cache__:*:/api/news*');
         res.status(200).json({ success: true, data: news });
     }),
 
     unpublishNews: asyncHandler(async (req, res) => {
         const news = await NewsService.unpublish(req.params.id, req.user);
+        await cacheService.delPattern('__cache__:*:/api/news*');
         res.status(200).json({ success: true, data: news });
     }),
 
     deleteNews: asyncHandler(async (req, res) => {
         const result = await NewsService.delete(req.params.id, req.user);
+        await cacheService.delPattern('__cache__:*:/api/news*');
         res.status(200).json({ success: true, data: result });
     }),
 
@@ -143,16 +152,19 @@ const newsController = {
 
     createCategory: asyncHandler(async (req, res) => {
         const category = await NewsService.createCategory(req.body);
+        await cacheService.delPattern('__cache__:*:/api/news/categories*');
         res.status(201).json({ success: true, data: category });
     }),
 
     updateCategory: asyncHandler(async (req, res) => {
         const category = await NewsService.updateCategory(req.params.id, req.body);
+        await cacheService.delPattern('__cache__:*:/api/news/categories*');
         res.status(200).json({ success: true, data: category });
     }),
 
     deleteCategory: asyncHandler(async (req, res) => {
         const result = await NewsService.deleteCategory(req.params.id);
+        await cacheService.delPattern('__cache__:*:/api/news/categories*');
         res.status(200).json({ success: true, data: result });
     }),
 

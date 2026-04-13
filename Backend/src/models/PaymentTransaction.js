@@ -14,16 +14,21 @@ const PaymentTransaction = sequelize.define('PaymentTransaction', {
     },
     unionFeeTypeId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         field: 'union_fee_type_id'
     },
     amount: {
         type: DataTypes.DECIMAL(15, 2),
         allowNull: false
     },
+    totalAmount: {
+        type: DataTypes.DECIMAL(15, 2),
+        allowNull: true,
+        field: 'total_amount'
+    },
     period: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     paymentProvider: {
         type: DataTypes.ENUM('CASH', 'BANK_TRANSFER', 'MOMO', 'VNPAY', 'ZALOPAY'),
@@ -38,6 +43,12 @@ const PaymentTransaction = sequelize.define('PaymentTransaction', {
         allowNull: true,
         unique: true,
         field: 'internal_transaction_id'
+    },
+    transactionCode: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        field: 'transaction_code'
     },
     gatewayTransactionId: {
         type: DataTypes.STRING,
@@ -54,10 +65,23 @@ const PaymentTransaction = sequelize.define('PaymentTransaction', {
         allowNull: true,
         field: 'paid_at'
     },
+    approvedBy: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'approved_by'
+    },
     evidenceImageUrl: {
         type: DataTypes.STRING,
         allowNull: true,
         field: 'evidence_image_url'
+    },
+    note: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    deadline: {
+        type: DataTypes.DATEONLY,
+        allowNull: true
     }
 }, {
     tableName: 'payment_transactions',

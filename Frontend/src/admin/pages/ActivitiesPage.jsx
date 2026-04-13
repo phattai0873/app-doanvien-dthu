@@ -5,8 +5,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { Search, Plus, Pencil, Trash2, Star, QrCode, RotateCw, Download, Copy, Users, CheckCircle2, XCircle, RotateCcw, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { activityApi } from '../../services/api';
-import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
+import { confirmDelete, confirmRestore, confirmForceDelete, confirmUnsavedChanges } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
+import { useDirtyModal } from '../../hooks/useDirtyModal';
 
 const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const BTN_PRIMARY = "flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition";
@@ -30,19 +31,21 @@ const ACTIVITY_LEVELS = [
 ];
 
 function ActivityModal({ activity, onClose, onSave }) {
-    const [form, setForm] = useState(activity || { 
-        title: '', description: '', location: '', startDate: '', endDate: '', 
+    const [form, setForm] = useState(activity || {
+        title: '', description: '', location: '', startDate: '', endDate: '',
         type: 'Hoạt động', level: 'BRANCH', status: 'DRAFT', category: 'OTHER',
         point: 0, maxParticipants: ''
     });
+
+    const { handleAttemptClose } = useDirtyModal(form, onClose);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={handleAttemptClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800 uppercase tracking-tight">{activity ? 'Cập nhật Hoạt động' : 'Thêm Hoạt động mới'}</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
+                    <button onClick={handleAttemptClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-5 space-y-4">
                     <div>
@@ -92,8 +95,8 @@ function ActivityModal({ activity, onClose, onSave }) {
                     <div><label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Mô tả chi tiết</label><textarea className={INPUT} rows={3} value={form.description || ''} onChange={e => set('description', e.target.value)} /></div>
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-                    <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
-                    <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Gửi phê duyệt</button>
+                    <button className={BTN_SECONDARY} onClick={handleAttemptClose}>Hủy</button>
+                    <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Lưu</button>
                 </div>
             </div>
         </ModalPortal>
@@ -148,19 +151,19 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
     };
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-sm w-full animate-in fade-in zoom-in duration-300">
                 <div className="w-full flex justify-between items-start mb-6">
                     <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest text-left pr-4">Mã điểm danh: {title}</h3>
                     <button onClick={onClose} className="text-gray-300 hover:text-gray-500 transition">✕</button>
                 </div>
-                
+
                 <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 relative group">
                     <img src={qrUrl} alt="QR Code" className={`w-48 h-48 mix-blend-multiply transition ${refreshing ? 'opacity-30 blur-sm' : ''}`} />
                     {refreshing && <div className="absolute inset-0 flex items-center justify-center"><RotateCw className="animate-spin text-primary-700" size={32} /></div>}
-                    
+
                     {!refreshing && (
-                        <button 
+                        <button
                             onClick={handleDownload}
                             className="absolute -bottom-3 -right-3 bg-white w-10 h-10 rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-primary-700 hover:bg-primary-50 transition"
                             title="Tải về bộ mã QR"
@@ -174,7 +177,7 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-1">Mã xác thực hoạt động</p>
                     <div className="flex items-center justify-center gap-3">
                         <p className="text-4xl font-black text-primary-700 tracking-[0.2em]">{code}</p>
-                        <button 
+                        <button
                             onClick={() => {
                                 navigator.clipboard.writeText(code);
                                 toast.success('Đã sao chép mã!');
@@ -198,8 +201,8 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
                 </div>
 
                 <div className="flex flex-col gap-2 w-full">
-                    <button 
-                        onClick={handleRefresh} 
+                    <button
+                        onClick={handleRefresh}
                         disabled={refreshing}
                         className="w-full flex items-center justify-center gap-2 py-3 bg-primary-50 hover:bg-primary-100 text-primary-700 font-bold rounded-xl transition disabled:opacity-50"
                     >
@@ -227,28 +230,28 @@ export default function ActivitiesPage() {
     const [showQR, setShowQR] = useState(null);
     const [showTrash, setShowTrash] = useState(false);
 
-    const { data, isLoading } = useQuery({ 
-        queryKey: ['activities', search, page, levelFilter, branchFilter, cellFilter, statusFilter, showTrash], 
-        queryFn: () => activityApi.getAll({ 
-            search, page, limit: 10, 
-            level: levelFilter || undefined, 
+    const { data, isLoading } = useQuery({
+        queryKey: ['activities', search, page, levelFilter, branchFilter, cellFilter, statusFilter, showTrash],
+        queryFn: () => activityApi.getAll({
+            search, page, limit: 10,
+            level: levelFilter || undefined,
             status: statusFilter || undefined,
             unionBranchId: branchFilter || undefined,
             unionCellId: cellFilter || undefined,
             onlyDeleted: showTrash
-        }), 
-        keepPreviousData: true 
+        }),
+        keepPreviousData: true
     });
-    
+
     const { data: branchesRes } = useQuery({ queryKey: ['union-branches'], queryFn: () => activityApi.getBranches() });
-    const { data: cellsRes } = useQuery({ 
-        queryKey: ['union-cells', branchFilter], 
+    const { data: cellsRes } = useQuery({
+        queryKey: ['union-cells', branchFilter],
         queryFn: () => activityApi.getCells(branchFilter),
-        enabled: !!branchFilter 
+        enabled: !!branchFilter
     });
     const branches = branchesRes?.data?.data || [];
     const cells = cellsRes?.data?.data || [];
-    
+
     const activities = data?.data?.data || [];
     const pagination = data?.data?.pagination || {};
 
@@ -257,19 +260,19 @@ export default function ActivitiesPage() {
     const deleteMutation = useMutation({ mutationFn: activityApi.delete, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã chuyển hoạt động vào thùng rác!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const restoreMutation = useMutation({ mutationFn: activityApi.restore, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã khôi phục hoạt động!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const forceDeleteMutation = useMutation({ mutationFn: activityApi.forceDelete, onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
-    const approveMutation = useMutation({ 
-        mutationFn: activityApi.approve, 
-        onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã phê duyệt hoạt động!'); }, 
-        onError: e => toast.error(e.response?.data?.message || 'Lỗi!') 
+    const approveMutation = useMutation({
+        mutationFn: activityApi.approve,
+        onSuccess: () => { qc.invalidateQueries(['activities']); toast.success('Đã phê duyệt hoạt động!'); },
+        onError: e => toast.error(e.response?.data?.message || 'Lỗi!')
     });
-    const refreshCodeMutation = useMutation({ 
-        mutationFn: (id) => activityApi.refreshCode(id, { checkinTTL: 15 }), 
-        onSuccess: (res) => { 
-            qc.invalidateQueries(['activities']); 
+    const refreshCodeMutation = useMutation({
+        mutationFn: (id) => activityApi.refreshCode(id, { checkinTTL: 15 }),
+        onSuccess: (res) => {
+            qc.invalidateQueries(['activities']);
             setShowQR(prev => ({ ...prev, code: res.data.data.checkinCode, expiresAt: res.data.data.checkinCodeExpiresAt }));
-            toast.success('Đã làm mới mã điểm danh (15 phút)!'); 
-        }, 
-        onError: e => toast.error(e.response?.data?.message || 'Lỗi!') 
+            toast.success('Đã làm mới mã điểm danh (15 phút)!');
+        },
+        onError: e => toast.error(e.response?.data?.message || 'Lỗi!')
     });
 
     const handleSave = (form) => modal?.id ? updateMutation.mutate({ id: modal.id, data: form }) : createMutation.mutate({ ...form, status: 'PENDING_APPROVAL' });
@@ -299,13 +302,13 @@ export default function ActivitiesPage() {
                     <option value="">Tất cả trạng thái</option>
                     {ACTIVITY_STATUS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
-                
+
                 {hasPermission('activity:delete') && (
-                    <button 
+                    <button
                         onClick={() => { setShowTrash(!showTrash); setPage(1); }}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
-                            ${showTrash 
-                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                            ${showTrash
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                     >
                         <History size={16} /> {showTrash ? 'Quay lại' : 'Thùng rác'}
@@ -385,7 +388,7 @@ export default function ActivitiesPage() {
                                                         {!showTrash ? (
                                                             <>
                                                                 {a.status === 'PENDING_APPROVAL' && (
-                                                                    <button 
+                                                                    <button
                                                                         className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-700 border border-green-100 shadow-sm`}
                                                                         title="Phê duyệt hoạt động"
                                                                         onClick={() => approveMutation.mutate(a.id)}
@@ -394,7 +397,7 @@ export default function ActivitiesPage() {
                                                                     </button>
                                                                 )}
                                                                 {a.checkinCode && (
-                                                                    <button 
+                                                                    <button
                                                                         className={`${BTN_ICON} bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-100 shadow-sm`}
                                                                         title="Hiển thị QR Check-in"
                                                                         onClick={() => setShowQR({ id: a.id, title: a.title, code: a.checkinCode, expiresAt: a.checkinCodeExpiresAt })}
@@ -402,7 +405,7 @@ export default function ActivitiesPage() {
                                                                         <QrCode size={16} />
                                                                     </button>
                                                                 )}
-                                                                <button 
+                                                                <button
                                                                     className={`${BTN_ICON} bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 shadow-sm`}
                                                                     title="Danh sách tham gia"
                                                                     onClick={() => navigate(`${a.id}/participants`)}
@@ -417,7 +420,7 @@ export default function ActivitiesPage() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <button 
+                                                                <button
                                                                     className={`${BTN_ICON} bg-green-50 hover:bg-green-100 text-green-600 border border-green-100 shadow-sm`}
                                                                     title="Khôi phục"
                                                                     onClick={async () => {
@@ -427,7 +430,7 @@ export default function ActivitiesPage() {
                                                                 >
                                                                     <RotateCcw size={16} />
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     className={`${BTN_ICON} bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 shadow-sm`}
                                                                     title="Xóa vĩnh viễn"
                                                                     onClick={async () => {
@@ -459,12 +462,12 @@ export default function ActivitiesPage() {
             </div>
             {modal && <ActivityModal activity={modal === 'add' ? null : modal} onClose={() => setModal(null)} onSave={handleSave} />}
             {showQR && (
-                <QRModal 
-                    title={showQR.title} 
-                    code={showQR.code} 
+                <QRModal
+                    title={showQR.title}
+                    code={showQR.code}
                     expiresAt={showQR.expiresAt}
                     onRefresh={() => refreshCodeMutation.mutateAsync(showQR.id)}
-                    onClose={() => setShowQR(null)} 
+                    onClose={() => setShowQR(null)}
                 />
             )}
         </div>

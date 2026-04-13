@@ -16,7 +16,8 @@ const { width } = Dimensions.get('window');
 
 // ─── Status config ────────────────────────────────────────
 const STATUS = {
-    APPROVED: { label: 'Đã duyệt', color: '#10B981', bg: '#ECFDF5', icon: 'checkmark-circle' },
+    PAID: { label: 'Đã duyệt', color: '#10B981', bg: '#ECFDF5', icon: 'checkmark-circle' },
+    SUCCESS: { label: 'Đã duyệt', color: '#10B981', bg: '#ECFDF5', icon: 'checkmark-circle' },
     PENDING: { label: 'Chờ duyệt', color: '#F59E0B', bg: '#FFFBEB', icon: 'time' },
     REJECTED: { label: 'Từ chối', color: '#EF4444', bg: '#FEF2F2', icon: 'close-circle' },
     UNPAID: { label: 'Chưa nộp', color: '#64748B', bg: '#F1F5F9', icon: 'wallet-outline' },
@@ -26,7 +27,7 @@ const STATUS = {
 const TABS = [
     { key: 'unpaid', label: 'Cần nộp' },
     { key: 'pending', label: 'Chờ duyệt' },
-    { key: 'approved', label: 'Đã duyệt' },
+    { key: 'success', label: 'Đã duyệt' },
     { key: 'history', label: 'Lịch sử' },
 ];
 
@@ -48,17 +49,36 @@ const badge = StyleSheet.create({
 });
 
 // ─── FeeCard – component ngoài ───────────────────────────
-const FeeCard = ({ item, type, onPayPress }) => {
+const FeeCard = ({ item, type, onPayPress, isSelected, onToggleSelect, isMultiMode }) => {
     const cfg = STATUS[type] || STATUS.UNPAID;
     const isActionable = type === 'UNPAID' || type === 'OVERDUE';
 
     return (
-        <View style={[
-            styles.feeCard,
-            type === 'OVERDUE' && styles.feeCardOverdue,
-            type === 'PENDING' && styles.feeCardPending,
-            type === 'APPROVED' && styles.feeCardApproved,
-        ]}>
+        <TouchableOpacity
+            activeOpacity={isMultiMode ? 0.7 : 1}
+            onPress={() => isMultiMode ? onToggleSelect && onToggleSelect(item.id) : null}
+            style={[
+                styles.feeCard,
+                type === 'OVERDUE' && styles.feeCardOverdue,
+                type === 'PENDING' && styles.feeCardPending,
+                (type === 'SUCCESS' || type === 'PAID') && styles.feeCardApproved,
+                isSelected && styles.feeCardSelected,
+            ]}
+        >
+            {/* Select Checkbox (Chỉ hiện ở tab cần nộp) */}
+            {isActionable && (
+                <TouchableOpacity
+                    style={styles.checkbox}
+                    onPress={() => onToggleSelect && onToggleSelect(item.id)}
+                >
+                    <Ionicons
+                        name={isSelected ? "checkbox" : "square-outline"}
+                        size={22}
+                        color={isSelected ? COLORS.primary : "#CBD5E1"}
+                    />
+                </TouchableOpacity>
+            )}
+
             {/* Left: icon */}
             <View style={[styles.feeIconBox, { backgroundColor: cfg.bg }]}>
                 <Ionicons name={cfg.icon} size={22} color={cfg.color} />
@@ -67,42 +87,32 @@ const FeeCard = ({ item, type, onPayPress }) => {
             {/* Center: info */}
             <View style={styles.feeBody}>
                 <Text style={styles.feeName} numberOfLines={2}>
-                    {item.name || item.UnionFeeType?.name || 'Đoàn phí'}
+                    {item.label || item.feeType || item.name || 'Đoàn phí'}
                 </Text>
                 <Text style={styles.feeMeta}>
-                    Năm {item.period}
+                    {item.Collection?.name || `Năm ${item.period}`}
                     {item.deadline ? ` • Hạn: ${item.deadline}` : ''}
-                    {item.paidAt ? ` • ${new Date(item.paidAt).toLocaleDateString('vi-VN')}` : ''}
                 </Text>
-                {type === 'APPROVED' && item.approvedAt && (
+                {type === 'PAID' && item.paidAt && (
                     <Text style={styles.feeApprovedMeta}>
-                        ✓ Duyệt: {new Date(item.approvedAt).toLocaleDateString('vi-VN')}
+                        ✓ Duyệt: {new Date(item.paidAt).toLocaleDateString('vi-VN')}
                     </Text>
                 )}
-                {item.id && (type === 'APPROVED' || type === 'PENDING' || type === 'REJECTED') && (
+                {item.id && (type === 'PAID' || type === 'PENDING' || type === 'REJECTED') && (
                     <Text style={styles.feeTxnId}>
                         #{String(item.id).substring(0, 8).toUpperCase()}
                     </Text>
                 )}
             </View>
 
-            {/* Right: amount + badge + action */}
+            {/* Right: amount + badge */}
             <View style={styles.feeRight}>
                 <Text style={[styles.feeAmount, type === 'OVERDUE' && { color: '#DC2626' }]}>
                     {fmt(item.amount)}
                 </Text>
                 <StatusBadge type={type} />
-                {isActionable && (
-                    <TouchableOpacity
-                        style={styles.payBtn}
-                        onPress={() => onPayPress && onPayPress(item)}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.payBtnText}>Nộp ngay</Text>
-                    </TouchableOpacity>
-                )}
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -123,7 +133,7 @@ export const PartyFeeScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState('unpaid');
-    const [selectedFee, setSelectedFee] = useState(null);
+    const [selectedItemIds, setSelectedItemIds] = useState([]);
     const [showQRModal, setShowQRModal] = useState(false);
     const [evidenceImage, setEvidenceImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,17 +158,19 @@ export const PartyFeeScreen = ({ navigation }) => {
     useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
     const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
 
-    const handlePayOnline = (fee) => {
-        if (!dashboard?.summary?.memberCode)
-            return Alert.alert('Lỗi', 'Không xác định được mã đoàn viên.');
-        setSelectedFee(fee);
+    const toggleSelectItem = (id) => {
+        setSelectedItemIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    const handlePayOnline = () => {
+        if (selectedItemIds.length === 0) return Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một khoản phí để thanh toán.');
+        if (!dashboard?.summary?.memberCode) return Alert.alert('Lỗi', 'Không xác định được mã đoàn viên.');
         setShowQRModal(true);
     };
 
     const closeModal = () => {
         setShowQRModal(false);
         setEvidenceImage(null);
-        setSelectedFee(null);
     };
 
     const [showImagePreview, setShowImagePreview] = useState(false);
@@ -212,19 +224,22 @@ export const PartyFeeScreen = ({ navigation }) => {
         setIsSubmitting(true);
         try {
             const formData = new FormData();
-            formData.append('unionFeeTypeId', selectedFee.unionFeeTypeId);
-            formData.append('period', selectedFee.period);
-            formData.append('amount', selectedFee.amount);
+            formData.append('feeItemIds', JSON.stringify(selectedItemIds));
+            formData.append('amount', totalSelectedAmount);
             formData.append('paymentProvider', 'BANK_TRANSFER');
+            
             const fileName = evidenceImage.uri.split('/').pop();
-            const fileType = fileName.split('.').pop();
+            const fileType = fileName.split('.').pop().toLowerCase();
+            const mime = fileType === 'pdf' ? 'application/pdf' : `image/${fileType === 'png' ? 'png' : 'jpeg'}`;
+
             formData.append('evidence', {
                 uri: evidenceImage.uri, name: fileName,
-                type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
+                type: mime,
             });
             await financeService.initPayment(formData);
-            Alert.alert('✅ Gửi thành công', 'Yêu cầu đã gửi. Vui lòng chờ Admin phê duyệt.');
+            Alert.alert('✅ Gửi thành công', 'Yêu cầu thanh toán đã được gửi. Vui lòng chờ Admin phê duyệt.');
             closeModal();
+            setSelectedItemIds([]);
             fetchDashboard();
         } catch (e) {
             Alert.alert('Lỗi', e.response?.data?.message || 'Không thể gửi yêu cầu.');
@@ -234,28 +249,42 @@ export const PartyFeeScreen = ({ navigation }) => {
     };
 
     // ─── Derived ──────────────────────────────────────────
-    const {
-        summary = {},
-        unpaidFees = [],
-        history = [],
-        pendingTransactions = [],
-    } = dashboard || {};
+    const summary = dashboard?.summary || { totalDebt: 0, unpaidCount: 0, pendingCount: 0, memberCode: '', nearestDeadline: null };
+    const isDebt = (summary.totalDebt || 0) > 0;
 
-    const approvedHistory = history.filter(h =>
-        h.status === 'APPROVED' || h.PaymentTransaction?.status === 'APPROVED'
+    const allFees = (dashboard?.collections || []).flatMap(col => 
+        (col.items || []).map(item => ({
+            ...item,
+            feeType: col.feeType,
+            collectionName: col.name
+        }))
     );
-    const isDebt = (summary?.totalDebt || 0) > 0;
+
+    const unpaidFees = allFees.filter(f => f.status === 'UNPAID' || f.status === 'REJECTED' || f.status === 'OVERDUE');
+    const pendingTransactions = allFees.filter(f => f.status === 'PENDING');
+    const approvedHistory = allFees.filter(f => f.status === 'PAID');
+    const history = allFees.filter(f => f.status !== 'UNPAID');
+
+    const totalSelectedAmount = unpaidFees
+        .filter(f => selectedItemIds.includes(f.id))
+        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
 
     // ─── QR modal values (chỉ tính khi modal mở) ─────────
     const memberCode = dashboard?.summary?.memberCode || '';
     const bankId = bankSetting?.bankId || 'MB';
     const accountNo = bankSetting?.accountNo || '0383123456';
     const accountName = bankSetting?.accountName || 'DOAN THANH NIEN DTHU';
-    const description = selectedFee
-        ? `DP ${memberCode} ${selectedFee.period}`.toUpperCase()
-        : '';
-    const qrUrl = selectedFee
-        ? `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${selectedFee.amount}&addInfo=${encodeURIComponent(description)}&accountName=${encodeURIComponent(accountName)}`
+    
+    // Tạo nội dung chuyển khoản thông minh cho nhiều tháng
+    const selectedLabels = unpaidFees
+        .filter(f => selectedItemIds.includes(f.id))
+        .map(f => f.period.split('-').pop()) // Lấy tháng
+        .join(',');
+    
+    const description = `DP ${memberCode} T${selectedLabels}`.substring(0, 20).toUpperCase();
+
+    const qrUrl = showQRModal
+        ? `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${totalSelectedAmount}&addInfo=${encodeURIComponent(description)}&accountName=${encodeURIComponent(accountName)}`
         : '';
 
     if (loading) {
@@ -375,14 +404,39 @@ export const PartyFeeScreen = ({ navigation }) => {
                             )}
                             {unpaidFees.length === 0
                                 ? <EmptyState icon="checkmark-circle-outline" text="Tuyệt vời! Bạn không còn khoản phí nào." />
-                                : unpaidFees.map((item, i) => (
-                                    <FeeCard
-                                        key={`unpaid-${i}`}
-                                        item={item}
-                                        type={item.priority === 'OVERDUE' ? 'OVERDUE' : 'UNPAID'}
-                                        onPayPress={handlePayOnline}
-                                    />
-                                ))
+                                : (
+                                    <View style={{ gap: 12 }}>
+                                        <View style={styles.multiSelectHeader}>
+                                            <TouchableOpacity 
+                                                style={styles.selectAllBtn}
+                                                onPress={() => {
+                                                    if (selectedItemIds.length === unpaidFees.length) setSelectedItemIds([]);
+                                                    else setSelectedItemIds(unpaidFees.map(f => f.id));
+                                                }}
+                                            >
+                                                <Ionicons 
+                                                    name={selectedItemIds.length === unpaidFees.length ? "checkbox" : "square-outline"} 
+                                                    size={20} color={COLORS.primary} 
+                                                />
+                                                <Text style={styles.selectAllText}>Chọn tất cả ({unpaidFees.length})</Text>
+                                            </TouchableOpacity>
+                                            {selectedItemIds.length > 0 && (
+                                                <Text style={styles.selectionCount}>Đã chọn {selectedItemIds.length} khoản</Text>
+                                            )}
+                                        </View>
+                                        
+                                        {unpaidFees.map((item, i) => (
+                                            <FeeCard
+                                                key={`unpaid-${item.id}`}
+                                                item={item}
+                                                type={item.isOverdue ? 'OVERDUE' : 'UNPAID'}
+                                                isSelected={selectedItemIds.includes(item.id)}
+                                                onToggleSelect={toggleSelectItem}
+                                                isMultiMode={true}
+                                            />
+                                        ))}
+                                    </View>
+                                )
                             }
                         </>
                     )}
@@ -391,24 +445,29 @@ export const PartyFeeScreen = ({ navigation }) => {
                     {activeTab === 'pending' && (
                         pendingTransactions.length === 0
                             ? <EmptyState icon="time-outline" text="Không có khoản nào đang chờ duyệt." />
-                            : pendingTransactions.map((item) => (
-                                <FeeCard
-                                    key={`pending-${item.id}`}
-                                    item={{ ...item, name: item.UnionFeeType?.name }}
-                                    type="PENDING"
-                                />
-                            ))
+                            : pendingTransactions.map((item) => {
+                                const txStatus = (item.status === 'PAID' || item.status === 'SUCCESS') ? 'PAID'
+                                    : (item.status === 'REJECTED' || item.status === 'FAILED') ? 'REJECTED'
+                                        : 'PENDING';
+                                return (
+                                    <FeeCard
+                                        key={`pending-${item.id}`}
+                                        item={item}
+                                        type={txStatus}
+                                    />
+                                );
+                            })
                     )}
 
                     {/* Đã duyệt */}
-                    {activeTab === 'approved' && (
+                    {activeTab === 'success' && (
                         approvedHistory.length === 0
                             ? <EmptyState icon="checkmark-done-outline" text="Chưa có khoản phí nào được duyệt." />
                             : approvedHistory.map((item) => (
                                 <FeeCard
                                     key={`approved-${item.id}`}
-                                    item={{ ...item, name: item.UnionFeeType?.name }}
-                                    type="APPROVED"
+                                    item={item}
+                                    type="PAID"
                                 />
                             ))
                     )}
@@ -418,13 +477,13 @@ export const PartyFeeScreen = ({ navigation }) => {
                         history.length === 0
                             ? <EmptyState icon="receipt-outline" text="Chưa có lịch sử giao dịch nào." />
                             : history.map((item) => {
-                                const txStatus = item.status === 'APPROVED' ? 'APPROVED'
-                                    : item.status === 'REJECTED' ? 'REJECTED'
+                                const txStatus = (item.status === 'PAID' || item.status === 'SUCCESS') ? 'PAID'
+                                    : (item.status === 'REJECTED' || item.status === 'FAILED') ? 'REJECTED'
                                         : 'PENDING';
                                 return (
                                     <FeeCard
                                         key={`hist-${item.id}`}
-                                        item={{ ...item, name: item.UnionFeeType?.name }}
+                                        item={item}
                                         type={txStatus}
                                     />
                                 );
@@ -499,11 +558,9 @@ export const PartyFeeScreen = ({ navigation }) => {
                         <View style={styles.modalHeader}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.modalTitle}>Thanh toán VietQR</Text>
-                                {selectedFee && (
-                                    <Text style={styles.modalTitleSub}>
-                                        {selectedFee.name} · Năm {selectedFee.period}
-                                    </Text>
-                                )}
+                                <Text style={styles.modalTitleSub}>
+                                    Thanh toán {selectedItemIds.length} khoản phí đã chọn
+                                </Text>
                             </View>
                             <TouchableOpacity style={styles.modalClose} onPress={closeModal}>
                                 <Ionicons name="close" size={20} color="#64748B" />
@@ -531,7 +588,7 @@ export const PartyFeeScreen = ({ navigation }) => {
                                 {[
                                     { label: 'Ngân hàng', val: bankSetting?.bankName || 'MB Bank' },
                                     { label: 'Số tài khoản', val: accountNo, bold: true },
-                                    { label: 'Số tiền', val: selectedFee ? fmt(selectedFee.amount) : '', color: '#DC2626', bold: true },
+                                    { label: 'Số tiền', val: fmt(totalSelectedAmount), color: '#DC2626', bold: true },
                                     { label: 'Nội dung CK', val: description, bold: true },
                                 ].map((r, i) => (
                                     <View key={i} style={[styles.bankRow, i > 0 && styles.bankRowBorder]}>
@@ -637,6 +694,24 @@ export const PartyFeeScreen = ({ navigation }) => {
                     </View>
                 </View>
             </Modal>
+
+            {/* ─── Bottom Action Bar (Floating) ────────────────── */}
+            {activeTab === 'unpaid' && selectedItemIds.length > 0 && (
+                <View style={[styles.floatingBar, { bottom: Math.max(insets.bottom, 20) }]}>
+                    <View style={styles.floatingInfo}>
+                        <Text style={styles.floatingLabel}>Tổng cộng ({selectedItemIds.length})</Text>
+                        <Text style={styles.floatingAmount}>{fmt(totalSelectedAmount)}</Text>
+                    </View>
+                    <TouchableOpacity 
+                        style={styles.floatingBtn}
+                        onPress={handlePayOnline}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.floatingBtnText}>Thanh toán ngay</Text>
+                        <Ionicons name="chevron-forward" size={16} color="#FFF" />
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 };
@@ -790,6 +865,32 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 4,
         backgroundColor: '#FEF2F2', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
     },
+
+    // Multi-select styles
+    checkbox: { marginRight: 4 },
+    feeCardSelected: { borderColor: COLORS.primary, backgroundColor: '#F8FAFF', borderWidth: 1 },
+    multiSelectHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, paddingHorizontal: 4 },
+    selectAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    selectAllText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+    selectionCount: { fontSize: 12, color: '#64748B', fontWeight: '600' },
+
+    floatingBar: {
+        position: 'absolute', left: 16, right: 16,
+        backgroundColor: '#1E293B', borderRadius: 20,
+        flexDirection: 'row', alignItems: 'center',
+        padding: 16, gap: 16,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
+    },
+    floatingInfo: { flex: 1 },
+    floatingLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' },
+    floatingAmount: { fontSize: 18, fontWeight: '900', color: '#FFF' },
+    floatingBtn: {
+        backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 12,
+        borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6,
+    },
+    floatingBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+
     removeImgText: { fontSize: 12, color: '#EF4444', fontWeight: '700' },
     previewImgWrap: {
         width: '100%', height: 180,

@@ -72,7 +72,7 @@ class MeetingService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             queryOptions.where[Op.and].push({ deletedAt: { [Op.ne]: null } });
         }

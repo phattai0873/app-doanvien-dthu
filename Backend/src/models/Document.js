@@ -44,6 +44,7 @@ const Document = sequelize.define('Document', {
 }, {
     tableName: 'documents',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { fields: ['status'] },
         { fields: ['level'] },

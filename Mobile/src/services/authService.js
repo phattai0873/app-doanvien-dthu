@@ -62,18 +62,25 @@ export const authService = {
     },
 
     register: async (userData) => {
-        if (USE_SUPABASE) {
-            // Not fully implemented for supabase
-            return null;
-        }
-
-        if (USE_MOCK_API) {
-            return new Promise(r => setTimeout(() => r({ success: true }), 1000));
+        if (USE_SUPABASE || USE_MOCK_API) {
+            return new Promise(r => setTimeout(() => r({ success: true, data: { message: 'Mock register success' } }), 1000));
         }
 
         try {
             const response = await apiClient.post('/api/users/register', userData);
-            return response; // response là response.data từ interceptor (đã chứa {success, data})
+            return response; // response là { success, data } từ interceptor
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    lookupMemberCode: async (searchData) => {
+        if (USE_MOCK_API) {
+            return { success: true, data: [{ fullName: searchData.fullName, memberCodeMasked: 'DV****789' }] };
+        }
+        try {
+            const response = await apiClient.post('/api/users/lookup-member-code', searchData);
+            return response; // Trả về { success: true, data: [...] }
         } catch (error) {
             throw error;
         }

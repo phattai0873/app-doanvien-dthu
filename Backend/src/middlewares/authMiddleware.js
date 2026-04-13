@@ -38,6 +38,8 @@ const protect = async (req, res, next) => {
             // Patch thêm các thông tin từ DB vào req.user mà token không chứa
             req.userRecord = userFull;
             req.user.username = userFull.username;
+            req.user.email = userFull.email;
+            req.user.phoneNumber = userFull.phoneNumber;
             req.user.unionBranchId = userFull.unionBranchId;
             req.user.unionCellId = userFull.unionCellId;
             

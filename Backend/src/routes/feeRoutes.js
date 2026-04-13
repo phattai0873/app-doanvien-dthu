@@ -8,6 +8,8 @@ router.use(protect);
 
 router.get('/', feeController.getFees);
 router.get('/my-dashboard', feeController.getMyFeeDashboard);
+router.get('/collections', authorize('ADMIN', 'SUPER_ADMIN'), feeController.getCollections);
+router.post('/collections', authorize('ADMIN', 'SUPER_ADMIN'), feeController.createCollection);
 router.post('/', uploadFeeEvidence, feeController.createFee);
 router.get('/unpaid', feeController.getUnpaidMembers);
 router.put('/:id', feeController.updateFee);

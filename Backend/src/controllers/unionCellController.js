@@ -13,6 +13,12 @@ const unionCellController = {
         res.status(200).json({ success: true, ...result });
     }),
 
+    getCellsAll: asyncHandler(async (req, res) => {
+        const { unionBranchId } = req.query;
+        const cells = await UnionCellService.getAllDropdown({ unionBranchId, user: req.user });
+        res.status(200).json({ success: true, data: cells });
+    }),
+
     getCell: asyncHandler(async (req, res) => {
         const cell = await UnionCellService.getById(req.params.id, req.user);
         res.status(200).json({ success: true, data: cell });

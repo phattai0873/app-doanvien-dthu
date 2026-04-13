@@ -7,6 +7,22 @@ class UnionCellService {
     /**
      * Lấy danh sách chi đoàn (Enterprise Scoping)
      */
+    static async getAllDropdown({ unionBranchId, user } = {}) {
+        const where = { status: 'active' };
+        
+        // Xử lý trường hợp lọc theo LCĐ (nếu có)
+        if (unionBranchId && unionBranchId !== 'undefined') {
+            where.unionBranchId = unionBranchId;
+        }
+        
+        const cells = await UnionCell.findAll({
+            where,
+            attributes: ['id', 'name', 'code', 'unionBranchId'],
+            order: [['name', 'ASC']]
+        });
+        return cells;
+    }
+
     static async getAll({ unionBranchId, courseYear, status, search, page = 1, limit = 10, onlyDeleted, user } = {}) {
         const { sequelize } = require('../configs/db');
         const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
@@ -59,7 +75,7 @@ class UnionCellService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             where.deletedAt = { [Op.ne]: null };
         }

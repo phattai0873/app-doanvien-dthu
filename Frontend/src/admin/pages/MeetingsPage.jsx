@@ -36,7 +36,7 @@ function MeetingModal({ meeting, cells, locations, onClose, onSave }) {
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
                     <h3 className="font-black text-gray-800 uppercase tracking-tight text-sm">
@@ -170,7 +170,7 @@ function QRModal({ title, code, expiresAt, onRefresh, onClose }) {
     };
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center max-w-sm w-full animate-in fade-in zoom-in duration-300">
                 <div className="w-full flex justify-between items-start mb-6">
                     <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest text-left pr-4">Mã điểm danh: {title}</h3>

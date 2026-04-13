@@ -1,4 +1,4 @@
-const { UnionMember, UnionCell, UnionBranch, UnionPosition, UnionMemberPosition, User, UnionMemberHistory, Role, ProfileUpdateRequest } = require('../models');
+const { UnionMember, UnionCell, UnionBranch, UnionPosition, UnionMemberPosition, User, UnionMemberHistory, Role, ProfileUpdateRequest, MemberEvaluation, MemberReward, MemberDiscipline, MembershipApproval, UserSensitiveData, AuditLog } = require('../models');
 const ErrorResponse = require('../utils/errorResponse');
 const { safeDate } = require('../utils/dateUtils');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
@@ -27,8 +27,8 @@ class UnionMemberService {
         if (status) where.status = status;
         if (gender) where.gender = gender;
 
-        const cellInclude = { 
-            model: UnionCell, 
+        const cellInclude = {
+            model: UnionCell,
             attributes: ['id', 'name', 'code', 'unionBranchId', 'secretaryId', 'deputySecretaryId'],
             include: [{ model: UnionBranch, attributes: ['id', 'name', 'code'] }],
         };
@@ -69,45 +69,103 @@ class UnionMemberService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             queryOptions.where.deletedAt = { [Op.ne]: null };
         }
 
         const result = await UnionMember.findAndCountAll(queryOptions);
 
+        // Bổ sung Masked CCCD vào danh sách (Sử dụng fallback nếu chưa migrate)
+        result.rows = result.rows.map(m => {
+            const plain = m.toJSON();
+            const rawCCCD = plain.identityNumber; // Cột cũ
+            plain.identityNumberMasked = this.getMaskedIdentityNumber(rawCCCD);
+            return plain;
+        });
+
         return formatPaginatedResponse(result, p, l);
+    }
+
+    /**
+     * Masking CCCD (Enterprise Standard)
+     */
+    static getMaskedIdentityNumber(cccd) {
+        if (!cccd) return '—';
+        if (cccd.length < 6) return '******';
+        return `${cccd.slice(0, 3)}*******${cccd.slice(-3)}`;
     }
 
     /**
      * Lấy chi tiết đoàn viên (Strict Scoping)
      */
-    static async getById(id, user) {
+    static async getById(id, user, returnInstance = false) {
         const member = await UnionMember.findByPk(id, {
             paranoid: false,
             include: [
-                { 
-                    model: UnionCell, 
+                {
+                    model: UnionCell,
                     paranoid: false,
                     attributes: ['id', 'name', 'code', 'unionBranchId'],
                     include: [{ model: UnionBranch, paranoid: false, attributes: ['id', 'name', 'code'] }]
                 },
-                { model: User, paranoid: false, attributes: ['id', 'username', 'email', 'phoneNumber', 'isActive', 'lastLogin'] },
+                { model: User, paranoid: false, attributes: ['id', 'username', 'email', 'phoneNumber', 'isActive', 'avatar', 'lastLogin'] },
                 {
                     model: UnionPosition,
                     paranoid: false,
                     through: { model: UnionMemberPosition, attributes: ['assignedDate', 'endedDate', 'isActive'] }
                 },
-                { model: UnionMemberHistory, limit: 10, order: [['createdAt', 'DESC']] }
+                { model: UnionMemberHistory, limit: 10, order: [['createdAt', 'DESC']] },
+                { model: MemberEvaluation, as: 'Evaluations', order: [['year', 'DESC']] },
+                { model: MemberReward, as: 'Rewards', order: [['issuedDate', 'DESC']] },
+                { model: MemberDiscipline, as: 'Disciplines', order: [['issuedDate', 'DESC']] },
+                { model: MembershipApproval, as: 'Approval' },
+                { model: UserSensitiveData, as: 'SensitiveData' }
             ]
         });
-        
+
         if (!member) throw new ErrorResponse('Không tìm thấy đoàn viên', 404);
 
-        // KIỂM TRA PHẠM VI NGHIÊM NGẶT: Nếu thiếu UnionCell sẽ ném lỗi ngay
-        enforceNestedScope(user, member, ['UnionCell', 'unionBranchId']);
+        // 2. KIỂM TRA PHẠM VI
+        const isSelf = (member.userId && user.id && String(member.userId) === String(user.id));
+        if (!isSelf && !user.isSuperAdmin) {
+            enforceNestedScope(user, member, ['UnionCell', 'unionBranchId']);
+        }
 
-        return member;
+        if (returnInstance) return member;
+
+        // 3. XỬ LÝ SENSITIVE DATA (ENTERPRISE SECURITY)
+        const canViewSensitive = user.isSuperAdmin || hasPermission(user, 'member:view_sensitive');
+        const plainMember = member.toJSON();
+
+        let identityNumberFull = null;
+        if (member.SensitiveData) {
+            identityNumberFull = member.SensitiveData.getDecryptedIdentityNumber();
+        } else if (member.identityNumber) {
+            // FALLBACK: Hỗ trợ dữ liệu cũ chưa migrate hoặc migration chưa thành công
+            identityNumberFull = member.identityNumber;
+        }
+
+        if (canViewSensitive) {
+            plainMember.identityNumberFull = identityNumberFull;
+            plainMember.identityNumberMasked = this.getMaskedIdentityNumber(identityNumberFull);
+
+            // GHI LOG TRUY CẬP (Nếu là xem người khác)
+            if (!isSelf) {
+                await AuditLog.create({
+                    tableName: 'union_members',
+                    recordId: member.id,
+                    action: 'VIEW',
+                    newValues: { detail: 'Truy cập thông tin CCCD đầy đủ' },
+                    userId: user.id
+                });
+            }
+        } else {
+            plainMember.identityNumberMasked = this.getMaskedIdentityNumber(identityNumberFull);
+            delete plainMember.SensitiveData; // Xóa sạch dữ liệu mã hóa để an toàn
+        }
+
+        return plainMember;
     }
 
     /**
@@ -117,20 +175,45 @@ class UnionMemberService {
         const member = await UnionMember.findOne({
             where: { userId },
             include: [
-                { 
-                    model: UnionCell, 
+                {
+                    model: UnionCell,
                     attributes: ['id', 'name', 'code', 'unionBranchId'],
                     include: [{ model: UnionBranch, attributes: ['id', 'name', 'code'] }]
                 },
-                { model: User, attributes: ['id', 'username', 'email', 'phoneNumber'] },
+                { model: User, attributes: ['id', 'username', 'email', 'phoneNumber', 'isActive', 'avatar'] },
                 {
                     model: UnionPosition,
                     through: { model: UnionMemberPosition, attributes: ['assignedDate', 'isActive'] }
+                },
+                { model: MemberEvaluation, as: 'Evaluations', order: [['year', 'DESC']] },
+                { model: MemberReward, as: 'Rewards', order: [['issuedDate', 'DESC']] },
+                { model: UserSensitiveData, as: 'SensitiveData' },
+                {
+                    model: ProfileUpdateRequest,
+                    as: 'ProfileUpdateRequests',
+                    where: { status: 'pending' },
+                    required: false,
+                    limit: 1,
+                    order: [['createdAt', 'DESC']]
                 }
             ]
         });
-        
-        return member;
+
+        if (!member) return null;
+
+        const plainMember = member.toJSON();
+        let identityNumberFull = null;
+        if (member.SensitiveData) {
+            identityNumberFull = member.SensitiveData.getDecryptedIdentityNumber();
+        } else if (member.identityNumber) {
+            identityNumberFull = member.identityNumber;
+        }
+
+        // Trên Mobile (My Profile), luôn Mask CCCD theo yêu cầu "Mobile Mask"
+        plainMember.identityNumberMasked = this.getMaskedIdentityNumber(identityNumberFull);
+        delete plainMember.SensitiveData; // Bảo mật tối đa trên Mobile
+
+        return plainMember;
     }
 
     /**
@@ -148,7 +231,7 @@ class UnionMemberService {
         ['dateOfBirth', 'joinedDate', 'officialDate'].forEach(field => {
             if (data[field]) data[field] = safeDate(data[field]);
         });
-        
+
         if (!data.memberCode) data.memberCode = `DV-${Date.now()}`;
 
         const existing = await UnionMember.findOne({ where: { memberCode: data.memberCode } });
@@ -156,13 +239,26 @@ class UnionMemberService {
 
         const member = await UnionMember.create({ ...data, status: 'pending' });
 
+        // 2. LƯU DỮ LIỆU NHẠY CẢM (CCCD MÃ HÓA)
+        if (data.identityNumber) {
+            const encrypted = UserSensitiveData.encryptIdentityNumber(data.identityNumber);
+            if (encrypted) {
+                await UserSensitiveData.create({
+                    unionMemberId: member.id,
+                    identityNumberEncrypted: encrypted.encryptedData,
+                    iv: encrypted.iv,
+                    authTag: encrypted.authTag
+                });
+            }
+        }
+
         if (member.userId && (data.email || data.phoneNumber)) {
             await User.update(
                 { email: data.email, phoneNumber: data.phoneNumber },
                 { where: { id: member.userId } }
             );
         }
-        
+
         await UnionMemberHistory.create({
             unionMemberId: member.id,
             type: 'status_change',
@@ -177,26 +273,44 @@ class UnionMemberService {
      * Cập nhật hồ sơ (Safe ID Overrides)
      */
     static async update(id, data, performerId, user) {
-        const member = await this.getById(id, user); 
+        const member = await this.getById(id, user, true);
         injectScope(data, user, 'member');
 
         ['dateOfBirth', 'joinedDate', 'officialDate'].forEach(field => {
             if (data[field]) data[field] = safeDate(data[field]);
         });
 
-        const isSelfUpdate = member.userId && user.id && String(member.userId) === String(user.id);
+        const isSelfUpdate = (member.userId && user.id && String(member.userId) === String(user.id)) ||
+            (!member.userId && user.email && member.email === user.email);
+
         const canUpdateDirectly = hasPermission(user, 'member:update');
 
         if (isSelfUpdate && !user.isSuperAdmin) {
+            // WHITELIST FIELDS CHO USER CẬP NHẬT
+            const ALLOWED_PROFILE_FIELDS = [
+                'fullName', 'dateOfBirth', 'gender', 'permanentAddress', 'hometown',
+                'ethnicity', 'religion', 'professionalLevel', 'itLevel', 'languageLevel',
+                'email', 'phoneNumber'
+            ];
+
+            const filteredData = {};
+            ALLOWED_PROFILE_FIELDS.forEach(field => {
+                if (data[field] !== undefined) filteredData[field] = data[field];
+            });
+
+            if (Object.keys(filteredData).length === 0) {
+                throw new ErrorResponse('Không có thông tin hợp lệ để cập nhật', 400);
+            }
+
             const oldData = {};
-            Object.keys(data).forEach(key => {
+            Object.keys(filteredData).forEach(key => {
                 if (member[key] !== undefined) oldData[key] = member[key];
             });
 
             const request = await ProfileUpdateRequest.create({
                 unionMemberId: member.id,
                 oldData,
-                newData: data,
+                newData: filteredData,
                 status: 'pending'
             });
 
@@ -213,8 +327,23 @@ class UnionMemberService {
         if (!user.isSuperAdmin) {
             delete data.memberCode;
         }
-        
+
         await member.update(data);
+
+        // 2. CẬP NHẬT DỮ LIỆU NHẠY CẢM (CCCD MÃ HÓA)
+        if (data.identityNumber) {
+            const [sensitiveData] = await UserSensitiveData.findOrCreate({
+                where: { unionMemberId: member.id }
+            });
+            const encrypted = UserSensitiveData.encryptIdentityNumber(data.identityNumber);
+            if (encrypted) {
+                await sensitiveData.update({
+                    identityNumberEncrypted: encrypted.encryptedData,
+                    iv: encrypted.iv,
+                    authTag: encrypted.authTag
+                });
+            }
+        }
 
         if (member.userId && (data.email || data.phoneNumber)) {
             const userUpdate = {};
@@ -243,7 +372,7 @@ class UnionMemberService {
 
     static async getProfileUpdateRequests(user, status = 'pending') {
         const scopeFilter = getScopeFilter(user, 'member');
-        
+
         return await ProfileUpdateRequest.findAll({
             where: { status },
             include: [{
@@ -265,7 +394,7 @@ class UnionMemberService {
 
         const updateData = { ...request.newData };
         console.log('[Debug-Approve] Original newData:', request.newData);
-        
+
         ['dateOfBirth', 'joinedDate', 'officialDate'].forEach(field => {
             if (updateData[field] !== undefined) {
                 const cleaned = safeDate(updateData[field]);
@@ -273,7 +402,7 @@ class UnionMemberService {
                 updateData[field] = cleaned;
             }
         });
-        
+
         console.log('[Debug-Approve] Prepared updateData:', updateData);
         await member.update(updateData);
 
@@ -296,13 +425,13 @@ class UnionMemberService {
     }
 
     static async delete(id, user) {
-        const member = await this.getById(id, user);
+        const member = await this.getById(id, user, true);
         await member.destroy();
         return { message: 'Đã chuyển hồ sơ đoàn viên vào thùng rác' };
     }
 
     static async restore(id, user) {
-        const member = await this.getById(id, user); 
+        const member = await this.getById(id, user, true);
         if (member.userId) {
             const userLinked = await User.findByPk(member.userId, { paranoid: false });
             if (userLinked && userLinked.deletedAt) {
@@ -314,19 +443,19 @@ class UnionMemberService {
     }
 
     static async forceDelete(id, user) {
-        const member = await this.getById(id, user);
+        const member = await this.getById(id, user, true);
         await member.destroy({ force: true });
         return { message: 'Đã xóa vĩnh viễn hồ sơ đoàn viên' };
     }
 
     static async approve(id, user) {
-        const member = await this.getById(id, user);
+        const member = await this.getById(id, user, true);
         if (member.status !== 'pending' && member.status !== 'rejected') {
             throw new ErrorResponse('Hồ sơ không ở trạng thái chờ duyệt', 400);
         }
 
         await member.update({ status: 'approved', approvedBy: user.id });
-        
+
         await UnionMemberHistory.create({
             unionMemberId: member.id, type: 'status_change', newValue: 'approved',
             note: 'Phê duyệt hồ sơ', performedBy: user.id
@@ -338,7 +467,7 @@ class UnionMemberService {
     }
 
     static async reject(id, user) {
-        const member = await this.getById(id, user);
+        const member = await this.getById(id, user, true);
         await member.update({ status: 'rejected', approvedBy: user.id });
 
         await UnionMemberHistory.create({
@@ -350,7 +479,7 @@ class UnionMemberService {
     }
 
     static async assignPosition(memberId, positionId, { branchId, cellId, assignedDate, moveMember = false } = {}, user) {
-        const member = await this.getById(memberId, user);
+        const member = await this.getById(memberId, user, true);
         if (member.status !== 'approved') throw new ErrorResponse('Chỉ có thể bổ nhiệm cho đoàn viên đã duyệt', 400);
 
         const position = await UnionPosition.findByPk(positionId);
@@ -402,7 +531,7 @@ class UnionMemberService {
         if (position.name.includes('Bí thư') && !position.name.includes('Phó')) roleInUnion = 'secretary';
         else if (position.name.includes('Phó Bí thư')) roleInUnion = 'vice_secretary';
         else if (position.name.includes('Ủy viên')) roleInUnion = 'commissioner';
-        
+
         await member.update({ roleInUnion });
         await this._syncUserSystemSpecs(member.id);
 
@@ -413,28 +542,28 @@ class UnionMemberService {
         const member = await UnionMember.findByPk(memberId, {
             include: [
                 { model: User },
-                { 
-                    model: UnionPosition, 
-                    through: { 
+                {
+                    model: UnionPosition,
+                    through: {
                         model: UnionMemberPosition,
-                        where: { isActive: true } 
-                    } 
+                        where: { isActive: true }
+                    }
                 },
                 { model: UnionCell }
             ]
         });
 
         if (!member || !member.User) return;
-        
+
         const user = member.User;
-        const activePosition = member.UnionPositions?.[0]; 
+        const activePosition = member.UnionPositions?.[0];
 
         let targetRoleCode = 'MEMBER';
         let scopingBranchId = null;
         let scopingCellId = null;
 
         if (activePosition) {
-            const isLeader = activePosition.name.includes('Bí thư'); 
+            const isLeader = activePosition.name.includes('Bí thư');
             const isSecretary = isLeader && !activePosition.name.includes('Phó');
 
             if (isLeader) {
@@ -455,22 +584,62 @@ class UnionMemberService {
                     await UnionCell.update({ secretaryId: member.id }, { where: { id: scopingCellId } });
                 }
             }
+            console.log(`[Sync-Spec] Member ${member.fullName}: Role ${targetRoleCode}, Scope B:${scopingBranchId}, C:${scopingCellId}`);
         }
 
         const targetRole = await Role.findOne({ where: { code: targetRoleCode } });
         if (targetRole) {
             await user.setRoles([targetRole]);
         } else {
-            await user.setRoles([]); 
+            await user.setRoles([]);
         }
 
         await user.update({
             unionBranchId: scopingBranchId,
             unionCellId: scopingCellId,
-            role: targetRoleCode 
+            role: targetRoleCode
+        });
+    }
+
+    static async bulkDelete(ids, user) {
+        const scopeFilter = getScopeFilter(user, 'member');
+        await UnionMember.destroy({
+            where: {
+                id: { [Op.in]: ids },
+                ...scopeFilter
+            }
+        });
+        return { message: `Đã chuyển ${ids.length} hồ sơ vào thùng rác` };
+    }
+
+    static async bulkRestore(ids, user) {
+        const scopeFilter = getScopeFilter(user, 'member');
+        const members = await UnionMember.findAll({
+            where: {
+                id: { [Op.in]: ids },
+                ...scopeFilter
+            },
+            paranoid: false
         });
 
-        console.log(`[Sync-Spec] Member ${member.fullName}: Role ${targetRoleCode}, Scope B:${scopingBranchId}, C:${scopingCellId}`);
+        for (const member of members) {
+            await member.restore();
+        }
+
+        return { message: `Đã khôi phục ${members.length} hồ sơ` };
+    }
+
+    static async bulkForceDelete(ids, user) {
+        const scopeFilter = getScopeFilter(user, 'member');
+        await UnionMember.destroy({
+            where: {
+                id: { [Op.in]: ids },
+                ...scopeFilter
+            },
+            force: true,
+            paranoid: false
+        });
+        return { message: `Đã xóa vĩnh viễn ${ids.length} hồ sơ` };
     }
 }
 

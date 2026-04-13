@@ -79,6 +79,7 @@ const Activity = sequelize.define('Activity', {
 }, {
     tableName: 'activities',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { fields: ['status'] },
         { fields: ['startDate'] },

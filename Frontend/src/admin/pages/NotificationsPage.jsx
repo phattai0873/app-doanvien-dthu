@@ -44,7 +44,7 @@ function NotificationModal({ notif, onClose, onSave }) {
     const branches = branchesRes?.data?.data || [];
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800">{notif ? 'Cập nhật Thông báo' : 'Tạo Thông báo mới'}</h3>

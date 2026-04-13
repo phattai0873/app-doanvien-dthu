@@ -34,43 +34,138 @@ const InputField = ({ label, icon, value, onChangeText, placeholder, keyboardTyp
     </View>
 );
 
+const SelectorField = ({ label, icon, value, options, onSelect, placeholder, disabled = false }) => {
+    const showOptions = () => {
+        if (disabled) return;
+        Alert.alert(
+            label,
+            'Chọn một tùy chọn:',
+            [
+                ...options.map(opt => ({
+                    text: opt.name || opt.title,
+                    onPress: () => onSelect(opt.id)
+                })),
+                { text: 'Hủy', style: 'cancel' }
+            ]
+        );
+    };
+
+    const selectedName = options.find(opt => opt.id === value)?.name || '';
+
+    return (
+        <View style={styles.inputWrapper}>
+            <Text style={styles.inputLabel}>{label}</Text>
+            <TouchableOpacity 
+                style={[styles.inputContainer, disabled && styles.disabledInput]} 
+                onPress={showOptions}
+                disabled={disabled}
+            >
+                <Ionicons name={icon} size={20} color={COLORS.primary} style={styles.inputIcon} />
+                <Text style={[styles.textInput, !selectedName && { color: COLORS.gray400 }]}>
+                    {selectedName || placeholder}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={COLORS.gray400} />
+            </TouchableOpacity>
+        </View>
+    );
+};
+
 export const EditProfileScreen = ({ navigation, route }) => {
     const { userData } = route.params || {};
     const [loading, setLoading] = useState(false);
+    const member = userData?.UnionMember || {};
+    const [branches, setBranches] = useState([]);
+    const [cells, setCells] = useState([]);
     const [formData, setFormData] = useState({
-        ho_ten: userData?.ho_ten || '',
+        fullName: userData?.unionMember?.fullName || '',
         email: userData?.email || '',
-        sdt: userData?.sdt || '',
-        ngay_sinh: userData?.ngay_sinh || '',
-        gioi_tinh: userData?.gioi_tinh || 'Nam',
-        dia_chi: userData?.dia_chi || '',
-        que_quan: userData?.que_quan || '',
-        trinh_do: userData?.trinh_do || '',
-        ngay_vao_doan: userData?.ngay_vao_doan || ''
+        phoneNumber: userData?.phoneNumber || '',
+        dateOfBirth: userData?.unionMember?.dateOfBirth || '',
+        gender: userData?.unionMember?.gender || 'male',
+        permanentAddress: userData?.unionMember?.permanentAddress || '',
+        hometown: userData?.unionMember?.hometown || '',
+        ethnicity: userData?.unionMember?.ethnicity || 'Kinh',
+        religion: userData?.unionMember?.religion || 'Không',
+        professionalLevel: userData?.unionMember?.professionalLevel || '',
+        itLevel: userData?.unionMember?.itLevel || '',
+        itLevel: userData?.unionMember?.itLevel || '',
+        languageLevel: userData?.unionMember?.languageLevel || '',
     });
 
+    const isDirty = JSON.stringify(formData) !== JSON.stringify({
+        fullName: userData?.unionMember?.fullName || '',
+        email: userData?.email || '',
+        phoneNumber: userData?.phoneNumber || '',
+        dateOfBirth: userData?.unionMember?.dateOfBirth || '',
+        gender: userData?.unionMember?.gender || 'male',
+        permanentAddress: userData?.unionMember?.permanentAddress || '',
+        hometown: userData?.unionMember?.hometown || '',
+        ethnicity: userData?.unionMember?.ethnicity || 'Kinh',
+        religion: userData?.unionMember?.religion || 'Không',
+        professionalLevel: userData?.unionMember?.professionalLevel || '',
+        itLevel: userData?.unionMember?.itLevel || '',
+        languageLevel: userData?.unionMember?.languageLevel || '',
+    });
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+            if (!isDirty || loading) {
+                return;
+            }
+
+            e.preventDefault();
+
+            Alert.alert(
+                'Thay đổi chưa lưu',
+                'Bạn có các thay đổi chưa được lưu. Bạn có chắc chắn muốn thoát không?',
+                [
+                    { text: 'Ở lại', style: 'cancel', onPress: () => {} },
+                    {
+                        text: 'Thoát',
+                        style: 'destructive',
+                        onPress: () => navigation.dispatch(e.data.action),
+                    },
+                ]
+            );
+        });
+
+        return unsubscribe;
+    }, [navigation, isDirty, loading]);
+
     const handleSave = async () => {
-        if (!formData.ho_ten || !formData.email || !formData.sdt) {
+        if (!formData.fullName || !formData.email || !formData.phoneNumber) {
             Alert.alert('Thông báo', 'Vui lòng điền đầy đủ các thông tin bắt buộc (*)');
             return;
         }
 
         setLoading(true);
         try {
-            const memberId = userData?.UnionMember?.id || userData?.id;
+            const memberId = userData?.unionMember?.id; 
+            
+            // WHITELIST Cứng: Chỉ gửi các trường được phép thay đổi
             const updateData = {
-                fullName: formData.ho_ten,
+                fullName: formData.fullName,
                 email: formData.email,
-                phoneNumber: formData.sdt,
-                dateOfBirth: formData.ngay_sinh,
-                gender: formData.gioi_tinh === 'Nam' ? 'male' : 'female',
-                hometown: formData.que_quan,
-                permanentAddress: formData.dia_chi,
-                educationLevel: formData.trinh_do,
-                joinedDate: formData.ngay_vao_doan
+                phoneNumber: formData.phoneNumber,
+                dateOfBirth: formData.dateOfBirth,
+                gender: formData.gender,
+                hometown: formData.hometown,
+                permanentAddress: formData.permanentAddress,
+                ethnicity: formData.ethnicity,
+                religion: formData.religion,
+                professionalLevel: formData.professionalLevel,
+                itLevel: formData.itLevel,
+                languageLevel: formData.languageLevel,
+                userId: userData?.id 
             };
 
-            const result = await partyService.updateMemberProfile(memberId, updateData);
+            let result;
+            if (memberId && memberId !== 'undefined') {
+                result = await partyService.updateMemberProfile(memberId, updateData);
+            } else {
+                // Trường hợp chưa có hồ sơ
+                result = await partyService.createMemberProfile(updateData);
+            }
             const response = result.data || result; // Phụ thuộc vào cấu trúc trả về của axios interceptor
             
             if (response.isRequest) {
@@ -90,18 +185,18 @@ export const EditProfileScreen = ({ navigation, route }) => {
         }
     };
 
-    const renderGenderOption = (gender) => (
+    const renderGenderOption = (genderValue, label) => (
         <TouchableOpacity 
-            style={[styles.genderBtn, formData.gioi_tinh === gender && styles.genderBtnActive]}
-            onPress={() => setFormData({ ...formData, gioi_tinh: gender })}
+            style={[styles.genderBtn, formData.gender === genderValue && styles.genderBtnActive]}
+            onPress={() => setFormData({ ...formData, gender: genderValue })}
         >
             <Ionicons 
-                name={gender === 'Nam' ? 'male' : 'female'} 
+                name={genderValue === 'male' ? 'male' : 'female'} 
                 size={18} 
-                color={formData.gioi_tinh === gender ? COLORS.white : COLORS.gray500} 
+                color={formData.gender === genderValue ? COLORS.white : COLORS.gray500} 
             />
-            <Text style={[styles.genderText, formData.gioi_tinh === gender && styles.genderTextActive]}>
-                {gender}
+            <Text style={[styles.genderText, formData.gender === genderValue && styles.genderTextActive]}>
+                {label}
             </Text>
         </TouchableOpacity>
     );
@@ -122,8 +217,8 @@ export const EditProfileScreen = ({ navigation, route }) => {
                         <InputField 
                             label="Họ và tên (*)" 
                             icon="person-outline" 
-                            value={formData.ho_ten}
-                            onChangeText={(text) => setFormData({ ...formData, ho_ten: text })}
+                            value={formData.fullName}
+                            onChangeText={(text) => setFormData({ ...formData, fullName: text })}
                             placeholder="Nhập họ và tên đầy đủ"
                         />
 
@@ -139,8 +234,8 @@ export const EditProfileScreen = ({ navigation, route }) => {
                         <InputField 
                             label="Số điện thoại (*)" 
                             icon="call-outline" 
-                            value={formData.sdt}
-                            onChangeText={(text) => setFormData({ ...formData, sdt: text })}
+                            value={formData.phoneNumber}
+                            onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
                             placeholder="Nhập số điện thoại"
                             keyboardType="phone-pad"
                         />
@@ -148,54 +243,78 @@ export const EditProfileScreen = ({ navigation, route }) => {
                         <InputField 
                             label="Ngày sinh" 
                             icon="calendar-outline" 
-                            value={formData.ngay_sinh}
-                            onChangeText={(text) => setFormData({ ...formData, ngay_sinh: text })}
+                            value={formData.dateOfBirth}
+                            onChangeText={(text) => setFormData({ ...formData, dateOfBirth: text })}
                             placeholder="YYYY-MM-DD"
                         />
 
                         <View style={styles.inputWrapper}>
                             <Text style={styles.inputLabel}>Giới tính</Text>
                             <View style={styles.genderContainer}>
-                                {renderGenderOption('Nam')}
-                                {renderGenderOption('Nữ')}
+                                {renderGenderOption('male', 'Nam')}
+                                {renderGenderOption('female', 'Nữ')}
                             </View>
                         </View>
 
                         <InputField 
+                            label="Dân tộc" 
+                            icon="people-outline" 
+                            value={formData.ethnicity}
+                            onChangeText={(text) => setFormData({ ...formData, ethnicity: text })}
+                        />
+
+                        <InputField 
+                            label="Tôn giáo" 
+                            icon="heart-outline" 
+                            value={formData.religion}
+                            onChangeText={(text) => setFormData({ ...formData, religion: text })}
+                        />
+
+                        <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 }} />
+                        <Text style={{ fontSize: 12, fontWeight: '900', color: COLORS.primary, marginBottom: 15, textTransform: 'uppercase' }}>Trình độ & Chuyên môn</Text>
+
+                        <InputField 
+                            label="Trình độ chuyên môn" 
+                            icon="school-outline" 
+                            value={formData.professionalLevel}
+                            onChangeText={(text) => setFormData({ ...formData, professionalLevel: text })}
+                        />
+
+                        <InputField 
+                            label="Ngoại ngữ" 
+                            icon="language-outline" 
+                            value={formData.languageLevel}
+                            onChangeText={(text) => setFormData({ ...formData, languageLevel: text })}
+                        />
+
+                        <InputField 
+                            label="Tin học" 
+                            icon="desktop-outline" 
+                            value={formData.itLevel}
+                            onChangeText={(text) => setFormData({ ...formData, itLevel: text })}
+                        />
+
+                        <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 }} />
+
+                        <InputField 
                             label="Quê quán" 
                             icon="location-outline" 
-                            value={formData.que_quan}
-                            onChangeText={(text) => setFormData({ ...formData, que_quan: text })}
+                            value={formData.hometown}
+                            onChangeText={(text) => setFormData({ ...formData, hometown: text })}
                             placeholder="Nhập quê quán (Tỉnh/Thành phố)"
-                        />
-
-                        <InputField 
-                            label="Trình độ học vấn" 
-                            icon="school-outline" 
-                            value={formData.trinh_do}
-                            onChangeText={(text) => setFormData({ ...formData, trinh_do: text })}
-                            placeholder="Ví dụ: 12/12, Đại học..."
-                        />
-
-                        <InputField 
-                            label="Ngày vào đoàn" 
-                            icon="flag-outline" 
-                            value={formData.ngay_vao_doan}
-                            onChangeText={(text) => setFormData({ ...formData, ngay_vao_doan: text })}
-                            placeholder="YYYY-MM-DD"
                         />
 
                         <InputField 
                             label="Địa chỉ thường trú" 
                             icon="home-outline" 
-                            value={formData.dia_chi}
-                            onChangeText={(text) => setFormData({ ...formData, dia_chi: text })}
+                            value={formData.permanentAddress}
+                            onChangeText={(text) => setFormData({ ...formData, permanentAddress: text })}
                             placeholder="Nhập địa chỉ nhà"
                         />
 
                         <View style={styles.infoBox}>
                             <Ionicons name="information-circle-outline" size={18} color={COLORS.gray400} />
-                            <Text style={styles.infoText}>Mã đoàn viên và Mã sinh viên không được phép thay đổi tự do.</Text>
+                            <Text style={styles.infoText}>Các thông tin nghiệp vụ (Chi đoàn, Ngày vào Đoàn...) chỉ có thể được thay đổi bởi Ban Chấp hành.</Text>
                         </View>
                     </View>
 

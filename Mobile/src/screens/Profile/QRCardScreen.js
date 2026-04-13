@@ -65,15 +65,22 @@ export const QRCardScreen = ({ onBack }) => {
                     {/* Member Info Section */}
                     <View style={styles.cardMain}>
                         <View style={styles.memberAvatarWrapper}>
-                            <RNImage source={{ uri: user?.anh_dai_dien }} style={styles.memberAvatar} />
+                            <RNImage 
+                                source={user.unionMember?.avatarUrl ? { uri: user.unionMember.avatarUrl } : { uri: `https://ui-avatars.com/api/?name=${user.unionMember?.fullName || 'U'}&background=2563EB&color=fff` }} 
+                                style={styles.memberAvatar} 
+                            />
                         </View>
                         
                         <View style={styles.memberDetails}>
-                            <Text style={styles.memberName}>{user?.ho_ten?.toUpperCase()}</Text>
-                            <Text style={styles.memberRole}>{user?.chuc_vu_doan || 'Đoàn viên'}</Text>
+                            <Text style={styles.memberName}>{user.unionMember?.fullName?.toUpperCase() || 'ĐOÀN VIÊN'}</Text>
+                            <Text style={styles.memberRole}>
+                                {user.unionMember?.roleInUnion === 'member' ? 'Đoàn viên' : 
+                                 user.unionMember?.roleInUnion === 'secretary' ? 'Bí thư Chi đoàn' :
+                                 user.unionMember?.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn'}
+                            </Text>
                             <View style={styles.idRow}>
-                                <Text style={styles.idLabel}>Mã số:</Text>
-                                <Text style={styles.idValue}>{user?.ma_so_doan || 'DTHU-12345678'}</Text>
+                                <Text style={styles.idLabel}>Số hiệu:</Text>
+                                <Text style={styles.idValue}>{user.unionMember?.memberCode || 'DTHU-XXXXXX'}</Text>
                             </View>
                         </View>
                     </View>
@@ -81,9 +88,9 @@ export const QRCardScreen = ({ onBack }) => {
                     {/* QR Code Section */}
                     <View style={styles.qrSection}>
                         <View style={styles.qrWrapper}>
-                            {user?.UnionMember?.id ? (
+                            {user.unionMember?.id ? (
                                 <RNImage
-                                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${user.UnionMember.id}` }}
+                                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${user.unionMember.id}` }}
                                     style={styles.qrImage}
                                 />
                             ) : (

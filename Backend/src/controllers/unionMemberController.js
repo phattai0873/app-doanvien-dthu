@@ -1,7 +1,41 @@
 const asyncHandler = require('../utils/asyncHandler');
 const UnionMemberService = require('../services/unionMemberService');
+const ExcelService = require('../services/excelService');
+const ErrorResponse = require('../utils/errorResponse');
+const cacheService = require('../services/cacheService');
 
 const unionMemberController = {
+    // ... existing methods (omitted for brevity in instruction, but keep them)
+    
+    importPreview: asyncHandler(async (req, res) => {
+        if (!req.file) {
+            throw new ErrorResponse('Vui lòng chọn file Excel để tải lên', 400);
+        }
+
+        const { mode, unionCellId } = req.body;
+        const results = await ExcelService.generatePreview(
+            req.file.buffer, 
+            { mode, unionCellId }, 
+            req.user
+        );
+        res.status(200).json({ success: true, ...results });
+    }),
+
+    importConfirm: asyncHandler(async (req, res) => {
+        const { previewId, strictMode } = req.body;
+        if (!previewId) {
+            throw new ErrorResponse('Missing previewId', 400);
+        }
+
+        const results = await ExcelService.executeImport(previewId, { strictMode }, req.user);
+        
+        // Invalidate stats and members cache
+        await cacheService.delPattern('__cache__:*:/api/stats*');
+        await cacheService.delPattern('__cache__:*:/api/members*');
+
+        res.status(200).json({ success: true, ...results });
+    }),
+    
     getMembers: asyncHandler(async (req, res) => {
         const { unionCellId, unionBranchId, search, page, limit, roleInUnion, activityStatus, status, gender, onlyDeleted } = req.query;
  
@@ -37,16 +71,26 @@ const unionMemberController = {
             data.userId = req.user.id;
         }
         const member = await UnionMemberService.create(data, req.user);
+        
+        await cacheService.delPattern('__cache__:*:/api/stats*');
+        await cacheService.delPattern('__cache__:*:/api/members*');
+
         res.status(201).json({ success: true, data: member });
     }),
 
     updateMember: asyncHandler(async (req, res) => {
         const member = await UnionMemberService.update(req.params.id, req.body, req.user.id, req.user);
+        
+        await cacheService.delPattern('__cache__:*:/api/stats*');
+        await cacheService.delPattern('__cache__:*:/api/members*');
+
         res.status(200).json({ success: true, data: member });
     }),
 
     deleteMember: asyncHandler(async (req, res) => {
         const result = await UnionMemberService.delete(req.params.id, req.user);
+        await cacheService.delPattern('__cache__:*:/api/stats*');
+        await cacheService.delPattern('__cache__:*:/api/members*');
         res.status(200).json({ success: true, data: result });
     }),
 
@@ -90,6 +134,27 @@ const unionMemberController = {
     rejectUpdate: asyncHandler(async (req, res) => {
         const { note } = req.body;
         const result = await UnionMemberService.rejectProfileUpdate(req.params.id, req.user, note);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    bulkDeleteMember: asyncHandler(async (req, res) => {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) throw new ErrorResponse('Missing ids array', 400);
+        const result = await UnionMemberService.bulkDelete(ids, req.user);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    bulkRestoreMember: asyncHandler(async (req, res) => {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) throw new ErrorResponse('Missing ids array', 400);
+        const result = await UnionMemberService.bulkRestore(ids, req.user);
+        res.status(200).json({ success: true, ...result });
+    }),
+
+    bulkForceDeleteMember: asyncHandler(async (req, res) => {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) throw new ErrorResponse('Missing ids array', 400);
+        const result = await UnionMemberService.bulkForceDelete(ids, req.user);
         res.status(200).json({ success: true, ...result });
     })
 };

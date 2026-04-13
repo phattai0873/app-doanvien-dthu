@@ -64,7 +64,7 @@ class ActivityService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             where.deletedAt = { [Op.ne]: null };
         }

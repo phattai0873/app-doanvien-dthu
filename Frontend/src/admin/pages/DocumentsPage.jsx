@@ -33,7 +33,7 @@ function DocumentModal({ doc, onClose, onSave }) {
     };
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800">{doc ? 'Cập nhật Tài liệu' : 'Thêm Tài liệu mới'}</h3>
@@ -121,7 +121,7 @@ function DocumentModal({ doc, onClose, onSave }) {
 function CategoryModal({ category, onClose, onSave }) {
     const [form, setForm] = useState(category || { name: '', description: '' });
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800">{category ? 'Sửa chuyên mục' : 'Thêm chuyên mục'}</h3>

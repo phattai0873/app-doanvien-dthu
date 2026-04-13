@@ -44,6 +44,7 @@ const UnionBranch = sequelize.define('UnionBranch', {
 }, {
     tableName: 'union_branches',
     timestamps: true,
+    paranoid: true,
     indexes: [
         {
             unique: true,

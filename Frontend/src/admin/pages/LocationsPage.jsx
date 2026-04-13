@@ -15,7 +15,7 @@ function LocationModal({ location, onClose, onSave }) {
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
                     <h3 className="font-bold text-gray-800">{location ? 'Cập nhật địa điểm' : 'Thêm địa điểm mới'}</h3>

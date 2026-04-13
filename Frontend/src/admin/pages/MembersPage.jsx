@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen, RotateCcw } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, CheckCircle, XCircle, Eye, FilterX, UserPlus, Shield, History, UserCheck, Camera, Building2, BookOpen, RotateCcw, FileUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { memberApi, positionApi } from '../../services/api';
-import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete } from '../../utils/swal';
+import { confirmDelete, confirmAction, confirmRestore, confirmForceDelete, confirmUnsavedChanges } from '../../utils/swal';
 import ModalPortal from '../../components/ModalPortal';
+import { useDirtyModal } from '../../hooks/useDirtyModal';
+import { commandBus } from '../../utils/commandBus';
 
 const INPUT = "w-full px-3 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm outline-none hover:border-primary-400 hover:bg-primary-50 focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition";
 const SELECT = "w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 focus:ring-2 focus:ring-primary-50 transition bg-white";
@@ -32,31 +34,42 @@ function MemberModal({ member, onClose, onSave }) {
     const [form, setForm] = useState(member ? {
         ...member,
         email: member.User?.email || member.email || '',
-        phoneNumber: member.User?.phoneNumber || member.phoneNumber || ''
+        phoneNumber: member.User?.phoneNumber || member.phoneNumber || '',
+        identityNumber: member.identityNumberFull || member.identityNumber || ''
     } : { 
         memberCode: '', fullName: '', dateOfBirth: '', gender: 'male', 
-        email: '', phoneNumber: '', permanentAddress: '', hometown: '', 
-        joinedDate: '', activityStatus: 'active', roleInUnion: 'member' 
+        email: '', phoneNumber: '', identityNumber: '', permanentAddress: '', hometown: '', 
+        joinedDate: '', activityStatus: 'active', roleInUnion: 'member',
+        ethnicity: 'Kinh', religion: 'Không', professionalLevel: '', itLevel: '', languageLevel: '',
+        memberType: 'STUDENT', isHonoraryMember: false
     });
+    
+    const { handleAttemptClose } = useDirtyModal(form, onClose);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={handleAttemptClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800">{member ? 'Cập nhật Đoàn viên' : 'Thêm Đoàn viên mới'}</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
+                    <button onClick={handleAttemptClose} className="text-gray-400 hover:text-gray-700">✕</button>
                 </div>
                 <div className="p-5 space-y-4">
                     <div className="grid grid-cols-2 gap-3">
-                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Mã đoàn viên *</label><input className={INPUT} value={form.memberCode} onChange={e => set('memberCode', e.target.value)} placeholder="DV001" /></div>
+                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Mã đoàn viên *</label><input className={INPUT} value={form.memberCode || ''} onChange={e => set('memberCode', e.target.value)} placeholder="DV001" /></div>
                         <div><label className="block text-xs font-semibold text-gray-600 mb-1">Giới tính</label>
                             <select className={SELECT} value={form.gender} onChange={e => set('gender', e.target.value)}>
                                 <option value="male">Nam</option><option value="female">Nữ</option>
                             </select>
                         </div>
                     </div>
-                    <div><label className="block text-xs font-semibold text-gray-600 mb-1">Họ và tên *</label><input className={INPUT} value={form.fullName} onChange={e => set('fullName', e.target.value)} placeholder="Nguyễn Văn A" /></div>
+                    <div><label className="block text-xs font-semibold text-gray-600 mb-1">Họ và tên *</label><input className={INPUT} value={form.fullName || ''} onChange={e => set('fullName', e.target.value)} placeholder="Nguyễn Văn A" /></div>
+                    
+                    <div className="p-3 bg-amber-50/30 rounded-xl border border-amber-100/50">
+                        <label className="block text-xs font-bold text-amber-700 mb-1 uppercase tracking-tighter">Số định danh (CCCD)</label>
+                        <input className={INPUT} value={form.identityNumber || ''} onChange={e => set('identityNumber', e.target.value)} placeholder="12 chữ số" />
+                        <p className="text-[10px] text-amber-600 mt-1 font-medium italic">Thông tin này sẽ được mã hóa an toàn trong hệ thống.</p>
+                    </div>
                     
                     <div className="grid grid-cols-2 gap-3">
                         <div><label className="block text-xs font-semibold text-gray-600 mb-1">Chức vụ Đoàn</label>
@@ -77,13 +90,334 @@ function MemberModal({ member, onClose, onSave }) {
                     </div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Email</label><input className={INPUT} value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="email@dthu.edu.vn" /></div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Số điện thoại</label><input className={INPUT} value={form.phoneNumber || ''} onChange={e => set('phoneNumber', e.target.value)} /></div>
+                    
+                    <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Dân tộc</label>
+                            <input className={INPUT} value={form.ethnicity || ''} onChange={e => set('ethnicity', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Tôn giáo</label>
+                            <input className={INPUT} value={form.religion || ''} onChange={e => set('religion', e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 p-3 bg-blue-50/30 rounded-xl border border-blue-100">
+                        <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Trình độ & Chuyên môn</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label className="block text-xs font-semibold text-gray-600 mb-1">Chuyên môn</label><input className={INPUT} value={form.professionalLevel || ''} onChange={e => set('professionalLevel', e.target.value)} /></div>
+                            <div><label className="block text-xs font-semibold text-gray-600 mb-1">Ngoại ngữ</label><input className={INPUT} value={form.languageLevel || ''} onChange={e => set('languageLevel', e.target.value)} /></div>
+                        </div>
+                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Tin học</label><input className={INPUT} value={form.itLevel || ''} onChange={e => set('itLevel', e.target.value)} /></div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-semibold text-gray-600 mb-1">Phân loại</label>
+                            <select className={SELECT} value={form.memberType} onChange={e => set('memberType', e.target.value)}>
+                                <option value="STUDENT">Sinh viên</option>
+                                <option value="STAFF">Cán bộ</option>
+                                <option value="TEACHER">Giảng viên</option>
+                                <option value="OTHER">Khác</option>
+                            </select>
+                        </div>
+                        <div className="flex items-end pb-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-700" checked={form.isHonoraryMember} onChange={e => set('isHonoraryMember', e.target.checked)} />
+                                <span className="text-xs font-semibold text-gray-700">Đoàn viên danh dự</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Tổng Ngày CTXH</label><input type="number" className={INPUT} value={form.socialWorkDays || 0} onChange={e => set('socialWorkDays', parseInt(e.target.value))} /></div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Quê quán</label><input className={INPUT} value={form.hometown || ''} onChange={e => set('hometown', e.target.value)} /></div>
                     <div><label className="block text-xs font-semibold text-gray-600 mb-1">Thường trú</label><input className={INPUT} value={form.permanentAddress || ''} onChange={e => set('permanentAddress', e.target.value)} /></div>
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
-                    <button className={BTN_SECONDARY} onClick={onClose}>Hủy</button>
+                    <button className={BTN_SECONDARY} onClick={handleAttemptClose}>Hủy</button>
                     <button className={BTN_PRIMARY} onClick={() => onSave(form)}>Lưu</button>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+function ImportExcelModal({ onClose, onSuccess }) {
+    const [step, setStep] = useState(1); // 1: Config, 2: Preview, 3: Result
+    const [file, setFile] = useState(null);
+    const [mode, setMode] = useState('AUTO'); // AUTO, FORCE, VALIDATE
+    const [selectedBranchId, setSelectedBranchId] = useState('');
+    const [selectedCellId, setSelectedCellId] = useState('');
+    const [strictMode, setStrictMode] = useState(false);
+    
+    const [loading, setLoading] = useState(false);
+    const [previewContent, setPreviewContent] = useState(null);
+    const [importResult, setImportResult] = useState(null);
+    const [filter, setFilter] = useState('ALL'); // ALL, ERROR, WARNING
+
+    // Fetch units
+    const { data: branchRes } = useQuery({ queryKey: ['branches-import'], queryFn: () => memberApi.getBranches() });
+    const branches = branchRes?.data?.data || [];
+    const { data: cellsRes } = useQuery({ 
+        queryKey: ['cells-import', selectedBranchId], 
+        queryFn: () => memberApi.getCells(selectedBranchId),
+        enabled: !!selectedBranchId 
+    });
+    const cells = cellsRes?.data?.data || [];
+
+    const handleGeneratePreview = async () => {
+        if (!file) return toast.error('Vui lòng chọn file!');
+        if ((mode === 'FORCE' || mode === 'VALIDATE') && !selectedCellId) {
+            return toast.error('Vui lòng chọn Chi đoàn cho chế độ này!');
+        }
+
+        setLoading(true);
+        try {
+            const { data } = await memberApi.importPreview(file, mode, selectedCellId);
+            setPreviewContent(data);
+            setStep(2);
+        } catch (e) {
+            toast.error(e.response?.data?.message || 'Lỗi khi xử lý file!');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleConfirmImport = async () => {
+        setLoading(true);
+        try {
+            const { data } = await memberApi.importConfirm({
+                previewId: previewContent.previewId,
+                strictMode
+            });
+            setImportResult(data);
+            setStep(3);
+            if (data.success > 0) {
+                toast.success(`Đã nhập thành công ${data.success} hồ sơ!`);
+                onSuccess();
+            }
+        } catch (e) {
+            toast.error(e.response?.data?.message || 'Lỗi khi nhập dữ liệu!');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredRows = previewContent?.rows?.filter(r => {
+        if (filter === 'ALL') return true;
+        return r.status === filter;
+    }) || [];
+
+    return (
+        <ModalPortal onAttemptClose={onClose}>
+            <div className={`bg-white rounded-2xl shadow-2xl transition-all duration-300 ${step === 2 ? 'w-full max-w-5xl' : 'w-full max-w-lg'}`}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center text-primary-700">
+                            <FileUp size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-800">Nhập dữ liệu Đoàn viên</h3>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                Bước {step}/3: {step === 1 ? 'Cấu hình' : step === 2 ? 'Xem trước dữ liệu' : 'Hoàn tất'}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition">✕</button>
+                </div>
+
+                <div className="p-6">
+                    {/* STEP 1: CONFIG */}
+                    {step === 1 && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-black text-primary-700 uppercase tracking-widest">1. Chế độ nhập (Import Mode)</h4>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { id: 'AUTO', label: 'Tự động', desc: 'Theo mã lớp trong file', color: 'primary' },
+                                        { id: 'FORCE', label: 'Gán cứng', desc: 'Ép vào 1 lớp chọn sẵn', color: 'orange' },
+                                        { id: 'VALIDATE', label: 'Xác thực', desc: 'Check khớp file vs lớp', color: 'green' }
+                                    ].map(m => (
+                                        <button 
+                                            key={m.id}
+                                            onClick={() => setMode(m.id)}
+                                            className={`p-3 rounded-xl border-2 text-left transition ${mode === m.id ? 'border-primary-600 bg-primary-50' : 'border-gray-100 bg-white hover:border-gray-300'}`}
+                                        >
+                                            <p className={`text-xs font-bold ${mode === m.id ? 'text-primary-700' : 'text-gray-700'}`}>{m.label}</p>
+                                            <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{m.desc}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {(mode === 'FORCE' || mode === 'VALIDATE') && (
+                                <div className="space-y-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 animate-in zoom-in-95">
+                                    <h4 className="text-xs font-black text-gray-600 uppercase tracking-widest">2. Chọn đơn vị đích</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <select className={SELECT} value={selectedBranchId} onChange={e => setSelectedBranchId(e.target.value)}>
+                                            <option value="">-- Liên chi đoàn --</option>
+                                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                        </select>
+                                        <select className={SELECT} value={selectedCellId} onChange={e => setSelectedCellId(e.target.value)} disabled={!selectedBranchId}>
+                                            <option value="">-- Chi đoàn --</option>
+                                            {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-black text-gray-600 uppercase tracking-widest">3. Chọn tệp dữ liệu</h4>
+                                <div 
+                                    className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:border-primary-400 transition cursor-pointer bg-gray-50/50"
+                                    onClick={() => document.getElementById('excel-upload').click()}
+                                >
+                                    <input id="excel-upload" type="file" accept=".xlsx, .xls" className="hidden" onChange={e => setFile(e.target.files[0])} />
+                                    <div className="w-12 h-12 bg-white shadow-sm rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <FileUp size={24} className={file ? 'text-green-600' : 'text-primary-700'} />
+                                    </div>
+                                    <p className="text-sm font-bold text-gray-700">{file ? file.name : 'Nhấn để chọn file Excel'}</p>
+                                    <p className="text-xs text-gray-400 mt-1">Hỗ trợ .xlsx, .xls phát sinh từ mẫu chuẩn</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STEP 2: PREVIEW */}
+                    {step === 2 && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                            <div className="flex gap-3">
+                                {[
+                                    { k: 'total', label: 'Tổng số', color: 'bg-gray-100 text-gray-700' },
+                                    { k: 'valid', label: 'Hợp lệ', color: 'bg-green-100 text-green-700' },
+                                    { k: 'error', label: 'Lỗi', color: 'bg-red-100 text-red-700' },
+                                    { k: 'warning', label: 'Cảnh báo', color: 'bg-amber-100 text-amber-700' }
+                                ].map(s => (
+                                    <div key={s.k} className={`flex-1 p-3 rounded-2xl border border-white/50 shadow-sm ${s.color}`}>
+                                        <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-70">{s.label}</p>
+                                        <p className="text-2xl font-black">{previewContent?.summary[s.k]}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex gap-2">
+                                    {['ALL', 'ERROR', 'WARNING'].map(f => (
+                                        <button 
+                                            key={f} 
+                                            onClick={() => setFilter(f)}
+                                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight transition ${filter === f ? 'bg-primary-700 text-white shadow-lg shadow-primary-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                        >
+                                            {f === 'ALL' ? 'Toàn bộ' : f === 'ERROR' ? 'Chỉ lỗi' : 'Chỉ cảnh báo'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <label className="flex items-center gap-2 cursor-pointer p-2 bg-rose-50 rounded-lg border border-rose-100">
+                                    <input type="checkbox" className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500" checked={strictMode} onChange={e => setStrictMode(e.target.checked)} />
+                                    <span className="text-[10px] font-black text-rose-700 uppercase tracking-tighter">StrictMode (Dừng nếu có lỗi)</span>
+                                </label>
+                            </div>
+
+                            <div className="border border-gray-100 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto bg-gray-50/30">
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead className="bg-white sticky top-0 border-b border-gray-100 z-10">
+                                        <tr>
+                                            <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-wider">Dòng</th>
+                                            <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-wider">Họ tên</th>
+                                            <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-wider">Chi đoàn đích</th>
+                                            <th className="px-4 py-3 font-black text-gray-400 uppercase tracking-wider">Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {filteredRows.map((row, idx) => (
+                                            <tr key={idx} className="hover:bg-white transition group">
+                                                <td className="px-4 py-3 font-bold text-gray-400">{row.index}</td>
+                                                <td className="px-4 py-3">
+                                                    <p className="font-bold text-gray-800">{row.data.fullName}</p>
+                                                    <p className="text-[10px] text-gray-400">{row.data.memberCode}</p>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="font-semibold text-gray-700">{row.targetCellName || '—'}</p>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm
+                                                        ${row.status === 'VALID' ? 'bg-green-100 text-green-700' : row.status === 'ERROR' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {row.status}
+                                                    </div>
+                                                    {row.message.length > 0 && <p className="text-[9px] text-gray-500 italic mt-1 font-medium">{row.message[0]}</p>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STEP 3: RESULT */}
+                    {step === 3 && (
+                        <div className="space-y-6 py-4 animate-in zoom-in-95">
+                            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-green-100">
+                                <CheckCircle size={40} className="text-green-600" />
+                            </div>
+                            <div className="text-center">
+                                <h4 className="text-lg font-black text-gray-800">Hoàn tất nhập dữ liệu!</h4>
+                                <p className="text-sm text-gray-500 mt-1">Dữ liệu đã được xử lý theo lô 100 dòng một cách an toàn.</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mt-8">
+                                <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-center shadow-sm">
+                                    <p className="text-[10px] font-black text-green-600 uppercase mb-1">Thành công</p>
+                                    <p className="text-3xl font-black text-green-700">{importResult?.success}</p>
+                                </div>
+                                <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-center shadow-sm">
+                                    <p className="text-[10px] font-black text-red-600 uppercase mb-1">Bị bỏ qua</p>
+                                    <p className="text-3xl font-black text-red-700">{importResult?.skipped}</p>
+                                </div>
+                            </div>
+
+                            {importResult?.errors?.length > 0 && (
+                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Chi tiết sự cố:</p>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {importResult.errors.map((err, i) => (
+                                            <p key={i} className="text-[10px] text-red-600 font-bold leading-tight">• {err}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+                    {step === 1 && (
+                        <>
+                            <button className={BTN_SECONDARY} onClick={onClose}>Hủy bỏ</button>
+                            <button className={BTN_PRIMARY} onClick={handleGeneratePreview} disabled={loading || !file}>
+                                {loading ? 'Đang xử lý...' : 'Xem trước dữ liệu'}
+                            </button>
+                        </>
+                    )}
+                    {step === 2 && (
+                        <>
+                            <button className={BTN_SECONDARY} onClick={() => setStep(1)} disabled={loading}>Quay lại</button>
+                            <button 
+                                className={`flex items-center gap-2 px-6 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-bold rounded-lg transition shadow-lg shadow-primary-100
+                                    ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={handleConfirmImport}
+                                disabled={loading || (strictMode && previewContent?.summary.error > 0)}
+                            >
+                                {loading ? 'Đang nhập...' : 'Xác nhận nhập'}
+                            </button>
+                        </>
+                    )}
+                    {step === 3 && (
+                        <button className="w-full px-6 py-3 bg-gray-800 hover:bg-black text-white text-sm font-bold rounded-xl transition" onClick={onClose}>
+                            Đóng cửa sổ
+                        </button>
+                    )}
                 </div>
             </div>
         </ModalPortal>
@@ -124,7 +458,7 @@ function AppointmentModal({ member, positions, branches, onClose, onAssign }) {
     const cells = cellsRes?.data?.data || [];
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <div className="flex items-center gap-2">
@@ -150,7 +484,7 @@ function AppointmentModal({ member, positions, branches, onClose, onAssign }) {
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Chức vụ bổ nhiệm *</label>
                         <select 
                             className={SELECT} 
-                            value={form.positionId} 
+                            value={form.positionId || ''} 
                             onChange={e => handlePositionChange(e.target.value)}
                         >
                             <option value="">-- Chọn chức danh --</option>
@@ -227,7 +561,7 @@ function AppointmentModal({ member, positions, branches, onClose, onAssign }) {
 
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Ngày bắt đầu nhiệm kỳ</label>
-                        <input type="date" className={INPUT} value={form.assignedDate} onChange={e => setForm(f => ({ ...f, assignedDate: e.target.value }))} />
+                        <input type="date" className={INPUT} value={form.assignedDate || ''} onChange={e => setForm(f => ({ ...f, assignedDate: e.target.value }))} />
                     </div>
                 </div>
                 <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
@@ -246,83 +580,214 @@ function AppointmentModal({ member, positions, branches, onClose, onAssign }) {
 }
 
 function MemberDetailModal({ member, onClose, onApprove, onReject }) {
+    const [activeTab, setActiveTab] = useState('INFO');
     if (!member) return null;
+
     const isPending = member.status === 'pending';
     const statusInfo = ACTIVITY_STATUS.find(s => s.value === member.activityStatus) || ACTIVITY_STATUS[0];
     const roleInfo = ROLES_IN_UNION.find(r => r.value === member.roleInUnion) || ROLES_IN_UNION[0];
+    const [showFullCCCD, setShowFullCCCD] = useState(false);
 
-    const getAvatarUrl = (avatar) => {
-        if (!avatar) return null;
-        if (avatar.startsWith('http')) return avatar;
-        return `${import.meta.env.VITE_API_URL?.replace('/api', '')}/uploads/${avatar}`;
-    }
+    const TABS = [
+        { id: 'INFO', label: 'Thông tin' },
+        { id: 'EVAL', label: 'Đánh giá' },
+        { id: 'REWARD', label: 'Khen thưởng/Kỷ luật' },
+        { id: 'LOGS', label: 'Lịch sử' }
+    ];
+
+    const toggleCCCD = () => {
+        if (!member.identityNumberFull) {
+            toast.error('Bạn không có quyền xem CCCD đầy đủ');
+            return;
+        }
+        if (!showFullCCCD) {
+            confirmAction('Xem thông tin nhạy cảm', 'Hành động này sẽ được ghi nhật ký hệ thống. Bạn có chắc chắn muốn xem?', 'Tiếp tục')
+                .then(res => { if (res.isConfirmed) setShowFullCCCD(true); });
+        } else {
+            setShowFullCCCD(false);
+        }
+    };
 
     return (
-        <ModalPortal onClose={onClose}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-                    <h3 className="font-bold text-gray-800">
-                        {isPending ? 'Xét duyệt thông tin Đoàn viên' : 'Hồ sơ Chi tiết Đoàn viên'}
-                    </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-700">✕</button>
-                </div>
-                <div className="p-6">
-                    <div className="flex flex-col gap-6">
-                        {/* Basic Info */}
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <div>
-                                <h4 className="text-xl font-black text-gray-800 tracking-tight">{member.fullName}</h4>
-                                <p className="text-xs text-primary-700 font-mono font-black uppercase tracking-tighter mt-1">{member.memberCode}</p>
-                            </div>
-                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${statusInfo.color}`}>
-                                {statusInfo.label}
-                            </span>
+        <ModalPortal onAttemptClose={onClose}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white z-10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary-700 flex items-center justify-center font-bold text-white shadow-lg shadow-primary-200">
+                            {member.fullName.charAt(0)}
                         </div>
-
-                        {/* Details */}
-                        <div className="flex-1 space-y-6">
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                                <div className="col-span-2 flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    <UserCheck size={18} className="text-blue-600" />
-                                    <div>
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Chức vụ hiện tại</p>
-                                        <p className="text-sm font-bold text-gray-800">{roleInfo.label}</p>
-                                    </div>
-                                </div>
-                                <div className="col-span-2 flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    <Shield size={18} className="text-orange-600" />
-                                    <div>
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Đơn vị sinh hoạt</p>
-                                        <p className="text-sm font-bold text-gray-800">{member.UnionCell?.name || '—'} - {member.UnionCell?.UnionBranch?.name || '—'}</p>
-                                    </div>
-                                </div>
-                                 <div className="col-span-2 flex items-center gap-3 p-3 bg-primary-50 rounded-xl border border-primary-100">
-                                    <BookOpen size={18} className="text-primary-700" />
-                                    <div>
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Tổng Ngày CTXH tích lũy</p>
-                                        <p className="text-sm font-black text-primary-700 uppercase">{member.socialWorkDays || 0} ngày</p>
-                                    </div>
-                                </div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày sinh</label><p className="text-sm text-gray-700">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Giới tính</label><p className="text-sm text-gray-700">{member.gender === 'female' ? 'Nữ' : 'Nam'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Số điện thoại</label><p className="text-sm text-gray-700 font-medium">{member.User?.phoneNumber || member.phoneNumber || '—'}</p></div>
-                                <div><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Email</label><p className="text-sm text-gray-700 font-medium">{member.User?.email || member.email || '—'}</p></div>
-                                <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Quê quán</label><p className="text-sm text-gray-700">{member.hometown || '—'}</p></div>
-                                <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Thường trú</label><p className="text-sm text-gray-700">{member.permanentAddress || '—'}</p></div>
-                                <div className="col-span-2"><label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5">Ngày gia nhập Đoàn</label><p className="text-sm text-gray-700">{member.joinedDate ? new Date(member.joinedDate).toLocaleDateString('vi-VN') : '—'}</p></div>
-                            </div>
+                        <div>
+                            <h3 className="font-bold text-gray-800 leading-tight">{member.fullName}</h3>
+                            <p className="text-[10px] font-black text-primary-700 uppercase tracking-tighter">{member.memberCode}</p>
                         </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${statusInfo.color}`}>
+                            {statusInfo.label}
+                        </span>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+                    </div>
+                </div>
 
-                    {/* History Section */}
-                    {member.UnionMemberHistories?.length > 0 && (
-                        <div className="mt-8">
-                            <h5 className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-4">
-                                <History size={16} className="text-primary-700" />
-                                Lịch sử biến động
-                            </h5>
-                            <div className="space-y-3 border-l-2 border-gray-100 ml-2 pl-4">
-                                {member.UnionMemberHistories.map(h => (
+                {/* Tab Navigation */}
+                <div className="flex border-b border-gray-100 bg-gray-50/30 px-6">
+                    {TABS.map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-4 py-3 text-xs font-bold uppercase tracking-wider transition relative
+                                ${activeTab === tab.id ? 'text-primary-700' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            {tab.label}
+                            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-700" />}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+                    {activeTab === 'INFO' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-2">Đơn vị & Chức vụ</label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Shield size={14} className="text-primary-700" />
+                                            <p className="text-sm font-bold text-gray-800">{roleInfo.label}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Building2 size={14} className="text-orange-600" />
+                                            <p className="text-xs font-semibold text-gray-600">{member.UnionCell?.name || '—'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 bg-primary-50 rounded-2xl border border-primary-100 flex flex-col justify-center">
+                                    <label className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-1">Công tác xã hội</label>
+                                    <div className="flex items-center gap-2">
+                                        <BookOpen size={16} className="text-primary-700" />
+                                        <p className="text-xl font-black text-primary-700 uppercase">{member.socialWorkDays || 0} Ngày</p>
+                                    </div>
+                                </div>
+
+                                <div><label className="info-label">Ngày sinh</label><p className="info-val">{member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</p></div>
+                                <div><label className="info-label">Giới tính</label><p className="info-val">{member.gender === 'female' ? 'Nữ' : 'Nam'}</p></div>
+                                <div><label className="info-label">Dân tộc</label><p className="info-val">{member.ethnicity || '—'}</p></div>
+                                <div><label className="info-label">Tôn giáo</label><p className="info-val">{member.religion || '—'}</p></div>
+                                
+                                <div className="col-span-2 p-3 bg-amber-50/50 rounded-xl border border-amber-100 flex items-center justify-between">
+                                    <div>
+                                        <label className="info-label">Số định danh (CCCD)</label>
+                                        <p className="text-sm font-mono font-bold text-gray-700 tracking-wider">
+                                            {showFullCCCD ? member.identityNumberFull : member.identityNumberMasked}
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={toggleCCCD}
+                                        className="p-2 hover:bg-amber-100 rounded-lg text-amber-600 transition"
+                                    >
+                                        <Eye size={18} />
+                                    </button>
+                                </div>
+
+                                <div className="col-span-2 border-t border-gray-100 pt-4">
+                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Học vấn & Chuyên môn</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="info-label">Trình độ chuyên môn</label><p className="info-val">{member.professionalLevel || '—'}</p></div>
+                                        <div><label className="info-label">Trình độ văn hóa</label><p className="info-val">{member.educationLevel || '—'}</p></div>
+                                        <div><label className="info-label">Ngoại ngữ</label><p className="info-val">{member.languageLevel || '—'}</p></div>
+                                        <div><label className="info-label">Tin học</label><p className="info-val">{member.itLevel || '—'}</p></div>
+                                    </div>
+                                </div>
+
+                                <div className="col-span-2 border-t border-gray-100 pt-4">
+                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Liên hệ & Thường trú</h4>
+                                    <div className="space-y-3">
+                                        <div><label className="info-label">Quê quán</label><p className="info-val">{member.hometown || '—'}</p></div>
+                                        <div><label className="info-label">Địa chỉ thường trú</label><p className="info-val">{member.permanentAddress || '—'}</p></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'EVAL' && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <h4 className="text-sm font-bold text-gray-800">Kết quả Đánh giá & Rèn luyện</h4>
+                            {member.Evaluations?.length === 0 ? (
+                                <p className="text-center py-10 text-gray-400 italic text-sm">Chưa có dữ liệu đánh giá</p>
+                            ) : (
+                                <div className="grid gap-3">
+                                    {member.Evaluations.map(e => (
+                                        <div key={e.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs font-black text-primary-700 tracking-tighter">NĂM {e.year}</p>
+                                                <p className={`text-sm font-bold mt-1 ${
+                                                    e.classification === 'EXCELLENT' ? 'text-green-600' :
+                                                    e.classification === 'GOOD' ? 'text-blue-600' : 'text-gray-600'
+                                                }`}>
+                                                    {e.classification === 'EXCELLENT' ? 'Xuất sắc' : 
+                                                     e.classification === 'GOOD' ? 'Khá' : 
+                                                     e.classification === 'AVERAGE' ? 'Trung bình' : 'Yếu'}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Điểm rèn luyện</p>
+                                                <p className="text-lg font-black text-gray-800">{e.trainingScore}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'REWARD' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-800 mb-4">Khen thưởng</h4>
+                                {member.Rewards?.length === 0 ? (
+                                    <p className="p-4 bg-gray-50 rounded-xl text-gray-400 italic text-xs">Chưa có khen thưởng</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {member.Rewards.map(r => (
+                                            <div key={r.id} className="p-3 bg-green-50 border border-green-100 rounded-xl">
+                                                <p className="text-xs font-bold text-green-800">{r.title}</p>
+                                                <p className="text-[10px] text-green-600 mt-1">{r.content}</p>
+                                                <p className="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">Ngày cấp: {new Date(r.issuedDate).toLocaleDateString('vi-VN')}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-800 mb-4">Kỷ luật</h4>
+                                {member.Disciplines?.length === 0 ? (
+                                    <p className="p-4 bg-gray-50 rounded-xl text-gray-400 italic text-xs">Chưa có kỷ luật</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {member.Disciplines.map(d => (
+                                            <div key={d.id} className="p-3 bg-red-50 border border-red-100 rounded-xl">
+                                                <p className="text-xs font-bold text-red-800">{d.title}</p>
+                                                <p className="text-[10px] text-red-600 mt-1">{d.content}</p>
+                                                <p className="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">Ngày áp dụng: {new Date(d.issuedDate).toLocaleDateString('vi-VN')}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'LOGS' && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <History size={16} /> Lịch sử hoạt động
+                            </h4>
+                            <div className="space-y-4 border-l-2 border-gray-100 ml-2 pl-4">
+                                {member.UnionMemberHistories?.map(h => (
                                     <div key={h.id} className="relative">
                                         <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-white border-2 border-primary-500" />
                                         <p className="text-[10px] text-gray-400 font-bold">{new Date(h.createdAt).toLocaleDateString('vi-VN')} {new Date(h.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
@@ -331,23 +796,29 @@ function MemberDetailModal({ member, onClose, onApprove, onReject }) {
                                              h.type === 'role_change' ? 'Thay đổi chức vụ' : 
                                              h.type === 'status_change' ? 'Thay đổi trạng thái' : h.type}
                                         </p>
-                                        {h.note && <p className="text-[11px] text-gray-500 italic mt-0.5">{h.note}</p>}
+                                        <p className="text-[11px] text-gray-500 italic mt-0.5">{h.note || 'Không có ghi chú'}</p>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
                 </div>
-                <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl sticky bottom-0">
-                    <button className={BTN_SECONDARY} onClick={onClose}>Đóng hồ sơ</button>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
+                    <button className={BTN_SECONDARY} onClick={onClose}>Thoát bộ hồ sơ</button>
                     {isPending && (
                         <>
                             <button className="flex items-center gap-2 px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 text-sm font-medium rounded-lg transition" onClick={() => onReject(member)}>Từ chối</button>
-                            <button className={BTN_PRIMARY} onClick={() => onApprove(member)}>Duyệt hồ sơ</button>
+                            <button className={BTN_PRIMARY} onClick={() => onApprove(member)}>Duyệt vào tổ chức</button>
                         </>
                     )}
                 </div>
             </div>
+            <style>{`
+                .info-label { @apply text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-0.5; }
+                .info-val { @apply text-sm text-gray-700 font-medium; }
+            `}</style>
         </ModalPortal>
     );
 }
@@ -364,9 +835,12 @@ function UpdateRequestModal({ request, onClose, onApprove, onReject }) {
         { key: 'identityNumber', label: 'Số CCCD/CMND' },
         { key: 'permanentAddress', label: 'Thường trú' },
         { key: 'hometown', label: 'Quê quán' },
-        { key: 'memberCardNumber', label: 'Số thẻ đoàn' },
-        { key: 'educationLevel', label: 'Trình độ văn hóa' },
-        { key: 'occupation', label: 'Nghề nghiệp/Lớp' },
+        { key: 'ethnicity', label: 'Dân tộc' },
+        { key: 'religion', label: 'Tôn giáo' },
+        { key: 'professionalLevel', label: 'Trình độ chuyên môn' },
+        { key: 'itLevel', label: 'Tin học' },
+        { key: 'languageLevel', label: 'Ngoại ngữ' },
+        { key: 'occupation', label: 'Lớp/Nghề nghiệp' },
     ];
 
     const formatVal = (key, val, config) => {
@@ -377,7 +851,7 @@ function UpdateRequestModal({ request, onClose, onApprove, onReject }) {
     };
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
                     <div className="flex items-center gap-2">
@@ -465,9 +939,25 @@ export default function MembersPage() {
     const [modal, setModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [appointmentModal, setAppointmentModal] = useState(null);
+    const [importModal, setImportModal] = useState(false);
     const [updateReqModal, setUpdateReqModal] = useState(null);
     const [showTrash, setShowTrash] = useState(false);
     const [viewMode, setViewMode] = useState('LIST'); // 'LIST' or 'REQUESTS'
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    useEffect(() => {
+        const createSub = commandBus.on('CREATE_MEMBER', () => {
+            setModal('add');
+        });
+        const trashSub = commandBus.on('OPEN_TRASH', () => {
+            setShowTrash(true);
+            setPage(1);
+        });
+        return () => {
+            createSub();
+            trashSub();
+        };
+    }, []);
 
     const { data: posRes } = useQuery({ queryKey: ['positions'], queryFn: positionApi.getAll });
     const positions = posRes?.data?.data || [];
@@ -514,6 +1004,10 @@ export default function MembersPage() {
     const approveUpdateMutation = useMutation({ mutationFn: memberApi.approveUpdate, onSuccess: () => { qc.invalidateQueries(['members']); setUpdateReqModal(null); toast.success('Đã chấp nhận thay đổi hồ sơ!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
     const rejectUpdateMutation = useMutation({ mutationFn: memberApi.rejectUpdate, onSuccess: () => { qc.invalidateQueries(['members']); setUpdateReqModal(null); toast.success('Đã từ chối thay đổi!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
 
+    const bulkDeleteMutation = useMutation({ mutationFn: memberApi.bulkDelete, onSuccess: (res) => { qc.invalidateQueries(['members']); setSelectedIds([]); toast.success(res.data.message || 'Đã xóa hàng loạt!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const bulkRestoreMutation = useMutation({ mutationFn: memberApi.bulkRestore, onSuccess: (res) => { qc.invalidateQueries(['members']); setSelectedIds([]); toast.success(res.data.message || 'Đã khôi phục!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+    const bulkForceDeleteMutation = useMutation({ mutationFn: memberApi.bulkForceDelete, onSuccess: (res) => { qc.invalidateQueries(['members']); setSelectedIds([]); toast.success(res.data.message || 'Đã xóa vĩnh viễn!'); }, onError: e => toast.error(e.response?.data?.message || 'Lỗi!') });
+
     const handleSave = (form) => modal?.id ? updateMutation.mutate({ id: modal.id, data: form }) : createMutation.mutate(form);
     
     const handleApprove = async (m) => {
@@ -528,6 +1022,30 @@ export default function MembersPage() {
 
     const handleAppoint = (form) => {
         appointMutation.mutate({ id: appointmentModal.id, data: form });
+    };
+
+    const toggleSelection = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === members.length) setSelectedIds([]);
+        else setSelectedIds(members.map(m => m.id));
+    };
+
+    const handleBulkDelete = async () => {
+        const result = await confirmAction('Xóa hàng loạt', `Bạn có chắc chắn muốn xóa ${selectedIds.length} đoàn viên đã chọn?`, 'Xóa ngay', 'error');
+        if (result.isConfirmed) bulkDeleteMutation.mutate(selectedIds);
+    };
+
+    const handleBulkRestore = async () => {
+        const result = await confirmAction('Khôi phục hàng loạt', `Bạn có chắc chắn muốn khôi phục ${selectedIds.length} đoàn viên đã chọn?`, 'Khôi phục');
+        if (result.isConfirmed) bulkRestoreMutation.mutate(selectedIds);
+    };
+
+    const handleBulkForceDelete = async () => {
+        const result = await confirmAction('Xóa vĩnh viễn hàng loạt', `Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa vĩnh viễn ${selectedIds.length} đoàn viên?`, 'Xóa vĩnh viễn', 'error');
+        if (result.isConfirmed) bulkForceDeleteMutation.mutate(selectedIds);
     };
 
     return (
@@ -579,7 +1097,7 @@ export default function MembersPage() {
 
                 {hasPermission('member:delete') && (
                     <button 
-                        onClick={() => { setShowTrash(!showTrash); setPage(1); }}
+                        onClick={() => { setShowTrash(!showTrash); setPage(1); setSelectedIds([]); }}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition border-2 
                             ${showTrash 
                                 ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
@@ -607,7 +1125,14 @@ export default function MembersPage() {
                 )}
 
                 {!showTrash && viewMode === 'LIST' && (
-                    <button className={BTN_PRIMARY} onClick={() => setModal('add')}><Plus size={16} /> Thêm đoàn viên</button>
+                    <div className="flex gap-2">
+                        <button className={BTN_SECONDARY} onClick={() => setImportModal(true)}>
+                            <FileUp size={16} /> Nhập Excel
+                        </button>
+                        <button className={BTN_PRIMARY} onClick={() => setModal('add')}>
+                            <Plus size={16} /> Thêm đoàn viên
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -620,6 +1145,34 @@ export default function MembersPage() {
                     </h2>
                     <span className="text-[10px] bg-primary-700 text-white font-black px-3 py-1 rounded-full uppercase tracking-widest leading-none flex items-center justify-center min-w-[40px] shadow-sm shadow-primary-200">{pagination.total || 0}</span>
                 </div>
+
+                {/* Bulk Action Toolbar */}
+                {selectedIds.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-3 bg-primary-50 border-b border-primary-100 animate-in slide-in-from-top-4 duration-300">
+                        <div className="flex items-center gap-4">
+                            <p className="text-xs font-bold text-primary-800">Đã chọn <span className="text-lg font-black">{selectedIds.length}</span> mục</p>
+                            <button className="text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600" onClick={() => setSelectedIds([])}>Bỏ chọn</button>
+                        </div>
+                        <div className="flex gap-2">
+                            {showTrash ? (
+                                <>
+                                    <button className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold uppercase rounded-lg shadow-sm transition" onClick={handleBulkRestore}>
+                                        <RotateCcw size={14} /> Khôi phục đã chọn
+                                    </button>
+                                    <button className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold uppercase rounded-lg shadow-sm transition" onClick={handleBulkForceDelete}>
+                                        <Trash2 size={14} /> Xóa vĩnh viễn đã chọn
+                                    </button>
+                                </>
+                            ) : (
+                                viewMode === 'LIST' && (
+                                    <button className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold uppercase rounded-lg shadow-sm transition" onClick={handleBulkDelete}>
+                                        <Trash2 size={14} /> Xóa các mục đã chọn
+                                    </button>
+                                )
+                            )}
+                        </div>
+                    </div>
+                )}
                 <div className="overflow-x-auto">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-12"><div className="spinner" /></div>
@@ -637,10 +1190,13 @@ export default function MembersPage() {
                                     </tr>
                                 ) : (
                                     <tr className="bg-gray-50/50 border-b border-gray-200 text-[10px] font-black uppercase text-gray-500 tracking-widest">
+                                        <th className="px-6 py-4 text-left w-10">
+                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-700" checked={selectedIds.length === members.length && members.length > 0} onChange={toggleSelectAll} />
+                                        </th>
                                         <th className="px-6 py-4 text-left">Hồ sơ</th>
                                         <th className="px-6 py-4 text-left">Thông tin</th>
+                                        <th className="px-6 py-4 text-left">Số định danh / Đơn vị</th>
                                         <th className="px-6 py-4 text-left">Chức vụ / Trạng thái</th>
-                                        <th className="px-6 py-4 text-left">Đơn vị</th>
                                         <th className="px-6 py-4 text-left">Thao tác</th>
                                     </tr>
                                 )}
@@ -684,7 +1240,10 @@ export default function MembersPage() {
                                     const statusObj = ACTIVITY_STATUS.find(s => s.value === (m.activityStatus || 'active')) || ACTIVITY_STATUS[0];
                                     const roleObj = ROLES_IN_UNION.find(r => r.value === (m.roleInUnion || 'member')) || ROLES_IN_UNION[0];
                                     return (
-                                        <tr key={m.id} className="hover:bg-gray-50/50 transition">
+                                        <tr key={m.id} className={`hover:bg-gray-50/50 transition ${selectedIds.includes(m.id) ? 'bg-primary-50/30' : ''}`}>
+                                            <td className="px-6 py-4">
+                                                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-primary-700" checked={selectedIds.includes(m.id)} onChange={() => toggleSelection(m.id)} />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div>
                                                     <p className="font-mono text-[10px] font-black text-primary-700 uppercase tracking-tight">{m.memberCode}</p>
@@ -693,8 +1252,14 @@ export default function MembersPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <p className="text-xs text-gray-600 font-medium">{m.User?.email || m.email || '—'}</p>
-                                                <p className="text-xs text-gray-400">{m.User?.phoneNumber || m.phoneNumber || '—'}</p>
+                                                <div className="flex flex-col gap-1">
+                                                    <p className="text-xs text-gray-600 font-medium">{m.User?.email || m.email || '—'}</p>
+                                                    <p className="text-xs text-gray-400">{m.User?.phoneNumber || m.phoneNumber || '—'}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold">{m.gender === 'female' ? 'Nữ' : 'Nam'}</span>
+                                                        <span className="text-[10px] text-gray-400 font-medium">{m.dateOfBirth ? new Date(m.dateOfBirth).toLocaleDateString('vi-VN') : '—'}</span>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-1.5 flex-wrap">
@@ -709,8 +1274,15 @@ export default function MembersPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <p className="text-[11px] font-bold text-gray-700">{m.UnionCell?.name || '—'}</p>
-                                                <p className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">{m.UnionCell?.UnionBranch?.name || '—'}</p>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5 p-1 px-2 bg-amber-50 rounded border border-amber-100 w-fit">
+                                                        <span className="text-[10px] font-mono font-bold text-amber-700 tracking-wider">
+                                                            {m.identityNumberMasked || '—'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] font-bold text-gray-700 mt-1">{m.UnionCell?.name || '—'}</p>
+                                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">{m.UnionCell?.UnionBranch?.name || '—'}</p>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex gap-2 flex-wrap min-w-[120px]">
@@ -764,6 +1336,13 @@ export default function MembersPage() {
             {detailModal && <MemberDetailModal member={detailModal} onClose={() => setDetailModal(null)} onApprove={handleApprove} onReject={handleReject} />}
             {appointmentModal && <AppointmentModal member={appointmentModal} positions={positions} branches={branchesAll} onClose={() => setAppointmentModal(null)} onAssign={handleAppoint} />}
             {updateReqModal && <UpdateRequestModal request={updateReqModal} onClose={() => setUpdateReqModal(null)} onApprove={(id) => approveUpdateMutation.mutate(id)} onReject={(id) => rejectUpdateMutation.mutate(id)} />}
+            
+            {importModal && (
+                <ImportExcelModal 
+                    onClose={() => setImportModal(false)}
+                    onSuccess={() => { qc.invalidateQueries(['members']); setImportModal(false); }}
+                />
+            )}
         </div>
     );
 }

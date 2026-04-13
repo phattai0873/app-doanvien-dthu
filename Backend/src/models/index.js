@@ -1,5 +1,10 @@
 const { sequelize } = require('../configs/db');
 const User = require('./User');
+const ImportPreview = require('./ImportPreview');
+
+// Relationships
+User.hasMany(ImportPreview, { foreignKey: 'createdBy' });
+ImportPreview.belongsTo(User, { foreignKey: 'createdBy' });
 const Role = require('./Role');
 const Permission = require('./Permission');
 const AuditLog = require('./AuditLog');
@@ -35,6 +40,15 @@ const UnionFeeType = require('./UnionFeeType');
 const PaymentTransaction = require('./PaymentTransaction');
 const BankSetting = require('./BankSetting');
 const ProfileUpdateRequest = require('./profileUpdateRequest');
+const FeeCollection = require('./FeeCollection');
+const FeeItem = require('./FeeItem');
+const FeeCollectionScope = require('./FeeCollectionScope');
+const FeePayment = require('./FeePayment');
+const MembershipApproval = require('./MembershipApproval');
+const MemberEvaluation = require('./MemberEvaluation');
+const MemberReward = require('./MemberReward');
+const MemberDiscipline = require('./MemberDiscipline');
+const UserSensitiveData = require('./UserSensitiveData');
 
 // Associations
 
@@ -238,8 +252,50 @@ ProfileUpdateRequest.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
 ProfileUpdateRequest.belongsTo(User, { as: 'Approver', foreignKey: 'approvedBy' });
 User.hasMany(ProfileUpdateRequest, { foreignKey: 'approvedBy' });
 
+// Enterprise Fee System
+UnionFeeType.hasMany(FeeCollection, { foreignKey: 'feeTypeId' });
+FeeCollection.belongsTo(UnionFeeType, { foreignKey: 'feeTypeId' });
+
+FeeCollection.hasMany(FeeItem, { foreignKey: 'feeCollectionId', as: 'Items' });
+FeeItem.belongsTo(FeeCollection, { foreignKey: 'feeCollectionId' });
+
+FeeCollection.hasMany(FeeCollectionScope, { foreignKey: 'feeCollectionId', as: 'Scopes' });
+FeeCollectionScope.belongsTo(FeeCollection, { foreignKey: 'feeCollectionId' });
+
+FeeItem.hasMany(FeePayment, { foreignKey: 'feeItemId' });
+FeePayment.belongsTo(FeeItem, { foreignKey: 'feeItemId' });
+
+UnionMember.hasMany(FeePayment, { foreignKey: 'unionMemberId' });
+FeePayment.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+PaymentTransaction.hasMany(FeePayment, { foreignKey: 'paymentTransactionId', as: 'Payments' });
+FeePayment.belongsTo(PaymentTransaction, { foreignKey: 'paymentTransactionId' });
+
+PaymentTransaction.belongsTo(User, { as: 'Approver', foreignKey: 'approvedBy' });
+User.hasMany(PaymentTransaction, { foreignKey: 'approvedBy', as: 'ApprovedTransactions' });
+
+// Associations for FeeCollectionScope to Branch/Cell
+FeeCollectionScope.belongsTo(UnionBranch, { foreignKey: 'scopeId', constraints: false, as: 'Branch' });
+FeeCollectionScope.belongsTo(UnionCell, { foreignKey: 'scopeId', constraints: false, as: 'Cell' });
+
+// Member Expansion Associations
+UnionMember.hasOne(MembershipApproval, { foreignKey: 'unionMemberId', as: 'Approval' });
+MembershipApproval.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+UnionMember.hasMany(MemberEvaluation, { foreignKey: 'unionMemberId', as: 'Evaluations' });
+MemberEvaluation.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+UnionMember.hasMany(MemberReward, { foreignKey: 'unionMemberId', as: 'Rewards' });
+MemberReward.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+UnionMember.hasMany(MemberDiscipline, { foreignKey: 'unionMemberId', as: 'Disciplines' });
+MemberDiscipline.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
+UnionMember.hasOne(UserSensitiveData, { foreignKey: 'unionMemberId', as: 'SensitiveData' });
+UserSensitiveData.belongsTo(UnionMember, { foreignKey: 'unionMemberId' });
+
 module.exports = {
-    User, Role, Permission, AuditLog,
+    User, ImportPreview, Role, Permission, AuditLog,
     UnionBranch, UnionCell, UnionMember, UnionMemberHistory,
     UnionPosition, UnionMemberPosition,
     Activity, ActivityParticipant, Attendance, Meeting,
@@ -248,6 +304,8 @@ module.exports = {
     Notification, NotificationReadStatus,
     QuizExam, QuizQuestion, QuizOption, QuizAttempt,
     UnionFeePayment, UnionFeeType, PaymentTransaction, CellMeetingLocation, Banner, LandingConfig, BankSetting,
+    FeeCollection, FeeItem, FeeCollectionScope, FeePayment,
     ProfileUpdateRequest,
+    MembershipApproval, MemberEvaluation, MemberReward, MemberDiscipline, UserSensitiveData,
     sequelize
 };

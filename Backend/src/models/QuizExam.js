@@ -62,6 +62,7 @@ const QuizExam = sequelize.define('QuizExam', {
 }, {
     tableName: 'quiz_exams',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { fields: ['status'] },
         { fields: ['level'] },

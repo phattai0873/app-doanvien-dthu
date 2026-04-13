@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Database PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: appdoanvien-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password123}
+      POSTGRES_DB: ${DB_NAME:-doanvien_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis for Caching/Queues/Rate Limiting
+  redis:
+    image: redis:alpine
+    container_name: appdoanvien-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+  # Backend Node.js
+  backend:
+    build: 
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: appdoanvien-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      # SỬ DỤNG TÊN DỊCH VỤ DOCKER LÀM HOSTNAME
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      PORT: 5000
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./Backend/uploads:/app/uploads
+
+  # Frontend Nginx
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: appdoanvien-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

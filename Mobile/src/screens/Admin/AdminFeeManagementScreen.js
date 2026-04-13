@@ -215,7 +215,7 @@ export const AdminFeeManagementScreen = () => {
                                 amount,
                                 unionFeeTypeId: selectedTypeId,
                                 paymentMethod: 'CASH',
-                                status: 'COMPLETED',
+                                status: 'SUCCESS',
                                 note: `Nộp ${typeLabel}`
                             });
                             Alert.alert('Thành công', 'Đã ghi nhận nộp phí');
@@ -451,7 +451,7 @@ export const AdminFeeManagementScreen = () => {
             amount: '24000',
             unionFeeTypeId: selectedTypeId,
             paymentMethod: 'CASH',
-            status: 'COMPLETED'
+            status: 'SUCCESS'
         });
 
         return (

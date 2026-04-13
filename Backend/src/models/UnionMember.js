@@ -15,9 +15,18 @@ const UnionMember = sequelize.define('UnionMember', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: { isEmail: true }
+    },
+    phoneNumber: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     dateOfBirth: {
         type: DataTypes.DATEONLY,
-        allowNull: false
+        allowNull: true
     },
     gender: {
         type: DataTypes.ENUM('male', 'female'),
@@ -53,6 +62,35 @@ const UnionMember = sequelize.define('UnionMember', {
     occupation: {
         type: DataTypes.STRING
     },
+    ethnicity: {
+        type: DataTypes.STRING,
+        defaultValue: 'Kinh'
+    },
+    religion: {
+        type: DataTypes.STRING,
+        defaultValue: 'Không'
+    },
+    // Trình độ
+    professionalLevel: {
+        type: DataTypes.STRING, // Trình độ chuyên môn
+        comment: 'Trình độ chuyên môn (Đại học, Thạc sĩ,...)'
+    },
+    itLevel: {
+        type: DataTypes.STRING,
+        comment: 'Trình độ Tin học'
+    },
+    languageLevel: {
+        type: DataTypes.STRING,
+        comment: 'Trình độ Ngoại ngữ'
+    },
+    memberType: {
+        type: DataTypes.ENUM('STUDENT', 'STAFF', 'TEACHER', 'OTHER'),
+        defaultValue: 'STUDENT'
+    },
+    isHonoraryMember: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
     status: {
         type: DataTypes.ENUM('pending', 'approved', 'rejected'),
         defaultValue: 'pending'
@@ -82,10 +120,25 @@ const UnionMember = sequelize.define('UnionMember', {
     socialWorkDays: {
         type: DataTypes.INTEGER,
         defaultValue: 0
+    },
+    isActivated: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    activatedAt: {
+        type: DataTypes.DATE
+    },
+    failedAttempts: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    lockedUntil: {
+        type: DataTypes.DATE
     }
 }, {
     tableName: 'union_members',
     timestamps: true,
+    paranoid: true,
     indexes: [
         { unique: true, fields: ['memberCode'] },
         { unique: true, fields: ['identityNumber'] },
@@ -93,7 +146,7 @@ const UnionMember = sequelize.define('UnionMember', {
         { fields: ['unionCellId'] },
         { fields: ['status'] },
         { fields: ['activityStatus'] },
-        { fields: ['userId'] }
+        { unique: true, fields: ['userId'] }
     ],
     hooks: {
         beforeSave: (member) => {

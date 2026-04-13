@@ -9,51 +9,187 @@ const { safeDate } = require('../utils/dateUtils');
 
 class UserService {
     /**
-     * @description Register a new user
+     * @description Tra cứu mã đoàn viên (bị che) để hỗ trợ đăng ký
      */
-    static async register(userData) {
-        const username = userData.username?.trim();
-        const password = userData.password?.trim();
-        const { email, phoneNumber } = userData;
-
-        const existingUser = await User.findOne({ where: { username } });
-        if (existingUser) {
-            throw new ErrorResponse('Tên đăng nhập này đã được sử dụng', 400);
+    static async lookupMemberCode(query) {
+        const { fullName, dateOfBirth, unionCellId } = query;
+        if (!fullName || !dateOfBirth) {
+            throw new ErrorResponse('Vui lòng cung cấp Họ tên và Ngày sinh', 400);
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
-
-        // Tạo user
-        const user = await User.create({
-            username,
-            passwordHash,
-            email,
-            phoneNumber,
-            isActive: true
+        const { UnionMember } = require('../models');
+        const members = await UnionMember.findAll({
+            where: {
+                fullName: fullName.trim(),
+                dateOfBirth: safeDate(dateOfBirth),
+                ...(unionCellId ? { unionCellId } : {})
+            },
+            attributes: ['memberCode', 'fullName']
         });
 
-        // Gán role mặc định
-        const { Role } = require('../models');
-        const defaultRole = await Role.findOne({ where: { code: 'MEMBER' } }) || await Role.findOne({ where: { code: 'user' } });
-        if (defaultRole) {
-            await user.addRole(defaultRole);
+        if (members.length === 0) {
+            throw new ErrorResponse('Không tìm thấy thông tin đoàn viên phù hợp', 404);
         }
 
-        const accessToken = generateAccessToken(user.id);
-        const refreshToken = generateRefreshToken(user.id);
+        // Masking memberCode: DV2024001 -> DV****001
+        return members.map(m => {
+            const code = m.memberCode;
+            const masked = code.length > 5 
+                ? `${code.substring(0, 2)}****${code.substring(code.length - 3)}`
+                : `${code.substring(0, 1)}***`;
+            return {
+                fullName: m.fullName,
+                memberCodeMasked: masked
+            };
+        });
+    }
 
-        // Lưu hash của refresh token vào DB
-        const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-        await user.update({ refreshTokenHash, lastLogin: new Date() });
+    /**
+     * @description Register and Activate a new user linked to a UnionMember
+     */
+    static async register(userData) {
+        const { username, password, email, phoneNumber, memberCode, dateOfBirth } = userData;
 
-        return {
-            id: user.id,
-            username: user.username,
-            accessToken,
-            refreshToken,
-            message: 'Đăng ký tài khoản thành công. Vui lòng hoàn thiện hồ sơ đoàn viên ở bước tiếp theo.'
-        };
+        if (!username || !password || !memberCode || !dateOfBirth) {
+            throw new ErrorResponse('Vui lòng điền đầy đủ các thông tin bắt buộc', 400);
+        }
+
+        // 1. Kiểm tra User trùng lặp
+        const existingUser = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { username: username.trim() },
+                    ...(email ? [{ email: email.trim() }] : []),
+                    ...(phoneNumber ? [{ phoneNumber: phoneNumber.trim() }] : [])
+                ]
+            }
+        });
+
+        if (existingUser) {
+            if (existingUser.username === username.trim()) throw new ErrorResponse('Tên đăng nhập này đã được sử dụng', 400);
+            if (email && existingUser.email === email.trim()) throw new ErrorResponse('Email này đã được sử dụng', 400);
+            if (phoneNumber && existingUser.phoneNumber === phoneNumber.trim()) throw new ErrorResponse('Số điện thoại này đã được sử dụng', 400);
+        }
+
+        const { sequelize } = require('../configs/db');
+        const { UnionMember, UnionMemberHistory, AuditLog, Role, Permission } = require('../models');
+        const t = await sequelize.transaction();
+
+        try {
+            // 2. Tìm và Khóa hàng hồ sơ Đoàn viên (Tránh Race Condition)
+            const member = await UnionMember.findOne({
+                where: { memberCode: memberCode.trim() },
+                lock: t.LOCK.UPDATE,
+                transaction: t
+            });
+
+            if (!member) {
+                await t.rollback();
+                throw new ErrorResponse('Mã đoàn viên không tồn tại trên hệ thống', 404);
+            }
+
+            // 3. Chống Brute-force
+            if (member.lockedUntil && new Date(member.lockedUntil) > new Date()) {
+                const waitTime = Math.ceil((new Date(member.lockedUntil) - new Date()) / 60000);
+                await t.rollback();
+                throw new ErrorResponse(`Hồ sơ này đang bị khóa do nhập sai quá nhiều lần. Vui lòng thử lại sau ${waitTime} phút.`, 403);
+            }
+
+            if (member.userId || member.isActivated) {
+                await t.rollback();
+                throw new ErrorResponse('Hồ sơ đoàn viên này đã được kích hoạt tài khoản', 400);
+            }
+
+            // 4. Xác minh Ngày sinh (Yếu tố thứ 2)
+            const inputDob = safeDate(dateOfBirth);
+            if (member.dateOfBirth !== inputDob) {
+                const newFailed = (member.failedAttempts || 0) + 1;
+                const updateData = { failedAttempts: newFailed };
+                
+                if (newFailed >= 5) {
+                    updateData.lockedUntil = new Date(Date.now() + 5 * 60 * 1000); // Khóa 5 phút
+                    updateData.failedAttempts = 0;
+                }
+                
+                await member.update(updateData, { transaction: t });
+                await t.commit();
+                throw new ErrorResponse('Thông tin Ngày sinh không khớp với hồ sơ gốc', 400);
+            }
+
+            // 5. Tạo User
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(password.trim(), salt);
+            
+            const user = await User.create({
+                username: username.trim(),
+                passwordHash,
+                email: email?.trim(),
+                phoneNumber: phoneNumber?.trim(),
+                isActive: true
+            }, { transaction: t });
+
+            // 6. Gán Role & Permission
+            const defaultRole = await Role.findOne({ where: { code: 'MEMBER' }, transaction: t }) 
+                             || await Role.findOne({ where: { code: 'user' }, transaction: t });
+            
+            const permissions = [];
+            if (defaultRole) {
+                await user.addRole(defaultRole, { transaction: t });
+                const roleWithPerms = await Role.findByPk(defaultRole.id, {
+                    include: [{ model: Permission, attributes: ['code'] }],
+                    transaction: t
+                });
+                roleWithPerms?.Permissions?.forEach(p => permissions.push(p.code));
+            }
+
+            // 7. Liên kết & Cập nhật Hồ sơ (Source of Truth)
+            // Cập nhật Email/SĐT của hồ sơ theo thông tin User (nếu hồ sơ chưa có hoặc muốn đồng bộ)
+            const memberUpdate = {
+                userId: user.id,
+                isActivated: true,
+                activatedAt: new Date(),
+                failedAttempts: 0,
+                lockedUntil: null
+            };
+            if (!member.email) memberUpdate.email = email?.trim();
+            if (!member.phoneNumber) memberUpdate.phoneNumber = phoneNumber?.trim();
+
+            await member.update(memberUpdate, { transaction: t });
+
+            // 8. Lưu Token & Log
+            const accessToken = generateAccessToken(user.id, { permissions });
+            const refreshToken = generateRefreshToken(user.id);
+            const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+            await user.update({ refreshTokenHash, lastLogin: new Date() }, { transaction: t });
+
+            await UnionMemberHistory.create({
+                unionMemberId: member.id,
+                type: 'status_change',
+                newValue: 'active',
+                note: 'Tài khoản đã được kích hoạt bởi người dùng'
+            }, { transaction: t });
+
+            await AuditLog.create({
+                tableName: 'users',
+                recordId: user.id.toString(),
+                action: 'ACTIVATE_ACCOUNT',
+                newValues: { memberId: member.id, memberCode: member.memberCode },
+                ipAddress: userData.ip || 'unknown'
+            }, { transaction: t });
+
+            await t.commit();
+
+            return {
+                id: user.id,
+                username: user.username,
+                accessToken,
+                refreshToken,
+                message: 'Kích hoạt tài khoản và liên kết hồ sơ thành công!'
+            };
+        } catch (error) {
+            if (t && !t.finished) await t.rollback();
+            throw error;
+        }
     }
 
     /**
@@ -235,6 +371,14 @@ class UserService {
                             model: UnionCell,
                             paranoid: false,
                             include: [{ model: UnionBranch, paranoid: false }]
+                        },
+                        {
+                            model: require('../models/profileUpdateRequest'),
+                            as: 'ProfileUpdateRequests',
+                            where: { status: 'pending' },
+                            required: false,
+                            limit: 1,
+                            order: [['createdAt', 'DESC']]
                         }
                     ]
                 }

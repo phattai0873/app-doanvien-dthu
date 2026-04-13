@@ -95,7 +95,7 @@ export const authApi = {
 
 // ─── Quản lý tài khoản (Admin) ────────────────────────
 export const userMgmtApi = {
-    getAll: () => api.get('/users'),
+    getAll: (params) => api.get('/users', { params }),
     getById: (id) => api.get(`/users/${id}`),
     create: (data) => api.post('/users/register', data),
     update: (id, data) => api.put(`/users/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
@@ -133,6 +133,20 @@ export const memberApi = {
     getUpdateRequests: (params) => api.get('/members/requests/updates', { params }),
     approveUpdate: (id) => api.patch(`/members/requests/updates/${id}/approve`),
     rejectUpdate: (id) => api.patch(`/members/requests/updates/${id}/reject`),
+    importPreview: (file, mode, unionCellId) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (mode) formData.append('mode', mode);
+        if (unionCellId) formData.append('unionCellId', unionCellId);
+        
+        return api.post('/members/import-preview', formData, { 
+            headers: { 'Content-Type': 'multipart/form-data' } 
+        });
+    },
+    importConfirm: (data) => api.post('/members/import-confirm', data),
+    bulkDelete: (ids) => api.delete('/members/bulk', { data: { ids } }),
+    bulkRestore: (ids) => api.patch('/members/bulk-restore', { ids }),
+    bulkForceDelete: (ids) => api.delete('/members/bulk-force', { data: { ids } }),
 };
 
 export const positionApi = {
@@ -229,6 +243,9 @@ export const feeApi = {
     // Ngân hàng
     getBankSetting: () => api.get('/fees/bank-setting'),
     updateBankSetting: (data) => api.put('/fees/bank-setting', data),
+    // Đợt thu phí (Collections)
+    getCollections: (params) => api.get('/fees/collections', { params }),
+    createCollection: (data) => api.post('/fees/collections', data),
 };
 
 export const feeTypeApi = {
@@ -307,6 +324,12 @@ export const locationApi = {
     create: (data) => api.post('/locations', data),
     update: (id, data) => api.put(`/locations/${id}`, data),
     delete: (id) => api.delete(`/locations/${id}`),
+};
+
+export const statApi = {
+    getDashboard: () => api.get('/stats/dashboard'),
+    getMembers: () => api.get('/stats/members'),
+    getRankings: () => api.get('/stats/rankings'),
 };
 
 export default api;

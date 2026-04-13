@@ -65,7 +65,7 @@ function RoleModal({ role, onClose, onSave, allPermissions }) {
     };
 
     return (
-        <ModalPortal onClose={onClose}>
+        <ModalPortal onAttemptClose={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
                 <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3">

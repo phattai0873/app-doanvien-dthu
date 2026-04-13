@@ -22,10 +22,22 @@ const userController = {
     }),
 
     /**
+     * @route POST /api/users/lookup-member-code
+     */
+    lookupMemberCode: asyncHandler(async (req, res) => {
+        const data = await UserService.lookupMemberCode(req.body);
+        res.status(200).json({ success: true, data });
+    }),
+
+    /**
      * @route POST /api/users/register
      */
     registerUser: asyncHandler(async (req, res) => {
-        const data = await UserService.register(req.body);
+        const registrationData = {
+            ...req.body,
+            ip: req.ip || req.connection.remoteAddress
+        };
+        const data = await UserService.register(registrationData);
         res.status(201).json({ success: true, data });
     }),
 

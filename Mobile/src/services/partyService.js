@@ -59,6 +59,19 @@ export const partyService = {
         return response.data;
     },
 
+    getCommitteesAll: async () => {
+        const response = await apiClient.get('/api/branches/all');
+        // response là body { success, data }
+        return response.data || response || [];
+    },
+
+    getCellsAll: async (branchId) => {
+        const params = branchId && branchId !== '' ? { unionBranchId: branchId } : {};
+        const response = await apiClient.get('/api/cells/all', { params });
+        // response là body { success, data }
+        return response.data || response || [];
+    },
+
     // 3. Đoàn viên (Union Members) - /api/members
     getMembers: async (params = {}) => {
         if (USE_SUPABASE) {
@@ -123,36 +136,18 @@ export const partyService = {
         if (USE_MOCK_API) return new Promise(r => setTimeout(() => r(MOCK_DB.user), SIMULATE_DELAY));
 
         // API THỰC
-        const response = await apiClient.get('/api/users/me'); // response is response.data
+        const response = await apiClient.get('/api/users/me'); 
         const userData = response.data || response;
         const member = userData.UnionMember || {};
         
-        // Map backend fields to frontend expected fields
+        // Trả về camelCase đồng nhất với Backend, chỉ xử lý URL avatar
         return {
             ...userData,
-            ho_ten: member.fullName || userData.username,
-            chuc_vu_doan: member.roleInUnion === 'member' ? 'Đoàn viên' : 
-                         member.roleInUnion === 'secretary' ? 'Bí thư' :
-                         member.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn',
-            trang_thai_doan: member.status === 'approved' ? 'Đang hoạt động' : 
-                            member.status === 'pending' ? 'Chờ duyệt' : 'Chưa duyệt',
-            // Avatar lấy từ bảng Users (userData.avatar) theo yêu cầu, dự phòng bằng member.avatar
-            anh_dai_dien: userData.avatar ? `${API_BASE_URL}${userData.avatar}` : 
-                          (member.avatar ? `${API_BASE_URL}${member.avatar}` : null),
-            sdt: userData.phoneNumber,
-            email: userData.email,
-            cccd: member.identityNumber,
-            ngay_sinh: member.dateOfBirth,
-            dia_chi: member.permanentAddress,
-            is_verified: member.status === 'approved',
-            ma_so: member.memberCode,
-            gioi_tinh: member.gender === 'male' ? 'Nam' : 'Nữ',
-            que_quan: member.hometown,
-            ngay_vao_doan: member.joinedDate,
-            noi_vao_doan: member.joinedPlace,
-            trinh_do: member.educationLevel,
-            nghe_nghiep: member.occupation,
-            socialWorkDays: member.socialWorkDays || 0
+            unionMember: {
+                ...member,
+                avatarUrl: userData.avatar ? `${API_BASE_URL}${userData.avatar}` : 
+                           (member.avatar ? `${API_BASE_URL}${member.avatar}` : null)
+            }
         };
     },
 

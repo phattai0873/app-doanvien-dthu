@@ -49,7 +49,7 @@ class NewsService {
             offset
         };
 
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             where.deletedAt = { [Op.ne]: null };
         }
@@ -364,7 +364,7 @@ class NewsService {
         if (search) where.name = buildSearchCondition(search, ['name']).name;
         if (isActive !== undefined) where.isActive = isActive === 'true' || isActive === true;
         const queryOptions = { where, order: onlyDeleted ? [['deletedAt', 'DESC']] : [['name', 'ASC']] };
-        if (onlyDeleted) {
+        if (onlyDeleted === true || onlyDeleted === 'true') {
             queryOptions.paranoid = false;
             where.deletedAt = { [Op.ne]: null };
         }

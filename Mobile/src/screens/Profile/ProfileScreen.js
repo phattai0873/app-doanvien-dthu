@@ -90,8 +90,21 @@ export const ProfileScreen = ({ navigation }) => {
         );
     }
 
-    const member = user?.UnionMember;
-    const status = member?.status || 'none'; 
+    const member = user?.unionMember;
+    const hasPendingRequest = member?.ProfileUpdateRequests?.length > 0;
+    const status = member?.status || 'none';
+    
+    // Logic hiển thị label trạng thái
+    const getStatusLabel = () => {
+        if (status === 'approved') {
+            return hasPendingRequest ? 'Đang chờ duyệt cập nhật' : 'Đoàn viên chính thức';
+        }
+        return 'Đang chờ phê duyệt';
+    };
+
+    const roleLabel = member?.roleInUnion === 'member' ? 'Đoàn viên' : 
+                     member?.roleInUnion === 'secretary' ? 'Bí thư Chi đoàn' :
+                     member?.roleInUnion === 'vice_secretary' ? 'Phó Bí thư' : 'Cán bộ Đoàn';
 
     return (
         <View style={styles.container}>
@@ -110,7 +123,7 @@ export const ProfileScreen = ({ navigation }) => {
                     <View style={styles.profileHeader}>
                         <View style={styles.avatarContainer}>
                             <RNImage
-                                source={user?.anh_dai_dien ? { uri: user.anh_dai_dien } : { uri: `https://ui-avatars.com/api/?name=${user?.ho_ten || 'U'}&background=2563EB&color=fff` }}
+                                source={member?.avatarUrl ? { uri: member.avatarUrl } : { uri: `https://ui-avatars.com/api/?name=${member?.fullName || 'U'}&background=2563EB&color=fff` }}
                                 style={styles.avatar}
                             />
                             {status === 'approved' && (
@@ -121,7 +134,7 @@ export const ProfileScreen = ({ navigation }) => {
                         </View>
                         <View style={styles.nameContainer}>
                             <View style={styles.nameHeaderRow}>
-                                <Text style={styles.nameText}>{user?.ho_ten || 'Đoàn viên'}</Text>
+                                <Text style={styles.nameText}>{member?.fullName || 'Đoàn viên'}</Text>
                                 <TouchableOpacity 
                                     style={styles.editBtn}
                                     onPress={() => navigation.navigate('EditProfile', { userData: user })}
@@ -129,10 +142,10 @@ export const ProfileScreen = ({ navigation }) => {
                                     <Ionicons name="create-outline" size={20} color={COLORS.primary} />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={styles.roleText}>{user?.chuc_vu_doan || 'Thành viên'}</Text>
-                            <View style={[styles.statusTag, status === 'approved' ? styles.statusApproved : styles.statusPending]}>
-                                <Text style={[styles.statusTagText, status === 'approved' ? styles.textSuccess : styles.textWarning]}>
-                                    {status === 'approved' ? 'Đoàn viên chính thức' : 'Đang chờ phê duyệt'}
+                            <Text style={styles.roleText}>{roleLabel}</Text>
+                            <View style={[styles.statusTag, (status === 'approved' && !hasPendingRequest) ? styles.statusApproved : styles.statusPending]}>
+                                <Text style={[styles.statusTagText, (status === 'approved' && !hasPendingRequest) ? styles.textSuccess : styles.textWarning]}>
+                                    {getStatusLabel()}
                                 </Text>
                             </View>
                         </View>
@@ -143,21 +156,19 @@ export const ProfileScreen = ({ navigation }) => {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Hồ sơ cá nhân</Text>
                     <View style={styles.sectionCard}>
-                        <DetailRow icon="finger-print-outline" label="Mã số sinh viên" value={member?.studentId} />
+                        <DetailRow icon="finger-print-outline" label="Mã đoàn viên" value={member?.memberCode} />
                         <View style={styles.divider} />
-                        <DetailRow icon="call-outline" label="Số điện thoại" value={user?.sdt} />
+                        <DetailRow icon="call-outline" label="Số điện thoại" value={user?.phoneNumber} />
                         <View style={styles.divider} />
                         <DetailRow icon="mail-outline" label="Email" value={user?.email} />
                         <View style={styles.divider} />
                         <DetailRow icon="calendar-outline" label="Ngày sinh" value={member?.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('vi-VN') : null} />
                         <View style={styles.divider} />
-                        <DetailRow icon="location-outline" label="Quê quán" value={user?.que_quan} />
+                        <DetailRow icon="location-outline" label="Quê quán" value={member?.hometown} />
                         <View style={styles.divider} />
-                        <DetailRow icon="home-outline" label="Địa chỉ thường trú" value={user?.dia_chi} />
+                        <DetailRow icon="home-outline" label="Địa chỉ thường trú" value={member?.permanentAddress} />
                         <View style={styles.divider} />
-                        <DetailRow icon="school-outline" label="Trình độ học vấn" value={user?.trinh_do} />
-                        <View style={styles.divider} />
-                        <DetailRow icon="flag-outline" label="Ngày vào đoàn" value={user?.ngay_vao_doan ? new Date(user.ngay_vao_doan).toLocaleDateString('vi-VN') : null} />
+                        <DetailRow icon="school-outline" label="Trình độ chuyên môn" value={member?.professionalLevel} />
                     </View>
                 </View>
                 {/* Organization Information */}
