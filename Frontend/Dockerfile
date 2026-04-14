@@ -12,6 +12,10 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Khai báo ARG để nhận biến môi trường từ Render lúc Build (Vite cần cái này)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build production bundle
 RUN npm run build
 
