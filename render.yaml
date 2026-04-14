@@ -1,0 +1,77 @@
+services:
+  # 1. Database PostgreSQL (Managed by Render)
+  - type: database
+    name: appdoanvien-db
+    databaseName: db_Appdoan
+    user: postgres
+    plan: free # Có thể đổi thành 'starter' để không bị xóa sau 90 ngày
+
+  # 2. Redis (Managed by Render)
+  - type: redis
+    name: appdoanvien-redis
+    plan: free
+    ipAllowList: [] # Chỉ cho phép truy cập nội bộ từ các dịch vụ của Render
+
+  # 3. Backend (Web Service - Docker)
+  - type: web
+    name: appdoanvien-backend
+    runtime: docker
+    region: singapore # Chọn vùng gần Việt Nam nhất
+    plan: starter # Docker thường yêu cầu tối thiểu gói starter để chạy mượt
+    rootDir: Backend
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      # Tự động lấy thông tin từ Database đã tạo ở trên
+      - key: DB_HOST
+        fromDatabase:
+          name: appdoanvien-db
+          property: host
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        fromDatabase:
+          name: appdoanvien-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: appdoanvien-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: appdoanvien-db
+          property: password
+      # Kết nối Redis
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: appdoanvien-redis
+          property: connectionString
+      # Các biến bảo mật (Bạn sẽ cung cấp khi deploy hoặc để mặc định)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 15m
+      - key: JWT_REFRESH_EXPIRE
+        value: 7d
+
+  # 4. Frontend (Web Service - Docker)
+  - type: web
+    name: appdoanvien-frontend
+    runtime: docker
+    region: singapore
+    plan: starter
+    rootDir: Frontend
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: appdoanvien-backend
+          property: host
+        suffix: /api
