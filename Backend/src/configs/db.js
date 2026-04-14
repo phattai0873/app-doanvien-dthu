@@ -1,4 +1,6 @@
 const { Sequelize } = require('sequelize');
+const { Umzug, SequelizeStorage } = require('umzug');
+const path = require('path');
 require('dotenv').config();
 
 const sequelize = new Sequelize(
@@ -29,27 +31,39 @@ const sequelize = new Sequelize(
     }
 );
 
+// Cấu hình Umzug để quản lý Migrations
+const umzug = new Umzug({
+    migrations: {
+        glob: path.join(__dirname, '../db/migrations/*.js'),
+    },
+    context: sequelize.getQueryInterface(),
+    storage: new SequelizeStorage({ sequelize }),
+    logger: console,
+});
+
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
         console.log('✅ PostgreSQL Connected successfully.');
 
         // Load models and associations
-        const models = require('../models');
-
-        // Sync models sequentially in development to handle complex dependencies
-        // Sync PaymentTransaction before UnionFeePayment to satisfy foreign key constraint
-        if (models.PaymentTransaction) {
-            await models.PaymentTransaction.sync({ alter: true });
-        }
-        
-        // Use sync({ alter: true }) only in development. 
-        await sequelize.sync({ alter: true });
-        console.log('✅ Database tables synced.');
+        require('../models');
 
     } catch (error) {
         console.error('❌ Unable to connect to the database:', error);
+        throw error;
     }
 };
 
-module.exports = { sequelize, connectDB };
+const runMigrations = async () => {
+    try {
+        console.log('🚀 Running database migrations...');
+        await umzug.up();
+        console.log('✅ Database migrations applied successfully.');
+    } catch (error) {
+        console.error('❌ Migration failed:', error);
+        throw error;
+    }
+};
+
+module.exports = { sequelize, connectDB, runMigrations };

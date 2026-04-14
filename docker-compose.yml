@@ -1,15 +1,16 @@
-version: '3.8'
-
 services:
   # Database PostgreSQL
   db:
     image: postgres:15-alpine
     container_name: appdoanvien-db
     restart: always
+    env_file:
+      - ./Backend/.env
     environment:
+      # Map các biến từ .env sang biến Postgres yêu cầu
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password123}
-      POSTGRES_DB: ${DB_NAME:-doanvien_db}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
+      POSTGRES_DB: ${DB_NAME:-db_Appdoan}
     ports:
       - "5432:5432"
     volumes:
@@ -33,11 +34,12 @@ services:
     restart: always
     ports:
       - "5000:5000"
+    env_file:
+      - ./Backend/.env
     environment:
-      # SỬ DỤNG TÊN DỊCH VỤ DOCKER LÀM HOSTNAME
+      # GHI ĐÈ các biến để chạy trong Docker Network
       DB_HOST: db
       REDIS_URL: redis://redis:6379
-      NODE_ENV: production
       PORT: 5000
     depends_on:
       - db

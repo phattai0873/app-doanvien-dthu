@@ -4,7 +4,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
-const { connectDB } = require('./configs/db');
+const { connectDB, runMigrations } = require('./configs/db');
 const userRoutes = require('./routes/userRoutes');
 const models = require('./models'); // Load models and associations
 const unionMemberRoutes = require('./routes/unionMemberRoutes');
@@ -28,14 +28,29 @@ const statisticRoutes = require('./routes/statisticRoutes');
 // Load environment variables
 dotenv.config();
 
-// Connect to Database
-connectDB();
-
-// Initialize Background Workers (BullMQ)
-require('./workers');
-
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Start Server Wrapper
+const startServer = async () => {
+  try {
+    // 1. Kết nối và chạy Migrations (BẮT BUỘC)
+    await connectDB();
+    await runMigrations();
+    console.log('✅ Database preparation complete.');
+
+    // 2. Khởi tạo Background Workers
+    require('./workers');
+
+    // 3. Khởi động lắng nghe
+    app.listen(PORT, () => {
+      console.log(`🚀 Server starting on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
 
 // Middleware
 app.use(cors());
@@ -117,6 +132,5 @@ const errorHandler = require('./middlewares/errorMiddleware');
 // Centralized Error handling
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server starting on port ${PORT}`);
-});
+// KÍCH HOẠT SERVER
+startServer();

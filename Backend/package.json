@@ -4,8 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "wait-on tcp:db:5432 && node src/index.js",
+    "dev": "wait-on tcp:db:5432 && nodemon src/index.js",
     "seed": "node src/seed.js",
     "migrate:news": "node src/migrations/add_news_banner_category_fields.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -32,7 +32,9 @@
     "redis": "^5.11.0",
     "sequelize": "^6.37.8",
     "tiptap": "^1.32.2",
+    "umzug": "^3.8.2",
     "uuid": "^13.0.0",
+    "wait-on": "^9.0.5",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
