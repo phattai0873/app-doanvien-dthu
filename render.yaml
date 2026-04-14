@@ -1,8 +1,8 @@
 # 1. Database PostgreSQL (Managed by Render)
 databases:
   - name: appdoanvien-db
-    databaseName: db_Appdoan
-    user: postgres
+    databaseName: db_appdoan
+    user: db_user
     plan: free # Có thể đổi thành 'starter' để không bị xóa sau 90 ngày
 
 services:
