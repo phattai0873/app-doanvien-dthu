@@ -1,11 +1,11 @@
-services:
-  # 1. Database PostgreSQL (Managed by Render)
-  - type: database
-    name: appdoanvien-db
+# 1. Database PostgreSQL (Managed by Render)
+databases:
+  - name: appdoanvien-db
     databaseName: db_Appdoan
     user: postgres
     plan: free # Có thể đổi thành 'starter' để không bị xóa sau 90 ngày
 
+services:
   # 2. Redis (Managed by Render)
   - type: redis
     name: appdoanvien-redis
