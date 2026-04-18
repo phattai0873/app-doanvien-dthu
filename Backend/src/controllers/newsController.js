@@ -6,24 +6,30 @@ const newsController = {
     // ==================== BÀI VIẾT ====================
 
     getNews: asyncHandler(async (req, res) => {
-        let { status, categoryId, level, search, page, limit, onlyDeleted } = req.query;
+        console.log('--- NEWS REQUEST QUERY ---', req.query);
+        let { status, categoryId, level, scope, search, page, limit, onlyDeleted } = req.query;
 
-        // Nếu không có quyền quản lý tin tức (news:read), chỉ được xem bài đã xuất bản
+        // Kiểm tra quyền quản lý tin tức
         const { hasPermission } = require('../utils/permissionHelper');
-        if (!hasPermission(req.user, 'news:read')) {
+        const canReadDraft = hasPermission(req.user, 'news:read');
+
+        console.log(`--- DEBUG NEWS FILTER --- User: ${req.user?.username || 'Guest'}, CanReadDraft: ${canReadDraft}, RequestedStatus: ${status}`);
+
+        if (!canReadDraft && status !== 'PUBLISHED') {
+            console.log(`--- DEBUG NEWS FILTER --- Forcing status to PUBLISHED for non-admin user`);
             status = 'PUBLISHED';
         }
-
-        const result = await NewsService.getAll({ 
-            status, 
-            categoryId, 
-            level, 
-            search, 
-            page, 
+        const result = await NewsService.getAll({
+            status,
+            categoryId,
+            level,
+            scope,
+            search,
+            page,
             limit,
             userId: req.user?.id,
             onlyDeleted: onlyDeleted === 'true',
-            user: req.user // Tự động xử lý scope trong Service
+            user: req.user
         });
         res.status(200).json({ success: true, ...result });
     }),
@@ -37,10 +43,10 @@ const newsController = {
     createNews: asyncHandler(async (req, res) => {
         // Logic gán ID và Level đã được chuyển vào NewsService.injectScope để tập trung bảo mật
         const result = await NewsService.create(req.body, req.user.id, req.file, req.user);
-        
+
         // Invalidate News Cache
         await cacheService.delPattern('__cache__:*:/api/news*');
-        
+
         res.status(201).json({ success: true, data: result });
     }),
 
@@ -137,10 +143,10 @@ const newsController = {
 
     getCategories: asyncHandler(async (req, res) => {
         const { search, isActive, onlyDeleted } = req.query;
-        const categories = await NewsService.getCategories({ 
-            search, 
-            isActive, 
-            onlyDeleted: onlyDeleted === 'true' 
+        const categories = await NewsService.getCategories({
+            search,
+            isActive,
+            onlyDeleted: onlyDeleted === 'true'
         });
         res.status(200).json({ success: true, data: categories });
     }),

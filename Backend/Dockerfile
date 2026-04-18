@@ -31,5 +31,5 @@ ENV PORT=5000
 # Expose port
 EXPOSE 5000
 
-# Start application
-CMD ["node", "src/index.js"]
+# Start application với lệnh chờ DB (chỉ dành cho container)
+CMD ["sh", "-c", "npx wait-on tcp:db:5432 && node src/index.js"]

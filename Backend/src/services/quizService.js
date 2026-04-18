@@ -3,42 +3,56 @@ const ErrorResponse = require('../utils/errorResponse');
 const { getPagination, formatPaginatedResponse, buildSearchCondition } = require('../utils/paginate');
 
 class QuizService {
-    static async getAll({ search, level, status: reqStatus, unionBranchId, unionCellId, page, limit, onlyDeleted } = {}) {
-        const { page: p, limit: l, offset } = getPagination({ page, limit });
+    static async getAll({ search, level, status: reqStatus, unionBranchId, unionCellId, page, limit, onlyDeleted, publishedOnly, user } = {}) {
         const { Op } = require('sequelize');
         const now = new Date();
+        const { page: p, limit: l, offset } = getPagination({ page, limit });
+
+        // 1. Áp dụng bộ lọc phạm vi tự động (ABAC)
+        const { getScopeFilter } = require('../utils/permissionHelper');
+        const scopeFilter = getScopeFilter(user, 'quiz');
 
         const where = {
-            ...buildSearchCondition(search, ['title', 'description']),
-            ...(level && { level })
+            ...buildSearchCondition(search, ['title', 'summary']),
+            ...(level && { level }),
+            ...(unionBranchId && { unionBranchId }),
+            ...(unionCellId && { unionCellId })
         };
 
-        if (reqStatus === 'UPCOMING') {
-            where.startDate = { [Op.gt]: now };
-        } else if (reqStatus === 'FINISHED') {
-            where.endDate = { [Op.lt]: now };
-        } else if (reqStatus === 'ONGOING') {
-            where[Op.and] = [
-                { startDate: { [Op.lte]: now } },
-                { endDate: { [Op.gte]: now } }
-            ];
+        // 2. Xử lý trạng thái công khai (Published vs Draft)
+        if (publishedOnly) {
+            where.status = { [Op.ne]: 'DRAFT' };
         }
 
-        const scopingConditions = [];
-        // Kỳ thi công khai (không gán khoa hoặc lớp)
-        scopingConditions.push({ [Op.and]: [{ unionBranchId: null }, { unionCellId: null }] });
-        
-        if (unionCellId && unionCellId !== 'undefined') {
-            scopingConditions.push({ unionCellId: unionCellId });
-        }
-        
-        if (unionBranchId && unionBranchId !== 'undefined') {
-            scopingConditions.push({ unionBranchId: unionBranchId });
-            scopingConditions.push({ level: 'SCHOOL' });
+        // 3. Xử lý bộ lọc trạng thái thời gian (Dynamic Status Handling)
+        if (reqStatus && ['UPCOMING', 'ONGOING', 'FINISHED'].includes(reqStatus)) {
+            const timeFilter = {};
+            if (reqStatus === 'UPCOMING') {
+                timeFilter.startDate = { [Op.gt]: now };
+            } else if (reqStatus === 'FINISHED') {
+                timeFilter.endDate = { [Op.lt]: now };
+            } else if (reqStatus === 'ONGOING') {
+                timeFilter[Op.and] = [
+                    { startDate: { [Op.lte]: now } },
+                    { endDate: { [Op.gte]: now } }
+                ];
+            }
+            
+            // Kết hợp điều kiện thời gian
+            where[Op.and] = where[Op.and] || [];
+            where[Op.and].push(timeFilter);
+            
+            // Xóa status khỏi where nếu nó đang được dùng để lọc draft/published
+            // để tránh xung đột với cột status cũ (nếu có)
+            if (reqStatus !== 'DRAFT') {
+                where.status = { [Op.ne]: 'DRAFT' };
+            }
         }
 
-        if (scopingConditions.length > 0) {
-            where[Op.or] = scopingConditions;
+        // 4. Kết hợp Automated Scoping
+        if (scopeFilter && Object.keys(scopeFilter).length > 0) {
+            where[Op.and] = where[Op.and] || [];
+            where[Op.and].push(scopeFilter);
         }
 
         const { sequelize } = require('../configs/db');

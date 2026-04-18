@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
-import { newsApi } from '../../services/api';
+import { newsApi, branchApi, cellApi } from '../../services/api';
 import BannerUpload from '../components/BannerUpload';
 import NewsEditor from '../components/NewsEditor';
 import ModalPortal from '../../components/ModalPortal';
@@ -118,6 +118,20 @@ export default function NewsPage() {
     });
     const categoryList = catData?.data?.data || catData?.data || [];
 
+    const { data: branchesRes } = useQuery({
+        queryKey: ['union-branches'],
+        queryFn: () => branchApi.getAll({ limit: 100 }),
+        enabled: isSuperAdmin
+    });
+    const branches = branchesRes?.data?.data || [];
+
+    const { data: cellsRes } = useQuery({
+        queryKey: ['union-cells', branchFilter],
+        queryFn: () => cellApi.getAll({ unionBranchId: branchFilter, limit: 100 }),
+        enabled: !!branchFilter
+    });
+    const cells = cellsRes?.data?.data || [];
+
     // ─── Mutations bài viết ───────────────────────────────
     const publishNews = useMutation({
         mutationFn: newsApi.publish,
@@ -222,14 +236,46 @@ export default function NewsPage() {
                                 <option value="PUBLISHED">Đã đăng</option>
                             </select>
                             <select
+                                className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition"
+                                value={categoryFilter}
+                                onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
+                            >
+                                <option value="">Tất cả chuyên mục</option>
+                                {categoryList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+
+                            <select
                                 className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium text-primary-700 bg-primary-50 border-primary-100"
                                 value={scopeFilter}
-                                onChange={e => { setScopeFilter(e.target.value); setPage(page); }}
+                                onChange={e => { setScopeFilter(e.target.value); setPage(1); }}
                             >
                                 <option value="">Phạm vi</option>
                                 <option value="Trường">Cấp Trường</option>
                                 <option value="Tỉnh">Cấp Tỉnh</option>
                             </select>
+
+                            {isSuperAdmin && (
+                                <>
+                                    <select
+                                        className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium bg-white"
+                                        value={branchFilter}
+                                        onChange={e => { setBranchFilter(e.target.value); setCellFilter(''); setPage(1); }}
+                                    >
+                                        <option value="">Liên chi đoàn (Khoa)</option>
+                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                    {branchFilter && (
+                                        <select
+                                            className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium bg-white"
+                                            value={cellFilter}
+                                            onChange={e => { setCellFilter(e.target.value); setPage(1); }}
+                                        >
+                                            <option value="">Chi đoàn (Lớp)</option>
+                                            {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    )}
+                                </>
+                            )}
 
                             {hasPermission('news:delete') && (
                                 <button 

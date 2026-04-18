@@ -3,7 +3,7 @@ const QuizService = require('../services/quizService');
 
 const quizController = {
     getExams: asyncHandler(async (req, res) => {
-        let { search, level, unionBranchId, unionCellId, page, limit } = req.query;
+        let { search, level, unionBranchId, unionCellId, page, limit, status } = req.query;
         
         const roles = req.user?.Roles?.map(r => r.code) || [];
         const isSuperAdmin = roles.includes('SUPER_ADMIN');
@@ -11,23 +11,13 @@ const quizController = {
         const isCellAdmin = roles.includes('CELL_ADMIN');
         const isAdmin = isSuperAdmin || isBranchAdmin || isCellAdmin;
         
-        let status = req.query.status;
+        let publishedOnly = false;
+
 
         if (!isSuperAdmin) {
-            const member = req.user?.UnionMember;
-            if (member) {
-                if (member.unionCellId) {
-                    unionCellId = member.unionCellId;
-                }
-                const branchId = member.unionBranchId || member.UnionCell?.unionBranchId;
-                if (branchId) {
-                    unionBranchId = branchId;
-                }
-            }
-
             // Nếu không phải Admin, chỉ được xem kỳ thi đã đăng
             if (!isAdmin) {
-                status = 'PUBLISHED';
+                publishedOnly = true;
             }
         }
 
@@ -35,6 +25,7 @@ const quizController = {
             search, level, status, 
             unionBranchId, unionCellId, page, limit,
             onlyDeleted: req.query.onlyDeleted === 'true',
+            publishedOnly,
             user: req.user
         });
         res.status(200).json({ success: true, ...result });

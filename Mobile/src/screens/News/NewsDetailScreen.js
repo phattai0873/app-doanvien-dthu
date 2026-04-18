@@ -380,12 +380,12 @@ export const NewsDetailScreen = ({ route, navigation }) => {
                     </View>
 
                     <Text style={styles.title}>{news.title}</Text>
-                    <View style={styles.authorCard}>
+                    {/* <View style={styles.authorCard}>
                         <View style={styles.authorAvatar}>
                             <Icon name="User" size={20} color={COLORS.primary} />
                         </View>
 
-                    </View>
+                    </View> */}
 
                     <View style={styles.articleBody}>
                         {news.decodedSummary ? (

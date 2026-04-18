@@ -8,14 +8,18 @@ import {
     Platform,
     TouchableOpacity,
     Alert,
+    Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES } from '../../constants';
 import Button from '../../components/common/Button';
 import TextInput from '../../components/common/TextInput';
 import StatusModal from '../../components/common/StatusModal';
 import { authService } from '../../services/authService';
 import { Pressable } from 'react-native';
+
+const { width, height } = Dimensions.get('window');
 
 const RegisterScreen = ({ navigation }) => {
     const [formData, setFormData] = useState({
@@ -91,33 +95,25 @@ const RegisterScreen = ({ navigation }) => {
         return Object.keys(newErrors).length === 0;
     };
 
-    // Route Guard: Chặn quay lại nếu đang nhập liệu
+    // Route Guard
     React.useEffect(() => {
         const isDirty = Object.values(formData).some(val => val.length > 0);
         
         const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-            if (!isDirty) return;
-
-            // Chặn chuyển trang
+            if (!isDirty || loading) return;
             e.preventDefault();
-
-            // Hiển thị confirm
             Alert.alert(
                 'Thay đổi chưa lưu',
-                'Bạn đang nhập đăng ký tài khoản. Bạn có chắc muốn thoát và xóa thông tin đã nhập không?',
+                'Bạn có chắc muốn thoát và xóa thông tin đã nhập không?',
                 [
-                    { text: 'Ở lại', style: 'cancel', onPress: () => {} },
-                    {
-                        text: 'Thoát',
-                        style: 'destructive',
-                        onPress: () => navigation.dispatch(e.data.action),
-                    },
+                    { text: 'Ở lại', style: 'cancel' },
+                    { text: 'Thoát', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
                 ]
             );
         });
 
         return unsubscribe;
-    }, [navigation, formData]);
+    }, [navigation, formData, loading]);
 
     const handleLookup = async () => {
         if (!lookupData.fullName.trim() || !lookupData.dateOfBirth.trim()) {
@@ -190,186 +186,220 @@ const RegisterScreen = ({ navigation }) => {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color={COLORS.gray700} />
+                {/* Header Section */}
+                <View style={styles.topContainer}>
+                    <LinearGradient
+                        colors={[COLORS.primary, '#4F46E5']}
+                        style={styles.headerGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    />
+                    
+                    <TouchableOpacity 
+                        onPress={() => navigation.goBack()} 
+                        style={styles.backButton}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="arrow-back" size={24} color={COLORS.white} />
                     </TouchableOpacity>
-                    <Text style={styles.title}>Đăng Ký Tài Khoản</Text>
-                    <Text style={styles.subtitle}>
-                        Nhập thông tin để tạo tài khoản hệ thống
-                    </Text>
+
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Đăng Ký Tài Khoản</Text>
+                        <Text style={styles.subtitle}>
+                            Trở thành một thành viên của gia đình DTHU
+                        </Text>
+                    </View>
                 </View>
 
-                {/* Form */}
-                <View style={styles.formContainer}>
-                    <TextInput
-                        label="Tên đăng nhập *"
-                        placeholder="Nhập tên đăng nhập"
-                        value={formData.username}
-                        onChangeText={(text) => handleChange('username', text)}
-                        iconName="person-outline"
-                        error={errors.username}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
+                {/* Form Section */}
+                <View style={styles.formSection}>
+                    <View style={styles.formContainer}>
+                        {/* Section 1: Account Info */}
+                        <View style={styles.sectionHeader}>
+                            <Ionicons name="person-circle-outline" size={22} color={COLORS.primary} />
+                            <Text style={styles.sectionTitle}>Thông tin tài khoản</Text>
+                        </View>
 
-                    <TextInput
-                        label="Email *"
-                        placeholder="example@dtu.edu.vn"
-                        value={formData.email}
-                        onChangeText={(text) => handleChange('email', text)}
-                        iconName="mail-outline"
-                        error={errors.email}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
+                        <TextInput
+                            label="Tên đăng nhập *"
+                            placeholder="Nhập tên đăng nhập"
+                            value={formData.username}
+                            onChangeText={(text) => handleChange('username', text)}
+                            iconName="person-outline"
+                            error={errors.username}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
 
-                    <TextInput
-                        label="Số điện thoại *"
-                        placeholder="09xxx..."
-                        value={formData.phoneNumber}
-                        onChangeText={(text) => handleChange('phoneNumber', text)}
-                        iconName="call-outline"
-                        error={errors.phoneNumber}
-                        keyboardType="phone-pad"
-                    />
+                        <TextInput
+                            label="Email *"
+                            placeholder="example@dtu.edu.vn"
+                            value={formData.email}
+                            onChangeText={(text) => handleChange('email', text)}
+                            iconName="mail-outline"
+                            error={errors.email}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
 
-                    <View style={styles.activationHeader}>
-                        <Text style={styles.sectionTitle}>Xác minh đoàn viên</Text>
-                        <TouchableOpacity onPress={() => setIsLookupVisible(true)}>
-                            <Text style={styles.lookupLink}>Tìm mã đoàn viên?</Text>
+                        <TextInput
+                            label="Mật khẩu *"
+                            placeholder="Nhập mật khẩu"
+                            value={formData.password}
+                            onChangeText={(text) => handleChange('password', text)}
+                            iconName="lock-closed-outline"
+                            secureTextEntry
+                            error={errors.password}
+                        />
+                        
+                        <TextInput
+                            label="Xác nhận mật khẩu *"
+                            placeholder="Nhập lại mật khẩu"
+                            value={formData.confirmPassword}
+                            onChangeText={(text) => handleChange('confirmPassword', text)}
+                            iconName="lock-closed-outline"
+                            secureTextEntry
+                            error={errors.confirmPassword}
+                        />
+
+                        <View style={styles.divider} />
+
+                        {/* Section 2: Union Details */}
+                        <View style={styles.sectionHeader}>
+                            <Ionicons name="briefcase-outline" size={22} color={COLORS.primary} />
+                            <Text style={styles.sectionTitle}>Xác minh thông tin</Text>
+                        </View>
+
+                        <TextInput
+                            label="Số điện thoại *"
+                            placeholder="09xxx..."
+                            value={formData.phoneNumber}
+                            onChangeText={(text) => handleChange('phoneNumber', text)}
+                            iconName="call-outline"
+                            error={errors.phoneNumber}
+                            keyboardType="phone-pad"
+                        />
+
+                        <TextInput
+                            label="Ngày sinh (DD/MM/YYYY) *"
+                            placeholder="31/12/2000"
+                            value={formData.dateOfBirth}
+                            onChangeText={(text) => handleChange('dateOfBirth', text)}
+                            iconName="calendar-outline"
+                            error={errors.dateOfBirth}
+                            keyboardType="numeric"
+                        />
+
+                        <View style={styles.lookupContainer}>
+                            <Text style={styles.lookupLabel}>Mã đoàn viên *</Text>
+                            <TouchableOpacity onPress={() => setIsLookupVisible(true)}>
+                                <Text style={styles.lookupLink}>Quên mã đoàn viên?</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TextInput
+                            placeholder="VD: DV2024001"
+                            value={formData.memberCode}
+                            onChangeText={(text) => handleChange('memberCode', text)}
+                            iconName="id-card-outline"
+                            error={errors.memberCode}
+                            autoCapitalize="characters"
+                        />
+
+                        <Button
+                            title="ĐĂNG KÝ NGAY"
+                            onPress={handleRegister}
+                            loading={loading}
+                            variant="gradient"
+                            style={styles.registerButton}
+                        />
+                        
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.loginLink}>
+                            <Text style={styles.loginText}>
+                                Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập</Text>
+                            </Text>
                         </TouchableOpacity>
                     </View>
-
-                    <TextInput
-                        label="Mã đoàn viên *"
-                        placeholder="VD: DV2024001"
-                        value={formData.memberCode}
-                        onChangeText={(text) => handleChange('memberCode', text)}
-                        iconName="id-card-outline"
-                        error={errors.memberCode}
-                        autoCapitalize="characters"
-                    />
-
-                    <TextInput
-                        label="Ngày sinh (DD/MM/YYYY) *"
-                        placeholder="31/12/2000"
-                        value={formData.dateOfBirth}
-                        onChangeText={(text) => handleChange('dateOfBirth', text)}
-                        iconName="calendar-outline"
-                        error={errors.dateOfBirth}
-                        keyboardType="numeric"
-                    />
-
-                    <TextInput
-                        label="Mật khẩu *"
-                        placeholder="Nhập mật khẩu"
-                        value={formData.password}
-                        onChangeText={(text) => handleChange('password', text)}
-                        iconName="lock-closed-outline"
-                        secureTextEntry
-                        error={errors.password}
-                    />
-                    
-                    <TextInput
-                        label="Xác nhận mật khẩu *"
-                        placeholder="Nhập lại mật khẩu"
-                        value={formData.confirmPassword}
-                        onChangeText={(text) => handleChange('confirmPassword', text)}
-                        iconName="lock-closed-outline"
-                        secureTextEntry
-                        error={errors.confirmPassword}
-                    />
-
-                    <Button
-                        title="Đăng Ký"
-                        onPress={handleRegister}
-                        loading={loading}
-                        style={styles.nextButton}
-                    />
-                    
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.loginLink}>
-                        <Text style={styles.loginText}>Đã có tài khoản? <Text style={styles.loginTextBold}>Đăng nhập ngay</Text></Text>
-                    </TouchableOpacity>
                 </View>
-                
-                <View style={styles.footerInfo}>
-                    <Ionicons name="information-circle-outline" size={16} color={COLORS.warning} />
-                    <Text style={styles.footerText}>Bằng việc đăng ký, bạn đồng ý với Điều khoản & Chính sách của ứng dụng.</Text>
+
+                {/* Footer Info */}
+                <View style={styles.footer}>
+                    <View style={styles.termsBox}>
+                        <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.gray500} />
+                        <Text style={styles.footerText}>
+                            Bằng việc đăng ký, bạn đồng ý với <Text style={{fontWeight: '700'}}>Điều khoản</Text> & <Text style={{fontWeight: '700'}}>Chính sách bảo mật</Text> của chúng tôi.
+                        </Text>
+                    </View>
                 </View>
 
             </ScrollView>
 
-            {/* Lookup Modal */}
+            {/* Lookup Modal Redesign */}
             {isLookupVisible && (
-                <Pressable 
-                    style={[StyleSheet.absoluteFill, styles.modalOverlay]}
-                    onPress={() => {
-                        const lookupDirty = lookupData.fullName.trim() || lookupData.dateOfBirth.trim();
-                        if (lookupDirty) {
-                            Alert.alert(
-                                'Thông báo',
-                                'Bạn đang tra cứu. Thoát cửa sổ này?',
-                                [
-                                    { text: 'Ở lại', style: 'cancel' },
-                                    { text: 'Thoát', onPress: () => setIsLookupVisible(false) }
-                                ]
-                            );
-                        } else {
-                            setIsLookupVisible(false);
-                        }
-                    }}
-                >
-                    <Pressable style={styles.modalContent} onPress={() => {}}>
+                <View style={styles.modalOverlay}>
+                    <Pressable 
+                        style={StyleSheet.absoluteFill} 
+                        onPress={() => setIsLookupVisible(false)} 
+                    />
+                    <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Tra cứu mã đoàn viên</Text>
-                            <TouchableOpacity onPress={() => setIsLookupVisible(false)}>
+                            <View>
+                                <Text style={styles.modalTitle}>Tra cứu mã đoàn viên</Text>
+                                <Text style={styles.modalSubtitle}>Nhập thông tin cá nhân để tìm mã</Text>
+                            </View>
+                            <TouchableOpacity 
+                                onPress={() => setIsLookupVisible(false)}
+                                style={styles.closeButton}
+                            >
                                 <Ionicons name="close" size={24} color={COLORS.gray600} />
                             </TouchableOpacity>
                         </View>
                         
-                        <ScrollView keyboardShouldPersistTaps="handled">
+                        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                             <TextInput
                                 label="Họ và tên"
                                 placeholder="Nhập đầy đủ họ tên"
                                 value={lookupData.fullName}
                                 onChangeText={(val) => setLookupData(p => ({ ...p, fullName: val }))}
+                                iconName="person-outline"
                             />
                             <TextInput
                                 label="Ngày sinh (DD/MM/YYYY)"
                                 placeholder="31/12/2000"
                                 value={lookupData.dateOfBirth}
                                 onChangeText={(val) => setLookupData(p => ({ ...p, dateOfBirth: val }))}
+                                iconName="calendar-outline"
                             />
                             
                             <Button 
                                 title="Tìm kiếm"
                                 onPress={handleLookup}
                                 loading={lookupLoading}
-                                style={{ marginBottom: 15 }}
+                                variant="primary"
+                                style={{ marginVertical: 10 }}
                             />
 
                             {lookupResults.length > 0 && (
-                                <View>
-                                    <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Kết quả tìm thấy:</Text>
+                                <View style={styles.resultsSection}>
+                                    <Text style={styles.resultsTitle}>Kết quả tìm thấy:</Text>
                                     {lookupResults.map((item, idx) => (
-                                        <View key={idx} style={styles.resultItem}>
-                                            <View>
-                                                <Text style={styles.resultText}>{item.fullName}</Text>
-                                                <Text style={{ color: COLORS.gray600 }}>{item.memberCodeMasked}</Text>
+                                        <View key={idx} style={styles.resultCard}>
+                                            <View style={styles.resultInfo}>
+                                                <Text style={styles.resultName}>{item.fullName}</Text>
+                                                <Text style={styles.resultCode}>{item.memberCodeMasked}</Text>
                                             </View>
-                                            {/* Chú ý: Vì mã bị mask nên ko thể "Áp dụng" trực tiếp, user vẫn phải tự điền hoặc admin báo mã */}
-                                            <Text style={{ fontStyle: 'italic', fontSize: 11, color: COLORS.primary }}>
-                                                Vui lòng điền mã này vào form
-                                            </Text>
+                                            <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
                                         </View>
                                     ))}
+                                    <View style={styles.resultNote}>
+                                        <Ionicons name="information-circle" size={16} color={COLORS.primary} />
+                                        <Text style={styles.resultNoteText}>Vui lòng điền mã này vào biểu mẫu đăng ký.</Text>
+                                    </View>
                                 </View>
                             )}
                         </ScrollView>
-                    </Pressable>
-                </Pressable>
+                    </View>
+                </View>
             )}
 
             <StatusModal 
@@ -384,157 +414,217 @@ const RegisterScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
+    container: { flex: 1, backgroundColor: COLORS.background || '#F8FAFC' },
     scrollContent: {
         flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingBottom: 40
     },
-    header: { alignItems: 'center', marginBottom: 24, position: 'relative' },
+    topContainer: {
+        height: height * 0.22,
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+        position: 'relative',
+    },
+    headerGradient: {
+        ...StyleSheet.absoluteFillObject,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+    },
     backButton: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        padding: 5,
+        top: Platform.OS === 'ios' ? 50 : 30,
+        left: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
         zIndex: 10
+    },
+    header: {
+        marginTop: 20,
     },
     title: {
         fontSize: 26,
-        fontWeight: '800',
-        color: COLORS.primary,
-        marginBottom: 8,
-        letterSpacing: -0.5,
-        marginTop: 30
+        fontWeight: '900',
+        color: COLORS.white,
+        marginBottom: 4,
     },
     subtitle: {
         fontSize: 14,
-        color: COLORS.primary,
-        fontWeight: '600',
-        textAlign: 'center',
-        paddingHorizontal: 10
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontWeight: '500',
+    },
+    formSection: {
+        paddingHorizontal: 24,
+        marginTop: -30,
     },
     formContainer: {
         backgroundColor: COLORS.white,
-        borderRadius: SIZES.radiusLg,
+        borderRadius: 24,
         padding: 24,
-        borderWidth: 1,
-        borderColor: COLORS.gray100,
-        shadowColor: COLORS.shadow,
+        shadowColor: "#2563EB",
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1,
-        shadowRadius: 25,
-        elevation: 5,
-        marginBottom: 24,
-    },
-    nextButton: { marginTop: 16 },
-    skipButton: {
-        marginTop: 16,
-        paddingVertical: 12,
-        alignItems: 'center',
+        shadowRadius: 20,
+        elevation: 10,
         borderWidth: 1,
-        borderColor: COLORS.gray200,
-        borderRadius: SIZES.radiusMd,
+        borderColor: 'rgba(226, 232, 240, 0.8)',
+        marginBottom: 20,
     },
-    skipButtonText: {
-        color: COLORS.gray600,
-        fontWeight: 'bold',
-        fontSize: 14
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+        gap: 8,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: COLORS.gray800,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        marginVertical: 20,
+    },
+    lookupContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+        paddingHorizontal: 4,
+    },
+    lookupLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.gray700,
+    },
+    lookupLink: {
+        fontSize: 13,
+        color: COLORS.primary,
+        fontWeight: '700',
+    },
+    registerButton: {
+        marginTop: 10,
+        height: 56,
+        borderRadius: 16,
     },
     loginLink: { 
         alignItems: 'center', 
         marginTop: 20,
         paddingVertical: 10 
     },
-    loginText: { fontSize: 14, color: COLORS.gray600 },
-    loginTextBold: { color: COLORS.primary, fontWeight: '700' },
-    footerInfo: {
+    loginText: { fontSize: 14, color: COLORS.gray600, fontWeight: '500' },
+    loginTextBold: { color: COLORS.primary, fontWeight: '800' },
+    footer: {
+        paddingVertical: 20,
+        paddingHorizontal: 30,
+        alignItems: 'center',
+    },
+    termsBox: {
         flexDirection: 'row',
-        backgroundColor: '#FFFBEB',
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'flex-start',
-        borderWidth: 1,
-        borderColor: '#FEF3C7',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 10,
     },
     footerText: {
         fontSize: 12,
-        color: '#D97706',
-        marginLeft: 8,
-        flex: 1,
-        lineHeight: 18
-    },
-    activationHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 15,
-        marginBottom: 10,
-        borderTopWidth: 1,
-        borderTopColor: COLORS.gray100,
-        paddingTop: 15
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: COLORS.gray800
-    },
-    lookupLink: {
-        fontSize: 13,
-        color: COLORS.primary,
-        fontWeight: '600',
-        textDecorationLine: 'underline'
+        color: COLORS.gray500,
+        textAlign: 'center',
+        lineHeight: 18,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20
+        backgroundColor: 'rgba(15, 23, 42, 0.6)',
+        justifyContent: 'flex-end',
     },
     modalContent: {
-        width: '100%',
         backgroundColor: COLORS.white,
-        borderRadius: SIZES.radiusLg,
-        padding: 20,
-        maxHeight: '80%'
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        maxHeight: '85%',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 20,
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20
+        alignItems: 'flex-start',
+        marginBottom: 24,
     },
     modalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: COLORS.primary
+        fontSize: 20,
+        fontWeight: '900',
+        color: COLORS.gray900,
     },
-    resultItem: {
-        padding: 12,
-        backgroundColor: COLORS.gray50,
-        borderRadius: 8,
-        marginBottom: 8,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-    },
-    resultText: {
+    modalSubtitle: {
         fontSize: 14,
+        color: COLORS.gray500,
+        marginTop: 2,
+    },
+    closeButton: {
+        padding: 4,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 12,
+    },
+    resultsSection: {
+        marginTop: 20,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+    },
+    resultsTitle: {
+        fontSize: 15,
+        fontWeight: '800',
         color: COLORS.gray800,
-        fontWeight: '600'
+        marginBottom: 12,
     },
-    applyButton: {
-        backgroundColor: COLORS.primary,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 6
+    resultCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#F8FAFC',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 12,
     },
-    applyText: {
-        color: COLORS.white,
+    resultInfo: {
+        flex: 1,
+    },
+    resultName: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: COLORS.gray900,
+    },
+    resultCode: {
+        fontSize: 13,
+        color: COLORS.primary,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    resultNote: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: '#EFF6FF',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 8,
+    },
+    resultNoteText: {
         fontSize: 12,
-        fontWeight: 'bold'
+        color: COLORS.primary,
+        fontWeight: '600',
+        flex: 1,
     }
 });
 
 export default RegisterScreen;
+

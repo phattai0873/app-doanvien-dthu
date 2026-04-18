@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { Pencil, Trash2, Search, BookOpen, Users, Plus, Eye, RotateCcw, History } from 'lucide-react';
-import { quizApi } from '../../services/api';
+import { quizApi, branchApi, cellApi } from '../../services/api';
 import { confirmDelete, confirmRestore, confirmForceDelete } from '../../utils/swal';
 
 const BTN_PRIMARY = "flex items-center justify-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-lg transition disabled:opacity-50";
@@ -22,25 +22,38 @@ const getStatusLabel = (status) => {
 };
 
 export default function QuizPage() {
-    const { hasPermission } = useAuth();
+    const { hasPermission, isSuperAdmin } = useAuth();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [levelFilter, setLevelFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [branchFilter, setBranchFilter] = useState('');
+    const [cellFilter, setCellFilter] = useState('');
     const [selectedExam, setSelectedExam] = useState(null);
     const [showTrash, setShowTrash] = useState(false);
 
     const examsQ = useQuery({ 
-        queryKey: ['quiz', search, page, levelFilter, statusFilter, showTrash], 
+        queryKey: ['quiz', search, page, levelFilter, statusFilter, branchFilter, cellFilter, showTrash], 
         queryFn: () => quizApi.getAll({ 
             search, page, limit: 10, 
             level: levelFilter || undefined,
             status: statusFilter || undefined,
+            unionBranchId: branchFilter || undefined,
+            unionCellId: cellFilter || undefined,
             onlyDeleted: showTrash
         }), 
         keepPreviousData: true 
     });
+
+    const { data: branchesRes } = useQuery({ queryKey: ['union-branches'], queryFn: () => branchApi.getAll({ limit: 100 }), enabled: isSuperAdmin });
+    const { data: cellsRes } = useQuery({
+        queryKey: ['union-cells', branchFilter],
+        queryFn: () => cellApi.getAll({ unionBranchId: branchFilter, limit: 100 }),
+        enabled: !!branchFilter
+    });
+    const branches = branchesRes?.data?.data || [];
+    const cells = cellsRes?.data?.data || [];
     const attemptsQ = useQuery({ queryKey: ['attempts', selectedExam?.id], queryFn: () => quizApi.getAttempts(selectedExam.id, { limit: 50 }), enabled: !!selectedExam });
 
 
@@ -113,6 +126,20 @@ export default function QuizPage() {
                             <option value="UPCOMING">Sắp diễn ra</option>
                             <option value="FINISHED">Đã kết thúc</option>
                         </select>
+                        {isSuperAdmin && (
+                            <>
+                                <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium bg-white" value={branchFilter} onChange={e => { setBranchFilter(e.target.value); setCellFilter(''); setPage(1); }}>
+                                    <option value="">Liên chi đoàn (Khoa)</option>
+                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                                {branchFilter && (
+                                    <select className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm outline-none focus:border-primary-700 transition font-medium bg-white" value={cellFilter} onChange={e => { setCellFilter(e.target.value); setPage(1); }}>
+                                        <option value="">Chi đoàn (Lớp)</option>
+                                        {cells.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                )}
+                            </>
+                        )}
                     </div>
                     <div className="flex gap-2">
                         {hasPermission('quiz:delete') && (

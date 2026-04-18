@@ -40,7 +40,8 @@ export const ExamListScreen = ({ navigation }) => {
             }
 
             const fetchParams = { status: activeTab };
-            if (member?.unionBranchId) fetchParams.unionBranchId = member.unionBranchId;
+            // Bỏ việc gán cứng unionBranchId ở đây để Backend tự xử lý theo session user
+            // giúp Đoàn viên thấy được cả kỳ thi của Khoa và kỳ thi chung toàn Trường.
 
             const res = await examService.getExams(fetchParams);
             setExams(res.data || res || []);

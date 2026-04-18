@@ -45,6 +45,11 @@ const ENTITY_CONFIG = {
         branchField: '$UnionCell.unionBranchId$',
         cellField: 'unionCellId',
         allowPublic: false
+    },
+    quiz: {
+        branchField: 'unionBranchId',
+        cellField: 'unionCellId',
+        allowPublic: true // Cho phép xem kỳ thi cấp Trường (null)
     }
 };
 
@@ -54,7 +59,9 @@ const ENTITY_CONFIG = {
 const hasPermission = (user, permissionCode) => {
     if (!user) return false;
     if (user.isSuperAdmin) return true;
-    return user.permissions && user.permissions.includes(permissionCode);
+    
+    // Đảm bảo trả về boolean tuyệt đối
+    return !!(user.permissions && user.permissions.includes(permissionCode));
 };
 
 /**
