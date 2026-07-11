@@ -41,7 +41,7 @@ export const NewsFeedScreen = ({ navigation }) => {
         try {
             const [catsRes, newsRes] = await Promise.all([
                 newsService.getCategories().catch(() => []),
-                newsService.getNews('all', activeScope)
+                newsService.getNews(activeCat, activeScope)
             ]);
 
             const cats = Array.isArray(catsRes) ? catsRes : (catsRes.data || []);
@@ -61,7 +61,7 @@ export const NewsFeedScreen = ({ navigation }) => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [activeScope]);
+    }, [activeScope, activeCat]);
 
     useEffect(() => {
         fetchData();

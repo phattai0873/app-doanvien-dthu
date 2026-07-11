@@ -10,9 +10,11 @@ import {
     Alert,
     Image as RNImage,
     Switch,
+    Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SIZES, IMAGES } from '../../constants';
 import Button from '../../components/common/Button';
 import TextInput from '../../components/common/TextInput';
@@ -20,6 +22,8 @@ import { authService } from '../../services/authService';
 import { USE_MOCK_API } from '../../services/api';
 
 import { useAuth } from '../../contexts/AuthContext';
+
+const { width } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }) => {
     const { login } = useAuth();
@@ -66,11 +70,9 @@ const LoginScreen = ({ navigation }) => {
 
         setLoading(true);
         try {
-            // Sử dụng hàm login từ useAuth để xử lý toàn bộ luồng
             const response = await login(username, password);
             
             if (response && (response.token || response.success)) {
-                // Save or clear credentials
                 if (rememberMe) {
                     await AsyncStorage.setItem('saved_username', username);
                     await AsyncStorage.setItem('saved_password', password);
@@ -80,8 +82,6 @@ const LoginScreen = ({ navigation }) => {
                     await AsyncStorage.removeItem('saved_password');
                     await AsyncStorage.setItem('remember_me', 'false');
                 }
-                // Sau khi login(username, password) trong AuthContext thành công,
-                // nó đã tự gọi checkAuth() để cập nhật trạng thái isLoggedIn.
             } else {
                 Alert.alert('Lỗi', 'Tên đăng nhập hoặc mật khẩu không đúng');
             }
@@ -94,8 +94,6 @@ const LoginScreen = ({ navigation }) => {
         }
     };
 
-    // Removed manual RegisterScreen rendering logic
-
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -106,96 +104,118 @@ const LoginScreen = ({ navigation }) => {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.logoContainer}>
-                        <RNImage
-                            source={IMAGES.logo}
-                            style={styles.logoImage}
-                            resizeMode="contain"
-                        />
+                {/* Header Gradient Background */}
+                <View style={styles.topContainer}>
+                    <LinearGradient
+                        colors={[COLORS.primary, '#4F46E5']}
+                        style={styles.headerGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    />
+                    
+                    <View style={styles.header}>
+                        <View style={styles.logoOuterContainer}>
+                            <View style={styles.logoContainer}>
+                                <RNImage
+                                    source={IMAGES.logo}
+                                    style={styles.logoImage}
+                                    resizeMode="contain"
+                                />
+                            </View>
+                        </View>
+                        <Text style={styles.title}>Đoàn Thanh Niên</Text>
+                        <Text style={styles.subtitle}>
+                            Trường Đại học Đồng Tháp (DTHU)
+                        </Text>
                     </View>
-                    <Text style={styles.title}>Đăng Nhập</Text>
-                    <Text style={styles.subtitle}>
-                        Ứng dụng Đoàn thanh niên trực thuộc ĐTHU
-                    </Text>
                 </View>
 
-                {/* Form */}
-                <View style={styles.formContainer}>
-                    <TextInput
-                        label="Tên đăng nhập"
-                        placeholder="Nhập tên đăng nhập"
-                        value={username}
-                        onChangeText={(text) => {
-                            setUsername(text);
-                            if (errors.username) setErrors({ ...errors, username: null });
-                        }}
-                        iconName="person-outline"
-                        error={errors.username}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
+                {/* Form Section */}
+                <View style={styles.formSection}>
+                    <View style={styles.formContainer}>
+                        <Text style={styles.formTitle}>Chào mừng trở lại!</Text>
+                        <Text style={styles.formSubtitle}>Vui lòng đăng nhập để tiếp tục</Text>
 
-                    <TextInput
-                        label="Mật khẩu"
-                        placeholder="Nhập mật khẩu"
-                        value={password}
-                        onChangeText={(text) => {
-                            setPassword(text);
-                            if (errors.password) setErrors({ ...errors, password: null });
-                        }}
-                        iconName="lock-closed-outline"
-                        secureTextEntry
-                        error={errors.password}
-                    />
+                        <TextInput
+                            label="Tên đăng nhập"
+                            placeholder="Nhập tên đăng nhập"
+                            value={username}
+                            onChangeText={(text) => {
+                                setUsername(text);
+                                if (errors.username) setErrors({ ...errors, username: null });
+                            }}
+                            iconName="person-outline"
+                            error={errors.username}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
 
-                    <View style={styles.rememberRow}>
-                        <View style={styles.rememberLeft}>
-                            <Switch
-                                value={rememberMe}
-                                onValueChange={setRememberMe}
-                                trackColor={{ false: '#E5E7EB', true: COLORS.primary + '80' }}
-                                thumbColor={rememberMe ? COLORS.primary : '#FFF'}
-                                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                            />
-                            <Text style={styles.rememberText}>Nhớ mật khẩu</Text>
+                        <TextInput
+                            label="Mật khẩu"
+                            placeholder="Nhập mật khẩu"
+                            value={password}
+                            onChangeText={(text) => {
+                                setPassword(text);
+                                if (errors.password) setErrors({ ...errors, password: null });
+                            }}
+                            iconName="lock-closed-outline"
+                            secureTextEntry
+                            error={errors.password}
+                        />
+
+                        <View style={styles.rememberRow}>
+                            <View style={styles.rememberLeft}>
+                                <Switch
+                                    value={rememberMe}
+                                    onValueChange={setRememberMe}
+                                    trackColor={{ false: '#E2E8F0', true: COLORS.primary + '80' }}
+                                    thumbColor={rememberMe ? COLORS.primary : '#FFF'}
+                                    style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                                />
+                                <Text style={styles.rememberText}>Nhớ mật khẩu</Text>
+                            </View>
+                            <TouchableOpacity 
+                                onPress={() => Alert.alert('Quên mật khẩu', 'Vui lòng liên hệ Văn phòng Đoàn để được cấp lại mật khẩu.')} 
+                                style={styles.forgotPasswordButton}
+                            >
+                                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity onPress={() => Alert.alert('Quên mật khẩu', 'Chức năng đang được phát triển')} style={styles.forgotPasswordButton}>
-                            <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+
+                        <Button
+                            title="ĐĂNG NHẬP"
+                            onPress={handleLogin}
+                            loading={loading}
+                            variant="gradient"
+                            style={styles.loginButton}
+                        />
+
+                        {USE_MOCK_API && (
+                            <TouchableOpacity
+                                onPress={() => login && login({ success: true, token: 'mock-token', role: 'user' })}
+                                style={styles.devLoginButton}
+                            >
+                                <Text style={styles.devLoginText}>🔧 Đăng nhập nhanh (Dev Mode)</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.registerLink}>
+                            <Text style={styles.registerText}>
+                                Chưa có tài khoản? <Text style={styles.registerTextBold}>Đăng ký ngay</Text>
+                            </Text>
                         </TouchableOpacity>
                     </View>
-
-                    <Button
-                        title="Đăng nhập"
-                        onPress={handleLogin}
-                        loading={loading}
-                        style={styles.loginButton}
-                    />
-
-                    {/* 🔧 DEV MODE: Nút đăng nhập nhanh, chỉ hiện khi USE_MOCK_API = true */}
-                    {USE_MOCK_API && (
-                        <TouchableOpacity
-                            onPress={() => login && login({ success: true, token: 'mock-token', role: 'user' })}
-                            style={styles.devLoginButton}
-                        >
-                            <Text style={styles.devLoginText}>🔧 Đăng nhập nhanh (Dev)</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity onPress={() => navigation.navigate('Register')} style={styles.registerLink}>
-                        <Text style={styles.registerText}>
-                            Chưa có tài khoản? <Text style={styles.registerTextBold}>Đăng ký ngay</Text>
-                        </Text>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <View style={styles.helpContainer}>
-                        <Ionicons name="information-circle-outline" size={SIZES.iconSm} color={COLORS.gray500} />
-                        <Text style={styles.helpText}>Liên hệ quản trị viên để được hỗ trợ</Text>
-                    </View>
+                    <TouchableOpacity 
+                        style={styles.helpContainer}
+                        onPress={() => Alert.alert('Hỗ trợ', 'Email: doanthanhnien@dthu.edu.vn\nHotline: 02773.xxx.xxx')}
+                    >
+                        <Ionicons name="information-circle-outline" size={20} color={COLORS.gray500} />
+                        <Text style={styles.helpText}>Cần hỗ trợ? Liên hệ quản trị viên</Text>
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
@@ -203,69 +223,98 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
+    container: { flex: 1, backgroundColor: COLORS.backgroundColor || '#F8FAFC' },
     scrollContent: {
         flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'ios' ? 80 : 60,
-        paddingBottom: 40
     },
-    header: { alignItems: 'center', marginBottom: 40 },
+    topContainer: {
+        height: Dimensions.get('window').height * 0.35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    headerGradient: {
+        ...StyleSheet.absoluteFillObject,
+        borderBottomLeftRadius: 40,
+        borderBottomRightRadius: 40,
+    },
+    header: {
+        alignItems: 'center',
+        zIndex: 1,
+    },
+    logoOuterContainer: {
+        padding: 10,
+        borderRadius: 35,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        marginBottom: 16,
+    },
     logoContainer: {
         width: 100,
         height: 100,
-        borderRadius: 30, // Squircle-like
+        borderRadius: 25,
         backgroundColor: COLORS.white,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: COLORS.gray100,
-        shadowColor: COLORS.primary,
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.15,
-        shadowRadius: 20,
-        elevation: 8,
+        shadowOpacity: 0.1,
+        shadowRadius: 15,
+        elevation: 10,
     },
     logoImage: {
-        width: 70,
-        height: 70,
+        width: 75,
+        height: 75,
     },
     title: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: COLORS.gray900,
-        marginBottom: 8,
-        letterSpacing: -0.5
+        fontSize: 26,
+        fontWeight: '900',
+        color: COLORS.white,
+        marginBottom: 4,
+        letterSpacing: 0.5,
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
     },
     subtitle: {
-        fontSize: 15,
-        color: COLORS.gray500,
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.9)',
         textAlign: 'center',
-        lineHeight: 22,
-        paddingHorizontal: 20
+        fontWeight: '500',
+    },
+    formSection: {
+        paddingHorizontal: 24,
+        marginTop: -40, // Pull form up into gradient
     },
     formContainer: {
         backgroundColor: COLORS.white,
-        borderRadius: SIZES.radiusLg,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: COLORS.gray100,
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 10 },
+        borderRadius: 30,
+        padding: 28,
+        shadowColor: "#2563EB",
+        shadowOffset: { width: 0, height: 15 },
         shadowOpacity: 0.1,
-        shadowRadius: 25,
-        elevation: 5,
+        shadowRadius: 30,
+        elevation: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(226, 232, 240, 0.8)',
+    },
+    formTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: COLORS.gray900,
+        labelSpacing: -0.5,
+        marginBottom: 6,
+    },
+    formSubtitle: {
+        fontSize: 14,
+        color: COLORS.gray500,
         marginBottom: 24,
     },
-    forgotPasswordButton: { alignSelf: 'center' },
-    forgotPasswordText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
     rememberRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 24,
-        marginTop: -8,
+        marginTop: 4,
     },
     rememberLeft: {
         flexDirection: 'row',
@@ -277,35 +326,49 @@ const styles = StyleSheet.create({
         marginLeft: 4,
         fontWeight: '500'
     },
-    loginButton: { marginTop: 8 },
+    forgotPasswordButton: { },
+    forgotPasswordText: { 
+        fontSize: 14, 
+        color: COLORS.primary, 
+        fontWeight: '700' 
+    },
+    loginButton: { 
+        marginTop: 8,
+        height: 56,
+        borderRadius: 16,
+    },
     devLoginButton: {
-        marginTop: 12,
-        padding: 12,
-        borderRadius: 8,
-        backgroundColor: '#FFF3CD',
+        marginTop: 16,
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: '#F1F5F9',
         borderWidth: 1,
-        borderColor: '#FFC107',
+        borderColor: '#E2E8F0',
         alignItems: 'center',
     },
-    devLoginText: { fontSize: 14, color: '#856404', fontWeight: '700' },
+    devLoginText: { fontSize: 13, color: COLORS.gray600, fontWeight: '700' },
     registerLink: {
         alignItems: 'center',
         paddingVertical: 16,
-        marginTop: 12
+        marginTop: 8
     },
-    registerText: { fontSize: 14, color: COLORS.gray600 },
-    registerTextBold: { color: COLORS.primary, fontWeight: '700' },
-    footer: { marginTop: 'auto', paddingTop: 20 },
+    registerText: { fontSize: 14, color: COLORS.gray600, fontWeight: '500' },
+    registerTextBold: { color: COLORS.primary, fontWeight: '800' },
+    footer: { 
+        paddingVertical: 30,
+        alignItems: 'center',
+    },
     helpContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: COLORS.gray100,
-        padding: 14,
-        borderRadius: SIZES.radiusMd,
-        gap: 8
+        backgroundColor: '#F1F5F9',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        gap: 8,
     },
-    helpText: { fontSize: 13, color: COLORS.gray600, fontWeight: '500' },
+    helpText: { fontSize: 13, color: COLORS.gray600, fontWeight: '600' },
 });
 
 export default LoginScreen;
+

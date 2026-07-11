@@ -120,8 +120,9 @@ const loadUser = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            
             const { User, Role, UnionMember, UnionCell } = require('../models');
-            req.user = await User.findByPk(decoded.id, {
+            const user = await User.findByPk(decoded.id, {
                 attributes: { exclude: ['passwordHash', 'refreshTokenHash'] },
                 include: [
                     { model: Role, attributes: ['id', 'code', 'name'] },
@@ -132,6 +133,16 @@ const loadUser = async (req, res, next) => {
                     }
                 ]
             });
+
+            if (user) {
+                // Biến Sequelize instance thành plain object để gán thêm thuộc tính
+                const userObj = user.toJSON();
+                userObj.permissions = decoded.permissions || [];
+                userObj.isSuperAdmin = decoded.isSuperAdmin || user.Roles?.some(r => r.code === 'SUPER_ADMIN') || false;
+                
+                // Đồng nhất cấu trúc req.user
+                req.user = userObj;
+            }
         } catch (error) {
             // Không chặn request, chỉ log lỗi nhẹ nếu cần
             console.log('LoadUser Info:', error.message);

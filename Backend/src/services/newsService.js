@@ -16,19 +16,46 @@ class NewsService {
         // 1. Áp dụng bộ lọc phạm vi tự động (ABAC)
         const scopeFilter = getScopeFilter(user, 'news');
 
-        const where = {
-            ...scopeFilter,
-            ...buildSearchCondition(search, ['title', 'summary']),
-            ...(status && { status }),
-            ...(categoryId && { categoryId }),
-            ...(level && { level }),
-            ...(scope && { scope })
-        };
+        // Chuẩn hóa Unicode cho tham số scope để tránh lỗi so khớp (NFC normalization)
+        const safeScope = scope ? scope.normalize('NFC') : scope;
+
+        const conditions = [];
+
+        // Tìm kiếm theo từ khóa
+        const searchCond = buildSearchCondition(search, ['title', 'summary']);
+        if (Object.keys(searchCond).length > 0) {
+            conditions.push(searchCond);
+        }
+
+        // Lọc theo trạng thái
+        if (status && status !== 'all') {
+            conditions.push({ status });
+        }
+
+        // Lọc theo danh mục
+        if (categoryId && categoryId !== 'all') {
+            conditions.push({ categoryId });
+        }
+
+        // Lọc theo cấp độ/phạm vi
+        if (level) conditions.push({ level });
+        if (safeScope && safeScope !== 'all') conditions.push({ scope: safeScope });
+        if (unionBranchId) conditions.push({ unionBranchId });
+        if (unionCellId) conditions.push({ unionCellId });
+
+        // Áp dụng Automated Scope (ABAC)
+        if (scopeFilter && Object.keys(scopeFilter).length > 0) {
+            conditions.push(scopeFilter);
+        }
 
         // Lọc bài đã đến giờ đăng nếu là bài PUBLISHED
         if (status === 'PUBLISHED') {
-            where.publishedAt = { [Op.lte]: new Date() };
+            conditions.push({ publishedAt: { [Op.lte]: new Date() } });
         }
+
+        const where = conditions.length > 0 ? { [Op.and]: conditions } : {};
+
+        console.log('--- FINAL SQL WHERE ---', JSON.stringify(where, null, 2));
 
         const queryOptions = {
             where,
@@ -78,19 +105,19 @@ class NewsService {
                 ]
             }
         });
-        
+
         if (!news) throw new ErrorResponse('Không tìm thấy bài viết', 404);
-        
+
         // 1. Kiểm tra phạm vi truy cập nếu là Admin
         if (user) {
             enforceScope(user, news);
         }
-        
+
         // Tăng lượt xem (chỉ cho bài đã đăng)
         if (news.status === 'PUBLISHED') {
             await news.increment('viewsCount');
         }
-        
+
         return news;
     }
 
@@ -131,7 +158,7 @@ class NewsService {
         injectScope(data, user, 'news');
 
         const updateData = { ...data };
-        
+
         if (bannerFile) {
             // Xóa banner cũ nếu có
             if (news.bannerUrl) {
